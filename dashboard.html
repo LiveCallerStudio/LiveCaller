@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Caller Studio — Producer Dashboard</title>
+<style>
+  :root{
+    --green:#53FC18;
+    --black:#0a0a0a;
+    --panel:#131313;
+    --panel-2:#181818;
+    --line:#262626;
+    --red:#ff3b3b;
+    --text:#f2f2f2;
+    --sub:#8f8f8f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--black); color:var(--text);
+    font-family:Arial,Helvetica,sans-serif;
+    min-height:100vh;
+  }
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 26px; border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, #111, #0a0a0a);
+    position:sticky; top:0; z-index:5;
+    flex-wrap:wrap; gap:14px;
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .bolt{color:var(--green); font-size:22px;}
+  .brand h1{font-size:16px; letter-spacing:1.5px; margin:0; text-transform:uppercase; font-weight:800;}
+  .brand h1 span{color:var(--green);}
+  .brand small{display:block; color:var(--sub); font-size:11px; letter-spacing:1px;}
+
+  .header-right{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
+  .counter{
+    background:var(--panel-2); border:1px solid var(--green); color:var(--green);
+    padding:7px 14px; border-radius:20px; font-size:13px; font-weight:700; letter-spacing:.5px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .counter .dot{width:8px; height:8px; border-radius:50%; background:var(--green); animation:blink 1.4s infinite;}
+  @keyframes blink{0%,100%{opacity:1;} 50%{opacity:.25;}}
+
+  .search{
+    background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    padding:9px 12px; color:var(--text); font-size:13px; width:200px;
+  }
+  .search:focus{outline:none; border-color:var(--green);}
+
+  select{
+    background:var(--panel); border:1px solid var(--line); color:var(--text);
+    padding:9px 10px; border-radius:8px; font-size:13px;
+  }
+
+  .alert-banner{
+    display:none; max-width:1100px; margin:16px auto 0; padding:13px 18px;
+    background:rgba(83,252,24,0.12); border:1px solid var(--green); border-radius:10px;
+    color:var(--green); font-weight:700; font-size:14px; letter-spacing:.5px;
+    text-align:center; animation:flash 1s infinite;
+  }
+  .alert-banner.show{display:block;}
+  @keyframes flash{0%,100%{background:rgba(83,252,24,0.12);} 50%{background:rgba(83,252,24,0.28);}}
+
+  main{max-width:1100px; margin:0 auto; padding:24px 18px 60px;}
+
+  .empty{
+    text-align:center; color:var(--sub); padding:80px 20px; font-size:14px;
+  }
+  .empty .ic{font-size:40px; margin-bottom:14px; opacity:.5;}
+
+  .queue{display:flex; flex-direction:column; gap:12px;}
+
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    transition:border-color .15s ease;
+  }
+  .card.new{border-color:var(--green); box-shadow:0 0 0 1px rgba(83,252,24,0.25);}
+  .card.approved{opacity:.55;}
+
+  .play-btn{
+    width:46px; height:46px; min-width:46px; border-radius:50%; border:2px solid var(--green);
+    background:transparent; color:var(--green); cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:background .15s ease;
+  }
+  .play-btn:hover{background:rgba(83,252,24,0.12);}
+  .play-btn.playing{background:var(--green); color:#0a0a0a;}
+  .play-btn svg{width:18px; height:18px;}
+
+  .card-body{flex:1; min-width:200px;}
+  .card-top{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px;}
+  .card-name{font-weight:800; font-size:15px;}
+  .card-city{color:var(--sub); font-size:12px;}
+  .card-time{color:#5a5a5a; font-size:11px; margin-left:auto;}
+  .card-song{color:var(--green); font-size:12.5px; margin-bottom:6px;}
+  .card-song::before{content:"♪ ";}
+
+  .waveform{
+    display:flex; align-items:center; gap:2px; height:24px; margin:6px 0;
+  }
+  .waveform span{
+    width:3px; background:#3a3a3a; border-radius:2px;
+  }
+  .waveform.active span{background:var(--green);}
+
+  .duration{color:var(--sub); font-size:11px; font-variant-numeric:tabular-nums;}
+
+  .card-actions{display:flex; gap:8px; flex-wrap:wrap;}
+  .ibtn{
+    padding:9px 14px; border-radius:7px; border:1px solid var(--line); background:var(--panel-2);
+    color:var(--text); cursor:pointer; font-size:12px; font-weight:700; letter-spacing:.3px;
+    display:flex; align-items:center; gap:6px; transition:filter .15s ease;
+  }
+  .ibtn:hover{filter:brightness(1.3);}
+  .ibtn.approve{border-color:var(--green); color:var(--green);}
+  .ibtn.delete{border-color:var(--red); color:var(--red);}
+  .ibtn.download{color:var(--sub);}
+  .badge{
+    font-size:10px; padding:3px 8px; border-radius:10px; text-transform:uppercase; letter-spacing:.5px;
+    background:rgba(83,252,24,0.15); color:var(--green); font-weight:700;
+  }
+  .badge.approved{background:rgba(255,255,255,0.08); color:var(--sub);}
+
+  audio.hiddenplayer{display:none;}
+
+  @media (max-width:640px){
+    .card{flex-direction:column; align-items:stretch;}
+    .card-actions{justify-content:stretch;}
+    .ibtn{flex:1; justify-content:center;}
+    .search{width:140px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="bolt">⚡</span>
+    <div>
+      <h1>LIVE <span>CALLER</span> STUDIO</h1>
+      <small>PRODUCER DASHBOARD</small>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="counter"><span class="dot"></span><span id="queueCount">0 waiting</span></div>
+    <input class="search" id="searchInput" placeholder="Search name, city, song…">
+    <select id="filterSelect">
+      <option value="pending">Pending only</option>
+      <option value="all">All messages</option>
+      <option value="approved">Approved only</option>
+    </select>
+  </div>
+</header>
+
+<div class="alert-banner" id="alertBanner">🎤 Incoming Voice Message</div>
+
+<main>
+  <div id="emptyState" class="empty" style="display:none;">
+    <div class="ic">📭</div>
+    <div>No messages waiting. The queue's clear.</div>
+  </div>
+  <div class="queue" id="queue"></div>
+</main>
+
+<audio id="hiddenPlayer" class="hiddenplayer"></audio>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getFirestore, collection, query, orderBy, onSnapshot,
+  doc, updateDoc, deleteDoc, setDoc
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+// ====== STEP 1: PASTE YOUR FIREBASE CONFIG HERE (same as index.html) ======
+const firebaseConfig = {
+  apiKey: "AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc",
+  authDomain: "djdeeze-hotline.firebaseapp.com",
+  projectId: "djdeeze-hotline",
+  storageBucket: "djdeeze-hotline.firebasestorage.app",
+  messagingSenderId: "663942225296",
+  appId: "1:663942225296:web:c6117cf6c23656b9842715"
+};
+// ============================================================================
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// The dashboard and overlay.html usually run in different browser processes
+// (OBS runs its own browser engine), so they can't message each other directly.
+// Instead, the dashboard writes "now playing" state to this Firestore doc,
+// and overlay.html listens to it live. This works no matter where each page runs.
+const liveStateRef = doc(db, 'hotlineLive', 'nowPlaying');
+
+let allMessages = [];
+let knownIds = new Set();
+let firstLoad = true;
+let currentlyPlayingId = null;
+
+const queueEl = document.getElementById('queue');
+const emptyState = document.getElementById('emptyState');
+const queueCount = document.getElementById('queueCount');
+const alertBanner = document.getElementById('alertBanner');
+const searchInput = document.getElementById('searchInput');
+const filterSelect = document.getElementById('filterSelect');
+const hiddenPlayer = document.getElementById('hiddenPlayer');
+
+// simple notification sound (WebAudio beep, no external file needed)
+function playChime(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(880, ctx.currentTime);
+    o.frequency.setValueAtTime(1320, ctx.currentTime + 0.12);
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.4);
+  }catch(e){}
+}
+
+function timeAgo(ts){
+  if(!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const diff = Math.floor((Date.now() - d.getTime())/1000);
+  if(diff < 60) return 'just now';
+  if(diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if(diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  return d.toLocaleDateString();
+}
+
+function buildWaveformBars(count=40){
+  let html = '';
+  for(let i=0;i<count;i++){
+    const h = 4 + Math.round(Math.random()*20);
+    html += `<span style="height:${h}px"></span>`;
+  }
+  return html;
+}
+
+function render(){
+  const filter = filterSelect.value;
+  const term = searchInput.value.trim().toLowerCase();
+
+  let list = allMessages.filter(m=>{
+    if(filter === 'pending' && m.status !== 'pending') return false;
+    if(filter === 'approved' && m.status !== 'approved') return false;
+    if(term){
+      const hay = `${m.name||''} ${m.city||''} ${m.songRequest||''}`.toLowerCase();
+      if(!hay.includes(term)) return false;
+    }
+    return true;
+  });
+
+  // newest first (already ordered by query, but keep explicit for filtered views)
+  list = list.slice().sort((a,b)=>{
+    const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+    const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+    return tb - ta;
+  });
+
+  const pendingCount = allMessages.filter(m=>m.status==='pending').length;
+  queueCount.textContent = `${pendingCount} waiting`;
+
+  if(list.length === 0){
+    emptyState.style.display = 'block';
+    queueEl.innerHTML = '';
+    return;
+  }
+  emptyState.style.display = 'none';
+
+  queueEl.innerHTML = list.map(m=>{
+    const isNew = m.status === 'pending';
+    const playing = currentlyPlayingId === m.id;
+    return `
+    <div class="card ${isNew ? 'new' : ''} ${m.status==='approved' ? 'approved' : ''}" data-id="${m.id}">
+      <button class="play-btn ${playing ? 'playing' : ''}" data-action="play" data-id="${m.id}" data-url="${m.audioUrl}" aria-label="Play">
+        ${playing ? `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`
+                   : `<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>`}
+      </button>
+      <div class="card-body">
+        <div class="card-top">
+          <span class="card-name">${escapeHtml(m.name || 'Anonymous Caller')}</span>
+          ${m.city ? `<span class="card-city">· ${escapeHtml(m.city)}</span>` : ''}
+          <span class="badge ${m.status==='approved' ? 'approved' : ''}">${m.status === 'approved' ? 'Played' : 'New'}</span>
+          <span class="card-time">${timeAgo(m.createdAt)}</span>
+        </div>
+        ${m.songRequest ? `<div class="card-song">${escapeHtml(m.songRequest)}</div>` : ''}
+        <div class="waveform ${playing ? 'active' : ''}">${buildWaveformBars()}</div>
+      </div>
+      <div class="card-actions">
+        <button class="ibtn approve" data-action="approve" data-id="${m.id}">✓ Approve</button>
+        <a class="ibtn download" href="${m.audioUrl}" download target="_blank" rel="noopener">⬇ Download</a>
+        <button class="ibtn delete" data-action="delete" data-id="${m.id}">🗑 Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escapeHtml(str){
+  return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+queueEl.addEventListener('click', async (e)=>{
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+  const msg = allMessages.find(m=>m.id===id);
+  if(!msg) return;
+
+  if(action === 'play'){
+    if(currentlyPlayingId === id){
+      hiddenPlayer.pause();
+      currentlyPlayingId = null;
+      await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+      render();
+      return;
+    }
+    currentlyPlayingId = id;
+    hiddenPlayer.src = msg.audioUrl;
+    hiddenPlayer.muted = false; // dashboard preview audio — you hear this before approving. overlay.html separately plays into OBS when live.
+    hiddenPlayer.play().catch(()=>{});
+    await setDoc(liveStateRef, {
+      active: true,
+      name: msg.name || 'Anonymous Caller',
+      city: msg.city || '',
+      audioUrl: msg.audioUrl,
+      updatedAt: Date.now()
+    });
+    render();
+  }
+
+  if(action === 'approve'){
+    await updateDoc(doc(db, 'hotlineMessages', id), { status: 'approved' });
+  }
+
+  if(action === 'delete'){
+    if(!confirm('Delete this message from the queue? This cannot be undone.')) return;
+    try{
+      await deleteDoc(doc(db, 'hotlineMessages', id));
+    }catch(err){
+      alert('Could not delete message: ' + err.message);
+    }
+  }
+});
+
+hiddenPlayer.addEventListener('ended', async ()=>{
+  currentlyPlayingId = null;
+  await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+  render();
+});
+
+searchInput.addEventListener('input', render);
+filterSelect.addEventListener('change', render);
+
+// Live Firestore listener — auto-refreshes, no polling needed
+const q = query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc'));
+onSnapshot(q, (snapshot)=>{
+  allMessages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  if(!firstLoad){
+    snapshot.docChanges().forEach(change=>{
+      if(change.type === 'added' && !knownIds.has(change.doc.id)){
+        // new incoming message
+        alertBanner.classList.add('show');
+        playChime();
+        setTimeout(()=> alertBanner.classList.remove('show'), 4000);
+      }
+    });
+  }
+  allMessages.forEach(m => knownIds.add(m.id));
+  firstLoad = false;
+
+  render();
+}, (err)=>{
+  queueEl.innerHTML = `<div class="empty">Couldn't connect to Firebase: ${err.message}<br><br>Check your firebaseConfig and Firestore security rules.</div>`;
+});
+</script>
+</body>
+</html>
