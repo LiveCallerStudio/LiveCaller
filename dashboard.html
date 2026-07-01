@@ -63,7 +63,8 @@
   .alert-banner.show{display:block;}
   @keyframes flash{0%,100%{background:rgba(83,252,24,0.12);} 50%{background:rgba(83,252,24,0.28);}}
 
-  main{max-width:1100px; margin:0 auto; padding:24px 18px 60px;}
+  main{max-width:1100px; margin:0 auto; padding:0;}
+  .tab-content{padding:24px 18px 60px;}
 
   .empty{
     text-align:center; color:var(--sub); padding:80px 20px; font-size:14px;
@@ -117,6 +118,28 @@
   .ibtn.approve{border-color:var(--green); color:var(--green);}
   .ibtn.delete{border-color:var(--red); color:var(--red);}
   .ibtn.download{color:var(--sub);}
+  .ibtn.favorite{color:#f5c518;}
+  .ibtn.favorite.active{background:#f5c518; color:#0a0a0a; border-color:#f5c518;}
+  .ibtn.on-air{color:var(--red); border-color:var(--red); animation:pulse-red 1.5s infinite;}
+  .ibtn.on-air-btn{color:var(--red); border-color:var(--red); font-weight:900;}
+  .ibtn.on-air-btn:hover{background:var(--red); color:#fff;}
+  .ibtn.on-air-btn.live{background:var(--red); color:#fff; animation:pulse-red 1.5s infinite;}
+  @keyframes pulse-red{0%,100%{box-shadow:0 0 0 0 rgba(255,59,59,0.4);} 50%{box-shadow:0 0 0 6px rgba(255,59,59,0);}}
+
+  .on-air-badge{
+    display:none; align-items:center; gap:6px; background:var(--red); color:#fff;
+    font-size:11px; font-weight:900; letter-spacing:1.5px; padding:5px 10px; border-radius:4px;
+    text-transform:uppercase;
+  }
+  .on-air-badge.show{display:flex;}
+  .on-air-dot{width:8px; height:8px; border-radius:50%; background:#fff; animation:blink 1s infinite;}
+
+  .signout-btn{
+    background:transparent; border:1px solid var(--line); color:var(--sub);
+    padding:8px 14px; border-radius:8px; font-size:12px; font-weight:700;
+    cursor:pointer; letter-spacing:.3px; transition:color .15s ease, border-color .15s ease;
+  }
+  .signout-btn:hover{color:var(--red); border-color:var(--red);}
   .badge{
     font-size:10px; padding:3px 8px; border-radius:10px; text-transform:uppercase; letter-spacing:.5px;
     background:rgba(83,252,24,0.15); color:var(--green); font-weight:700;
@@ -125,15 +148,138 @@
 
   audio.hiddenplayer{display:none;}
 
-  @media (max-width:640px){
+  .on-air-badge{
+    display:none; align-items:center; gap:7px; padding:7px 14px; border-radius:20px;
+    background:rgba(255,59,59,0.15); border:1px solid var(--red); color:var(--red);
+    font-size:13px; font-weight:700; letter-spacing:.5px;
+  }
+  .on-air-badge.show{display:flex;}
+  .on-air-badge .dot{width:8px; height:8px; border-radius:50%; background:var(--red); animation:blink 1s infinite;}
+  .signout-btn{
+    background:transparent; border:1px solid var(--line); color:var(--sub);
+    padding:7px 12px; border-radius:8px; font-size:12px; cursor:pointer; font-weight:700;
+  }
+  .signout-btn:hover{border-color:var(--red); color:var(--red);}
+  .ibtn.favorite{color:#f5a623; border-color:#f5a623;}
+  .ibtn.favorite.active{background:#f5a623; color:#0a0a0a;}
+  .ibtn.skip{color:var(--sub);}
+  .card.favorited{border-left:3px solid #f5a623;}
     .card{flex-direction:column; align-items:stretch;}
     .card-actions{justify-content:stretch;}
     .ibtn{flex:1; justify-content:center;}
     .search{width:140px;}
   }
+
+  /* ── Tab Navigation ── */
+  .tab-nav{
+    display:flex; gap:0; border-bottom:1px solid var(--line);
+    background:var(--panel); padding:0 24px; position:sticky; top:73px; z-index:4;
+  }
+  .tab-btn{
+    background:transparent; border:none; border-bottom:2px solid transparent;
+    color:var(--sub); font-size:13px; font-weight:700; padding:14px 18px;
+    cursor:pointer; letter-spacing:.5px; transition:color .15s ease, border-color .15s ease;
+    margin-bottom:-1px;
+  }
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{color:var(--green); border-bottom-color:var(--green);}
+
+  /* ── Analytics ── */
+  .analytics-grid{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
+    gap:12px; margin-bottom:24px;
+  }
+  .stat-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:18px 16px; text-align:center;
+  }
+  .stat-value{
+    font-size:32px; font-weight:900; color:var(--green); letter-spacing:-1px; line-height:1;
+    margin-bottom:6px;
+  }
+  .stat-label{
+    font-size:11px; color:var(--sub); text-transform:uppercase; letter-spacing:1px;
+  }
+  .analytics-section{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:18px; margin-bottom:16px;
+  }
+  .section-title{
+    margin:0 0 14px; font-size:12px; color:var(--green); text-transform:uppercase; letter-spacing:1.5px;
+  }
+  .breakdown-list{display:flex; flex-direction:column; gap:8px;}
+  .breakdown-row{
+    display:flex; align-items:center; gap:10px;
+  }
+  .breakdown-label{font-size:13px; flex:1; color:var(--text);}
+  .breakdown-bar-wrap{flex:2; background:var(--black); border-radius:4px; height:6px; overflow:hidden;}
+  .breakdown-bar{height:100%; background:var(--green); border-radius:4px; transition:width .4s ease;}
+  .breakdown-count{font-size:12px; color:var(--sub); font-variant-numeric:tabular-nums; min-width:24px; text-align:right;}
+
+  /* ── Tips ── */
+  .tips-header{margin-bottom:16px;}
+  .tips-log{display:flex; flex-direction:column; gap:10px;}
+  .tip-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:14px 16px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .tip-method{
+    font-size:20px; line-height:1; min-width:28px; text-align:center;
+  }
+  .tip-body{flex:1;}
+  .tip-name{font-weight:700; font-size:14px;}
+  .tip-note{font-size:12px; color:var(--sub); margin-top:2px;}
+  .tip-time{font-size:11px; color:#5a5a5a; margin-left:auto;}
+  .tip-amount{
+    font-size:13px; font-weight:700; color:var(--green); background:rgba(83,252,24,0.1);
+    padding:4px 10px; border-radius:6px;
+  }
+
+  .login-screen{
+    position:fixed; inset:0; background:var(--black); z-index:100;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .login-box{
+    width:100%; max-width:340px; background:var(--panel); border:1px solid var(--line);
+    border-radius:14px; padding:32px 26px; text-align:center;
+  }
+  .login-brand{
+    color:var(--green); font-weight:900; font-size:18px; letter-spacing:1.5px; margin-bottom:4px;
+  }
+  .login-sub{
+    color:var(--sub); font-size:12.5px; margin-bottom:22px;
+  }
+  .login-box input{
+    width:100%; background:var(--black); border:1px solid var(--line); border-radius:8px;
+    padding:12px 14px; color:var(--text); font-size:14px; margin-bottom:12px;
+    box-sizing:border-box;
+  }
+  .login-box input:focus{outline:none; border-color:var(--green);}
+  .login-box button{
+    width:100%; padding:13px; border-radius:8px; border:none; background:var(--green);
+    color:#0a0a0a; font-weight:700; font-size:13px; text-transform:uppercase; letter-spacing:.5px;
+    cursor:pointer; margin-top:4px;
+  }
+  .login-box button:hover{filter:brightness(1.1);}
+  .login-error{
+    color:var(--red); font-size:12.5px; margin-top:12px; min-height:16px;
+  }
 </style>
 </head>
 <body>
+
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <div class="login-brand">⚡ LIVE CALLER STUDIO</div>
+    <div class="login-sub">Producer Dashboard — Sign in required</div>
+    <input type="email" id="loginEmail" placeholder="Admin email" autocomplete="username">
+    <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
+    <button id="loginBtn">Sign In</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<div id="dashboardApp" style="display:none;">
 
 <header>
   <div class="brand">
@@ -144,6 +290,7 @@
     </div>
   </div>
   <div class="header-right">
+    <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
     <div class="counter"><span class="dot"></span><span id="queueCount">0 waiting</span></div>
     <input class="search" id="searchInput" placeholder="Search name, city, song…">
     <select id="filterSelect">
@@ -151,23 +298,75 @@
       <option value="all">All messages</option>
       <option value="approved">Approved only</option>
     </select>
+    <button class="signout-btn" id="signOutBtn">Sign Out</button>
   </div>
 </header>
 
 <div class="alert-banner" id="alertBanner">🎤 Incoming Voice Message</div>
 
+<!-- Tab Navigation -->
+<nav class="tab-nav">
+  <button class="tab-btn active" data-tab="queue">📥 Queue</button>
+<button class="tab-btn" data-tab="analytics">📊 Analytics</button>
+</nav>
+
 <main>
-  <div id="emptyState" class="empty" style="display:none;">
-    <div class="ic">📭</div>
-    <div>No messages waiting. The queue's clear.</div>
+  <!-- QUEUE TAB -->
+  <div class="tab-content" id="tab-queue">
+    <div id="emptyState" class="empty" style="display:none;">
+      <div class="ic">📭</div>
+      <div>No messages waiting. The queue's clear.</div>
+    </div>
+    <div class="queue" id="queue"></div>
   </div>
-  <div class="queue" id="queue"></div>
+
+  <!-- ANALYTICS TAB -->
+  <div class="tab-content" id="tab-analytics" style="display:none;">
+    <div class="analytics-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="statTotal">—</div>
+        <div class="stat-label">Total Messages</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statToday">—</div>
+        <div class="stat-label">Today</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statApproved">—</div>
+        <div class="stat-label">Played On Air</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statFavorited">—</div>
+        <div class="stat-label">Favorited</div>
+      </div>
+    </div>
+
+    <div class="analytics-section">
+      <h3 class="section-title">Message Types</h3>
+      <div id="typeBreakdown" class="breakdown-list"></div>
+    </div>
+
+    <div class="analytics-section">
+      <h3 class="section-title">Top Song Requests</h3>
+      <div id="topSongs" class="breakdown-list"></div>
+    </div>
+
+    <div class="analytics-section">
+      <h3 class="section-title">Top Cities</h3>
+      <div id="topCities" class="breakdown-list"></div>
+    </div>
+  </div>
 </main>
 
 <audio id="hiddenPlayer" class="hiddenplayer"></audio>
 
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   getFirestore, collection, query, orderBy, onSnapshot,
   doc, updateDoc, deleteDoc, setDoc
@@ -186,8 +385,47 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
-// The dashboard and overlay.html usually run in different browser processes
+const loginScreen = document.getElementById('loginScreen');
+const dashboardApp = document.getElementById('dashboardApp');
+const loginEmail = document.getElementById('loginEmail');
+const loginPassword = document.getElementById('loginPassword');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
+
+async function attemptLogin(){
+  loginError.textContent = '';
+  loginBtn.disabled = true;
+  loginBtn.textContent = 'Signing in…';
+  try{
+    await signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPassword.value);
+  }catch(err){
+    loginError.textContent = 'Invalid email or password.';
+  }
+  loginBtn.disabled = false;
+  loginBtn.textContent = 'Sign In';
+}
+
+loginBtn.addEventListener('click', attemptLogin);
+loginPassword.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') attemptLogin(); });
+
+onAuthStateChanged(auth, (user)=>{
+  if(user){
+    loginScreen.style.display = 'none';
+    dashboardApp.style.display = 'block';
+    startQueueListener();
+  } else {
+    loginScreen.style.display = 'flex';
+    dashboardApp.style.display = 'none';
+  }
+});
+
+const onAirBadge = document.getElementById('onAirBadge');
+const signOutBtn = document.getElementById('signOutBtn');
+signOutBtn.addEventListener('click', ()=>{
+  if(confirm('Sign out of the Producer Dashboard?')) signOut(auth);
+});
 // (OBS runs its own browser engine), so they can't message each other directly.
 // Instead, the dashboard writes "now playing" state to this Firestore doc,
 // and overlay.html listens to it live. This works no matter where each page runs.
@@ -196,7 +434,8 @@ const liveStateRef = doc(db, 'hotlineLive', 'nowPlaying');
 let allMessages = [];
 let knownIds = new Set();
 let firstLoad = true;
-let currentlyPlayingId = null;
+let currentlyPlayingId = null; // local browser preview
+let livePlayingId = null;       // sent to OBS (muted locally)
 
 const queueEl = document.getElementById('queue');
 const emptyState = document.getElementById('emptyState');
@@ -249,7 +488,7 @@ function render(){
     if(filter === 'pending' && m.status !== 'pending') return false;
     if(filter === 'approved' && m.status !== 'approved') return false;
     if(term){
-      const hay = `${m.name||''} ${m.city||''} ${m.songRequest||''}`.toLowerCase();
+      const hay = `${m.name||''} ${m.city||''} ${m.songArtist||''} ${m.songTrack||''} ${m.shoutoutName||''} ${m.birthdayName||''} ${m.dedicationTo||''} ${m.messageType||''}`.toLowerCase();
       if(!hay.includes(term)) return false;
     }
     return true;
@@ -274,30 +513,61 @@ function render(){
 
   queueEl.innerHTML = list.map(m=>{
     const isNew = m.status === 'pending';
-    const playing = currentlyPlayingId === m.id;
+    const previewing = currentlyPlayingId === m.id;
+    const isLive = livePlayingId === m.id;
     return `
-    <div class="card ${isNew ? 'new' : ''} ${m.status==='approved' ? 'approved' : ''}" data-id="${m.id}">
-      <button class="play-btn ${playing ? 'playing' : ''}" data-action="play" data-id="${m.id}" data-url="${m.audioUrl}" aria-label="Play">
-        ${playing ? `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`
-                   : `<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>`}
+    <div class="card ${isNew ? 'new' : ''} ${m.status==='approved' ? 'approved' : ''} ${m.favorited ? 'favorited' : ''}" data-id="${m.id}">
+      <button class="play-btn ${previewing ? 'playing' : ''}" data-action="play" data-id="${m.id}" aria-label="${previewing ? 'Stop preview' : 'Preview'}">
+        ${previewing ? `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`
+                     : `<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>`}
       </button>
       <div class="card-body">
         <div class="card-top">
           <span class="card-name">${escapeHtml(m.name || 'Anonymous Caller')}</span>
           ${m.city ? `<span class="card-city">· ${escapeHtml(m.city)}</span>` : ''}
+          <span class="badge type-badge">${typeLabel(m.messageType)}</span>
           <span class="badge ${m.status==='approved' ? 'approved' : ''}">${m.status === 'approved' ? 'Played' : 'New'}</span>
           <span class="card-time">${timeAgo(m.createdAt)}</span>
         </div>
-        ${m.songRequest ? `<div class="card-song">${escapeHtml(m.songRequest)}</div>` : ''}
-        <div class="waveform ${playing ? 'active' : ''}">${buildWaveformBars()}</div>
+        ${typeDetail(m)}
+        <div class="waveform ${previewing || isLive ? 'active' : ''}">${buildWaveformBars()}</div>
       </div>
       <div class="card-actions">
         <button class="ibtn approve" data-action="approve" data-id="${m.id}">✓ Approve</button>
+        <button class="ibtn favorite ${m.favorited ? 'active' : ''}" data-action="favorite" data-id="${m.id}">⭐ ${m.favorited ? 'Saved' : 'Favorite'}</button>
+        <button class="ibtn on-air-btn ${isLive ? 'live' : ''}" data-action="golive" data-id="${m.id}">${isLive ? '⏹ Stop Live' : '🔴 Send Live On Air'}</button>
         <a class="ibtn download" href="${m.audioUrl}" download target="_blank" rel="noopener">⬇ Download</a>
         <button class="ibtn delete" data-action="delete" data-id="${m.id}">🗑 Delete</button>
       </div>
     </div>`;
   }).join('');
+}
+
+function typeLabel(type){
+  const map = {
+    general:'🎙️ General', song:'🎵 Song', shoutout:'📢 Shout-Out',
+    birthday:'🎂 Birthday', dedication:'💌 Dedication'
+  };
+  return map[type] || '🎙️ General';
+}
+
+function typeDetail(m){
+  const t = m.messageType;
+  if(t === 'song' && (m.songArtist || m.songTrack)){
+    return `<div class="card-song">${escapeHtml([m.songArtist, m.songTrack].filter(Boolean).join(' – '))}</div>`;
+  }
+  if(t === 'shoutout' && m.shoutoutName){
+    return `<div class="card-song">Shout-out to: ${escapeHtml(m.shoutoutName)}</div>`;
+  }
+  if(t === 'birthday' && m.birthdayName){
+    const song = m.birthdaySong ? ` · ${m.birthdaySong}` : '';
+    return `<div class="card-song">🎂 ${escapeHtml(m.birthdayName)}${escapeHtml(song)}</div>`;
+  }
+  if(t === 'dedication' && m.dedicationTo){
+    const song = m.dedicationSong ? ` · ${m.dedicationSong}` : '';
+    return `<div class="card-song">💌 For: ${escapeHtml(m.dedicationTo)}${escapeHtml(song)}</div>`;
+  }
+  return '';
 }
 
 function escapeHtml(str){
@@ -313,24 +583,67 @@ queueEl.addEventListener('click', async (e)=>{
   if(!msg) return;
 
   if(action === 'play'){
+    // PREVIEW ONLY — plays in this browser, never touches OBS or Firestore
     if(currentlyPlayingId === id){
       hiddenPlayer.pause();
       currentlyPlayingId = null;
+      render();
+      return;
+    }
+    // Stop any live broadcast if switching to preview
+    if(livePlayingId){
+      hiddenPlayer.pause();
+      livePlayingId = null;
+      onAirBadge.classList.remove('show');
+      await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+    }
+    currentlyPlayingId = id;
+    hiddenPlayer.src = msg.audioUrl;
+    hiddenPlayer.muted = false; // audible in dashboard browser only
+    hiddenPlayer.play().catch(()=>{});
+    render();
+  }
+
+  if(action === 'golive'){
+    // SEND LIVE ON AIR — audio plays in OBS overlay only, muted in this browser
+    if(livePlayingId === id){
+      // Already live — stop it
+      hiddenPlayer.pause();
+      livePlayingId = null;
+      onAirBadge.classList.remove('show');
       await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
       render();
       return;
     }
-    currentlyPlayingId = id;
+    // Stop any local preview first
+    currentlyPlayingId = null;
+    livePlayingId = id;
     hiddenPlayer.src = msg.audioUrl;
-    hiddenPlayer.muted = false; // dashboard preview audio — you hear this before approving. overlay.html separately plays into OBS when live.
+    hiddenPlayer.muted = true; // MUTED in browser — OBS overlay plays the real audio
     hiddenPlayer.play().catch(()=>{});
+    onAirBadge.classList.add('show');
     await setDoc(liveStateRef, {
       active: true,
       name: msg.name || 'Anonymous Caller',
       city: msg.city || '',
       audioUrl: msg.audioUrl,
+      messageType: msg.messageType || 'general',
+      songArtist: msg.songArtist || null,
+      songTrack: msg.songTrack || null,
       updatedAt: Date.now()
     });
+    render();
+  }
+
+  if(action === 'favorite'){
+    await updateDoc(doc(db, 'hotlineMessages', id), { favorited: !msg.favorited });
+  }
+
+  if(action === 'skip'){
+    hiddenPlayer.pause();
+    currentlyPlayingId = null;
+    onAirBadge.classList.remove('show');
+    await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
     render();
   }
 
@@ -349,36 +662,123 @@ queueEl.addEventListener('click', async (e)=>{
 });
 
 hiddenPlayer.addEventListener('ended', async ()=>{
+  const wasLive = livePlayingId !== null;
   currentlyPlayingId = null;
-  await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+  livePlayingId = null;
+  if(wasLive){
+    onAirBadge.classList.remove('show');
+    await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+  }
   render();
 });
 
 searchInput.addEventListener('input', render);
 filterSelect.addEventListener('change', render);
 
-// Live Firestore listener — auto-refreshes, no polling needed
-const q = query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc'));
-onSnapshot(q, (snapshot)=>{
-  allMessages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-
-  if(!firstLoad){
-    snapshot.docChanges().forEach(change=>{
-      if(change.type === 'added' && !knownIds.has(change.doc.id)){
-        // new incoming message
-        alertBanner.classList.add('show');
-        playChime();
-        setTimeout(()=> alertBanner.classList.remove('show'), 4000);
-      }
+// ── Tab switching ──
+const tabBtns = document.querySelectorAll('.tab-btn');
+const tabContents = document.querySelectorAll('.tab-content');
+tabBtns.forEach(btn =>{
+  btn.addEventListener('click', ()=>{
+    tabBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const target = btn.dataset.tab;
+    tabContents.forEach(c =>{
+      c.style.display = c.id === 'tab-' + target ? 'block' : 'none';
     });
-  }
-  allMessages.forEach(m => knownIds.add(m.id));
-  firstLoad = false;
-
-  render();
-}, (err)=>{
-  queueEl.innerHTML = `<div class="empty">Couldn't connect to Firebase: ${err.message}<br><br>Check your firebaseConfig and Firestore security rules.</div>`;
+    if(target === 'analytics') renderAnalytics();
+  });
 });
+
+// ── Analytics ──
+function renderAnalytics(){
+  const msgs = allMessages;
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  document.getElementById('statTotal').textContent = msgs.length;
+  document.getElementById('statApproved').textContent = msgs.filter(m=>m.status==='approved').length;
+  document.getElementById('statFavorited').textContent = msgs.filter(m=>m.favorited).length;
+  document.getElementById('statToday').textContent = msgs.filter(m=>{
+    const t = m.createdAt?.toDate ? m.createdAt.toDate() : null;
+    return t && t >= today;
+  }).length;
+
+  // Message type breakdown
+  const typeCounts = {};
+  msgs.forEach(m=>{ const t = m.messageType||'general'; typeCounts[t] = (typeCounts[t]||0)+1; });
+  const typeMax = Math.max(...Object.values(typeCounts), 1);
+  const typeLabels = {general:'🎙️ General', song:'🎵 Song', shoutout:'📢 Shout-Out', birthday:'🎂 Birthday', dedication:'💌 Dedication'};
+  document.getElementById('typeBreakdown').innerHTML = Object.entries(typeCounts)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([k,v])=>`
+      <div class="breakdown-row">
+        <span class="breakdown-label">${typeLabels[k]||k}</span>
+        <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${(v/typeMax*100).toFixed(0)}%"></div></div>
+        <span class="breakdown-count">${v}</span>
+      </div>`).join('') || '<span style="color:var(--sub);font-size:13px;">No data yet.</span>';
+
+  // Top songs
+  const songCounts = {};
+  msgs.filter(m=>m.messageType==='song' && (m.songArtist||m.songTrack)).forEach(m=>{
+    const key = [m.songArtist, m.songTrack].filter(Boolean).join(' – ');
+    songCounts[key] = (songCounts[key]||0)+1;
+  });
+  const songMax = Math.max(...Object.values(songCounts), 1);
+  const topSongs = Object.entries(songCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  document.getElementById('topSongs').innerHTML = topSongs.length
+    ? topSongs.map(([k,v])=>`
+      <div class="breakdown-row">
+        <span class="breakdown-label">${escapeHtml(k)}</span>
+        <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${(v/songMax*100).toFixed(0)}%"></div></div>
+        <span class="breakdown-count">${v}</span>
+      </div>`).join('')
+    : '<span style="color:var(--sub);font-size:13px;">No song requests yet.</span>';
+
+  // Top cities
+  const cityCounts = {};
+  msgs.filter(m=>m.city).forEach(m=>{ const c = m.city.trim(); cityCounts[c] = (cityCounts[c]||0)+1; });
+  const cityMax = Math.max(...Object.values(cityCounts), 1);
+  const topCities = Object.entries(cityCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  document.getElementById('topCities').innerHTML = topCities.length
+    ? topCities.map(([k,v])=>`
+      <div class="breakdown-row">
+        <span class="breakdown-label">${escapeHtml(k)}</span>
+        <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${(v/cityMax*100).toFixed(0)}%"></div></div>
+        <span class="breakdown-count">${v}</span>
+      </div>`).join('')
+    : '<span style="color:var(--sub);font-size:13px;">No city data yet.</span>';
+}
+
+// ── Tips Firestore listener ──
+// Live Firestore listener — auto-refreshes, no polling needed
+// Only starts after login succeeds (see onAuthStateChanged below) so the queue
+// is never queried while logged out.
+let queueListenerStarted = false;
+function startQueueListener(){
+  if(queueListenerStarted) return;
+  queueListenerStarted = true;
+  const q = query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc'));
+  onSnapshot(q, (snapshot)=>{
+    allMessages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    if(!firstLoad){
+      snapshot.docChanges().forEach(change=>{
+        if(change.type === 'added' && !knownIds.has(change.doc.id)){
+          // new incoming message
+          alertBanner.classList.add('show');
+          playChime();
+          setTimeout(()=> alertBanner.classList.remove('show'), 4000);
+        }
+      });
+    }
+    allMessages.forEach(m => knownIds.add(m.id));
+    firstLoad = false;
+
+    render();
+  }, (err)=>{
+    queueEl.innerHTML = `<div class="empty">Couldn't connect to Firebase: ${err.message}<br><br>Check your firebaseConfig and Firestore security rules.</div>`;
+  });
+}
 </script>
 </body>
 </html>
