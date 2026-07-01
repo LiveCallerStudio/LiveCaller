@@ -16,15 +16,13 @@
     font-family:'Arial Black','Helvetica Neue',Arial,sans-serif;
   }
 
-  /* ─────────────────────────────────────────
-     1. LOWER THIRD — caller name + city
-     Slides in from left when a message plays
-  ───────────────────────────────────────── */
+  /* ── Lower Third ── */
   .lower-third{
     position:fixed; left:40px; bottom:50px;
     display:flex; align-items:center;
     transform:translateX(-130%); opacity:0;
     transition:transform .55s cubic-bezier(.2,.9,.25,1), opacity .35s ease;
+    z-index:10;
   }
   .lower-third.show{ transform:translateX(0); opacity:1; }
 
@@ -46,7 +44,6 @@
     0%{ transform:scale(.85); opacity:.7; }
     100%{ transform:scale(1.55); opacity:0; }
   }
-
   .text-block{
     background:linear-gradient(90deg, rgba(10,10,10,0.96), rgba(10,10,10,0.82) 80%, transparent);
     border-top:2px solid var(--green); border-bottom:2px solid var(--green);
@@ -55,7 +52,6 @@
   .lt-label{
     color:var(--green); font-size:12px; letter-spacing:2.5px;
     text-transform:uppercase; font-weight:900; margin-bottom:2px;
-    display:flex; align-items:center; gap:6px;
   }
   .lt-name{
     color:#fff; font-size:26px; font-weight:900; letter-spacing:.5px;
@@ -71,11 +67,7 @@
     font-family:Arial,Helvetica,sans-serif; font-weight:700;
   }
 
-  /* ─────────────────────────────────────────
-     2. INCOMING CALL ANIMATION
-     Drops in from top-right when a NEW message
-     arrives in the queue. Auto-hides after 4s.
-  ───────────────────────────────────────── */
+  /* ── Incoming Call ── */
   .incoming-call{
     position:fixed; top:40px; right:40px;
     display:flex; align-items:center; gap:14px;
@@ -84,9 +76,9 @@
     box-shadow:0 0 40px rgba(83,252,24,0.3);
     transform:translateY(-140%); opacity:0;
     transition:transform .45s cubic-bezier(.2,.9,.25,1), opacity .3s ease;
+    z-index:10;
   }
   .incoming-call.show{ transform:translateY(0); opacity:1; }
-
   .incoming-ring{
     width:52px; height:52px; border-radius:50%; border:2px solid var(--green);
     display:flex; align-items:center; justify-content:center;
@@ -98,25 +90,12 @@
     50%{ box-shadow:0 0 0 10px rgba(83,252,24,0); }
   }
   .incoming-ring svg{ width:24px; height:24px; }
-
   .incoming-text{ line-height:1.3; }
-  .incoming-label{
-    font-size:11px; color:var(--green); letter-spacing:2px;
-    text-transform:uppercase; font-weight:900;
-  }
-  .incoming-count{
-    font-size:22px; font-weight:900; color:#fff;
-  }
-  .incoming-sub{
-    font-size:12px; color:#888; font-family:Arial,Helvetica,sans-serif; font-weight:400;
-  }
+  .incoming-label{ font-size:11px; color:var(--green); letter-spacing:2px; text-transform:uppercase; font-weight:900; }
+  .incoming-count{ font-size:22px; font-weight:900; color:#fff; }
+  .incoming-sub{ font-size:12px; color:#888; font-family:Arial,Helvetica,sans-serif; font-weight:400; }
 
-  /* ─────────────────────────────────────────
-     3. QUEUE COUNTER BADGE
-     Always-visible bottom-right counter
-     showing how many messages are waiting.
-     Hides when queue is empty.
-  ───────────────────────────────────────── */
+  /* ── Queue Badge ── */
   .queue-badge{
     position:fixed; bottom:50px; right:40px;
     display:flex; align-items:center; gap:10px;
@@ -124,64 +103,33 @@
     border-radius:12px; padding:10px 16px;
     opacity:0; transform:scale(.85);
     transition:opacity .3s ease, transform .3s ease;
+    z-index:10;
   }
   .queue-badge.show{ opacity:1; transform:scale(1); }
-  .queue-dot{
-    width:8px; height:8px; border-radius:50%; background:var(--green);
-    animation:blink 1.4s infinite;
-  }
+  .queue-dot{ width:8px; height:8px; border-radius:50%; background:var(--green); animation:blink 1.4s infinite; }
   @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.2;} }
-  .queue-num{
-    font-size:20px; font-weight:900; color:var(--green);
-    font-variant-numeric:tabular-nums;
-  }
-  .queue-lbl{
-    font-size:11px; color:#666; text-transform:uppercase; letter-spacing:1px;
-    font-family:Arial,Helvetica,sans-serif; font-weight:700;
-  }
+  .queue-num{ font-size:20px; font-weight:900; color:var(--green); font-variant-numeric:tabular-nums; }
+  .queue-lbl{ font-size:11px; color:#666; text-transform:uppercase; letter-spacing:1px; font-family:Arial,Helvetica,sans-serif; font-weight:700; }
 
-  /* ─────────────────────────────────────────
-     4. SONG REQUEST OVERLAY
-     Slides in from right when a song-request
-     message goes on air.
-  ───────────────────────────────────────── */
+  /* ── Song Overlay ── */
   .song-overlay{
     position:fixed; top:50%; right:40px;
-    transform:translateX(140%) translateY(-50%);
-    opacity:0;
+    transform:translateX(140%) translateY(-50%); opacity:0;
     transition:transform .5s cubic-bezier(.2,.9,.25,1), opacity .3s ease;
     background:rgba(10,10,10,0.94); border:2px solid var(--green);
     border-radius:14px; padding:18px 22px; min-width:260px; max-width:340px;
+    z-index:10;
   }
-  .song-overlay.show{
-    transform:translateX(0) translateY(-50%);
-    opacity:1;
-  }
-  .song-overlay-label{
-    font-size:10px; color:var(--green); letter-spacing:2px;
-    text-transform:uppercase; font-weight:900; margin-bottom:6px;
-    display:flex; align-items:center; gap:6px;
-  }
-  .song-overlay-note{
-    font-size:11px; color:var(--gold); font-family:Arial,Helvetica,sans-serif;
-    letter-spacing:.5px; font-weight:700; text-transform:uppercase; margin-bottom:8px;
-  }
-  .song-overlay-artist{
-    font-size:13px; color:#aaa; font-family:Arial,Helvetica,sans-serif; font-weight:400;
-    margin-bottom:2px;
-  }
-  .song-overlay-track{
-    font-size:20px; font-weight:900; color:#fff; line-height:1.2;
-  }
-  .song-overlay-from{
-    font-size:12px; color:#666; font-family:Arial,Helvetica,sans-serif;
-    margin-top:8px;
-  }
+  .song-overlay.show{ transform:translateX(0) translateY(-50%); opacity:1; }
+  .song-overlay-label{ font-size:10px; color:var(--green); letter-spacing:2px; text-transform:uppercase; font-weight:900; margin-bottom:6px; }
+  .song-overlay-artist{ font-size:13px; color:#aaa; font-family:Arial,Helvetica,sans-serif; font-weight:400; margin-bottom:2px; }
+  .song-overlay-track{ font-size:20px; font-weight:900; color:#fff; line-height:1.2; }
+  .song-overlay-from{ font-size:12px; color:#666; font-family:Arial,Helvetica,sans-serif; margin-top:8px; }
 
-  /* reduced motion */
-  @media (prefers-reduced-motion: reduce){
-    .lower-third, .incoming-call, .song-overlay{ transition:opacity .3s ease; transform:none !important; }
-    .mic-badge .pulse, .incoming-ring{ animation:none; }
+  /* ── Debug status (visible in OBS Interact mode only) ── */
+  #status{
+    position:fixed; bottom:10px; left:10px; font-size:11px;
+    color:rgba(255,255,255,0.3); font-family:monospace; z-index:99;
   }
 </style>
 </head>
@@ -206,7 +154,7 @@
   </div>
 </div>
 
-<!-- 2. Incoming Call Notification -->
+<!-- 2. Incoming Call -->
 <div class="incoming-call" id="incomingCall">
   <div class="incoming-ring">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -220,23 +168,26 @@
   </div>
 </div>
 
-<!-- 3. Queue Counter -->
+<!-- 3. Queue Badge -->
 <div class="queue-badge" id="queueBadge">
   <div class="queue-dot"></div>
   <div class="queue-num" id="queueNum">0</div>
   <div class="queue-lbl">Waiting</div>
 </div>
 
-<!-- 4. Song Request Overlay -->
+<!-- 4. Song Overlay -->
 <div class="song-overlay" id="songOverlay">
   <div class="song-overlay-label">🎵 Song Request</div>
-  <div class="song-overlay-note" id="songNote"></div>
   <div class="song-overlay-artist" id="songArtist"></div>
   <div class="song-overlay-track" id="songTrack"></div>
   <div class="song-overlay-from" id="songFrom"></div>
 </div>
 
-<audio id="overlayAudio" style="display:none;"></audio>
+<!-- Audio element — OBS captures this -->
+<audio id="overlayAudio" style="display:none;" crossorigin="anonymous"></audio>
+
+<!-- Status indicator for debugging -->
+<div id="status">Connecting…</div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
@@ -255,31 +206,31 @@
     appId: "1:663942225296:web:c6117cf6c23656b9842715"
   };
 
-  const app = initializeApp(firebaseConfig);
+  const app  = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  const db = getFirestore(app);
+  const db   = getFirestore(app);
 
   const liveStateRef = doc(db, 'hotlineLive', 'nowPlaying');
 
-  // Elements
-  const lowerThird   = document.getElementById('lowerThird');
-  const ltName       = document.getElementById('ltName');
-  const ltCity       = document.getElementById('ltCity');
-  const ltType       = document.getElementById('ltType');
-  const incomingCall = document.getElementById('incomingCall');
-  const incomingCount= document.getElementById('incomingCount');
-  const queueBadge   = document.getElementById('queueBadge');
-  const queueNum     = document.getElementById('queueNum');
-  const songOverlay  = document.getElementById('songOverlay');
-  const songNote     = document.getElementById('songNote');
-  const songArtist   = document.getElementById('songArtist');
-  const songTrack    = document.getElementById('songTrack');
-  const songFrom     = document.getElementById('songFrom');
-  const overlayAudio = document.getElementById('overlayAudio');
+  const lowerThird    = document.getElementById('lowerThird');
+  const ltName        = document.getElementById('ltName');
+  const ltCity        = document.getElementById('ltCity');
+  const ltType        = document.getElementById('ltType');
+  const incomingCall  = document.getElementById('incomingCall');
+  const incomingCount = document.getElementById('incomingCount');
+  const queueBadge    = document.getElementById('queueBadge');
+  const queueNum      = document.getElementById('queueNum');
+  const songOverlay   = document.getElementById('songOverlay');
+  const songArtist    = document.getElementById('songArtist');
+  const songTrack     = document.getElementById('songTrack');
+  const songFrom      = document.getElementById('songFrom');
+  const overlayAudio  = document.getElementById('overlayAudio');
+  const statusEl      = document.getElementById('status');
 
   let lastUrl = null;
   let incomingTimer = null;
   let prevQueueCount = 0;
+  let audioUnlocked = false;
 
   const typeLabels = {
     general:'🎙️ Voice Message', song:'🎵 Song Request',
@@ -287,77 +238,110 @@
     dedication:'💌 Dedication'
   };
 
-  signInAnonymously(auth).then(()=>{
+  // OBS blocks autoplay until a user interaction occurs on the page.
+  // We silently unlock audio on first click (use OBS → Interact to click once).
+  // After that, all future playback works automatically.
+  function unlockAudio(){
+    if(audioUnlocked) return;
+    audioUnlocked = true;
+    // Play a silent buffer to satisfy the browser autoplay policy
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const buf = ctx.createBuffer(1,1,22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+    ctx.resume();
+    statusEl.textContent = 'Audio unlocked ✓';
+    setTimeout(()=>{ statusEl.textContent = ''; }, 3000);
+  }
+  document.addEventListener('click', unlockAudio, { once: false });
 
-    // ── 1. Live state — lower third + song overlay ──
+  function playAudio(url){
+    if(!url || url === lastUrl) return;
+    lastUrl = url;
+    overlayAudio.pause();
+    overlayAudio.src = url;
+    overlayAudio.load();
+    const attempt = ()=>{
+      overlayAudio.play().then(()=>{
+        statusEl.textContent = '▶ Playing on air';
+      }).catch(err=>{
+        statusEl.textContent = 'Tap Interact to enable audio';
+        // Retry once after short delay
+        setTimeout(()=>{
+          overlayAudio.play().catch(()=>{});
+        }, 1000);
+      });
+    };
+    attempt();
+  }
+
+  statusEl.textContent = 'Signing in…';
+
+  signInAnonymously(auth).then(()=>{
+    statusEl.textContent = 'Connected ✓';
+    setTimeout(()=>{ statusEl.textContent = ''; }, 3000);
+
+    // ── Live state listener — lower third + audio ──
     onSnapshot(liveStateRef, (snap)=>{
       const data = snap.data();
-      if(data && data.active){
-        // Lower third
-        ltName.textContent = data.name || 'Anonymous Caller';
+
+      if(data && data.active === true){
+        ltName.textContent = data.name || 'Live Caller';
         ltCity.textContent = data.city || '';
-        ltType.textContent = typeLabels[data.messageType] || '';
+        ltType.textContent = typeLabels[data.messageType] || '🎙️ Voice Message';
         lowerThird.classList.add('show');
 
-        // Song request overlay — only for song type
-        if(data.messageType === 'song' && (data.songArtist || data.songTrack)){
-          songNote.textContent = 'Now Playing Request';
+        // Song overlay
+        if((data.songArtist || data.songTrack)){
           songArtist.textContent = data.songArtist || '';
-          songTrack.textContent = data.songTrack || '';
-          songFrom.textContent = data.name ? `Requested by ${data.name}` : '';
+          songTrack.textContent  = data.songTrack  || '';
+          songFrom.textContent   = data.name ? `Requested by ${data.name}` : '';
           songOverlay.classList.add('show');
         } else {
           songOverlay.classList.remove('show');
         }
 
-        // Audio playback
-        if(data.audioUrl && data.audioUrl !== lastUrl){
-          lastUrl = data.audioUrl;
-          overlayAudio.src = data.audioUrl;
-          overlayAudio.play().catch(()=>{});
-        }
+        // Play audio in OBS
+        playAudio(data.audioUrl);
+
       } else {
         lowerThird.classList.remove('show');
         songOverlay.classList.remove('show');
         overlayAudio.pause();
         lastUrl = null;
+        statusEl.textContent = '';
       }
+    }, (err)=>{
+      statusEl.textContent = 'Firestore error: ' + err.code;
     });
 
-    // ── 2 & 3. Queue — incoming call notification + counter ──
-    // Uses orderBy only (no compound where+orderBy) so no composite index needed.
-    // Filters to pending client-side to count the queue.
+    // ── Queue counter + incoming call notification ──
     const queueQ = query(
       collection(db, 'hotlineMessages'),
       orderBy('createdAt', 'desc')
     );
 
     onSnapshot(queueQ, (snap)=>{
-      const pendingDocs = snap.docs.filter(d => d.data().status === 'pending');
-      const count = pendingDocs.length;
+      const count = snap.docs.filter(d => d.data().status === 'pending').length;
 
-      // Queue counter badge
       queueNum.textContent = count;
-      if(count > 0){
-        queueBadge.classList.add('show');
-      } else {
-        queueBadge.classList.remove('show');
-      }
+      count > 0 ? queueBadge.classList.add('show') : queueBadge.classList.remove('show');
 
-      // Incoming call notification — fires when count goes UP
       if(count > prevQueueCount){
         incomingCount.textContent = `${count} waiting`;
         incomingCall.classList.add('show');
         if(incomingTimer) clearTimeout(incomingTimer);
-        incomingTimer = setTimeout(()=>{
-          incomingCall.classList.remove('show');
-        }, 4500);
+        incomingTimer = setTimeout(()=> incomingCall.classList.remove('show'), 4500);
       }
       prevQueueCount = count;
+    }, (err)=>{
+      statusEl.textContent = 'Queue error: ' + err.code;
     });
 
-  }).catch((err)=>{
-    console.error('Overlay auth failed:', err.message);
+  }).catch(err=>{
+    statusEl.textContent = 'Auth failed: ' + err.code;
   });
 </script>
 </body>
