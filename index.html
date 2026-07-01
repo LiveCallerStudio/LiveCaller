@@ -2,7 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Live Caller">
+<meta name="description" content="Leave a voice message for the show. Song requests, shoutouts, birthdays and more.">
+<link rel="manifest" href="manifest.json">
+<!-- PWA icons — uses the green bolt emoji rendered as SVG data URIs, no image file needed -->
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <title>Live Caller Studio — Leave a Voice Message</title>
 <style>
   :root{
@@ -159,11 +168,30 @@
     display:block; font-family:Arial,Helvetica,sans-serif; font-size:11px; color:var(--sub);
     text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;
   }
-  .field input{
+  .field input, .field select, .field textarea{
     width:100%; background:var(--black); border:1px solid var(--line); border-radius:8px;
     padding:11px 12px; color:var(--text); font-family:Arial,Helvetica,sans-serif; font-size:14px;
+    box-sizing:border-box;
   }
-  .field input:focus{outline:none; border-color:var(--green);}
+  .field input:focus, .field select:focus, .field textarea:focus{outline:none; border-color:var(--green);}
+  .field select{appearance:none; cursor:pointer;}
+  .field textarea{resize:none; line-height:1.5;}
+
+  /* message type pill selector */
+  .type-pills{
+    display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px;
+  }
+  .type-pill{
+    padding:8px 14px; border-radius:20px; border:1px solid var(--line);
+    background:var(--black); color:var(--sub); font-size:12.5px; font-weight:700;
+    cursor:pointer; transition:all .15s ease; white-space:nowrap;
+  }
+  .type-pill:hover{border-color:var(--green); color:var(--text);}
+  .type-pill.active{background:var(--green); color:#0a0a0a; border-color:var(--green);}
+
+  /* conditional fields shown by type */
+  .type-fields{display:none;}
+  .type-fields.show{display:block;}
   .optional-tag{color:#5a5a5a; font-weight:400; text-transform:none; letter-spacing:0;}
 
   /* Confirmation */
@@ -178,6 +206,62 @@
   }
   .confirm h2{font-size:22px; margin:0 0 10px;}
   .confirm p{font-family:Arial,Helvetica,sans-serif; color:var(--sub); font-size:14px; line-height:1.6; max-width:300px; margin:0 auto 24px;}
+
+  .support-toggle{
+    background:transparent; border:1px solid var(--line); color:var(--sub);
+    padding:10px 20px; border-radius:20px; font-family:Arial,Helvetica,sans-serif;
+    font-size:13px; font-weight:700; cursor:pointer; margin-top:18px;
+    transition:border-color .15s ease, color .15s ease;
+  }
+  .support-toggle:hover{border-color:var(--green); color:var(--green);}
+
+  .support-panel{
+    display:none; width:100%; background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:22px 18px; margin-top:14px; text-align:center;
+  }
+  .support-panel.show{display:block;}
+  .support-panel h3{
+    margin:0 0 6px; font-size:15px; letter-spacing:1px; text-transform:uppercase; color:var(--green);
+  }
+  .support-sub{
+    font-family:Arial,Helvetica,sans-serif; font-weight:400; color:var(--sub);
+    font-size:13px; margin:0 0 18px;
+  }
+  .support-options{
+    display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin-bottom:16px;
+  }
+  .support-card{
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    text-decoration:none; padding:12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--black); transition:border-color .15s ease;
+    width:100px;
+  }
+  .support-card:hover{border-color:var(--green);}
+  .support-card img{border-radius:6px; background:#fff; padding:4px;}
+  .support-label{
+    color:var(--text); font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:700;
+  }
+  .support-thanks{
+    font-family:Arial,Helvetica,sans-serif; font-weight:400; color:var(--sub); font-size:12.5px; margin:0;
+  }
+  .tip-confirm{
+    margin:14px 0 10px; padding:14px; border:1px solid var(--green);
+    border-radius:10px; background:rgba(83,252,24,0.05);
+  }
+  .tip-confirm-label{
+    font-size:13px; color:var(--green); font-weight:700; margin:0 0 10px; text-align:center;
+  }
+  .tip-confirm-fields{display:flex; flex-direction:column; gap:8px;}
+  .tip-confirm-fields input{
+    width:100%; background:var(--black); border:1px solid var(--line); border-radius:8px;
+    padding:10px 12px; color:var(--text); font-family:Arial,Helvetica,sans-serif; font-size:13px;
+    box-sizing:border-box;
+  }
+  .tip-confirm-fields input:focus{outline:none; border-color:var(--green);}
+  .tip-log-confirm{
+    text-align:center; font-size:13px; color:var(--green); font-weight:700;
+    padding:10px; margin-top:8px;
+  }
 
   .footnote{
     margin-top:30px; font-family:Arial,Helvetica,sans-serif; color:#6b6b6b; font-size:12.5px;
@@ -257,20 +341,60 @@
   </div>
 
   <div class="panel" id="reviewPanel">
-    <h3>Review your message</h3>
+    <h3>Review Your Message</h3>
     <audio id="playback" controls></audio>
 
+    <!-- Message type pills -->
     <div class="field">
-      <label>Name <span class="optional-tag">(optional)</span></label>
+      <label>Message Type</label>
+      <div class="type-pills">
+        <button class="type-pill active" data-type="general">🎙️ General</button>
+        <button class="type-pill" data-type="shoutout">📢 Shout-Out</button>
+        <button class="type-pill" data-type="birthday">🎂 Birthday</button>
+        <button class="type-pill" data-type="dedication">💌 Dedication</button>
+      </div>
+    </div>
+
+    <!-- Always-visible fields -->
+    <div class="field">
+      <label>Display Name <span class="optional-tag">(optional)</span></label>
       <input type="text" id="fName" maxlength="40" placeholder="What should we call you?">
     </div>
     <div class="field">
       <label>City <span class="optional-tag">(optional)</span></label>
       <input type="text" id="fCity" maxlength="40" placeholder="Where are you tuning in from?">
     </div>
-    <div class="field">
-      <label>Song request <span class="optional-tag">(optional)</span></label>
-      <input type="text" id="fSong" maxlength="80" placeholder="Artist – Track">
+
+    <!-- Shout-out fields -->
+    <div class="type-fields" id="fields-shoutout">
+      <div class="field">
+        <label>Who are you shouting out?</label>
+        <input type="text" id="fShoutoutName" maxlength="80" placeholder="Name, club, business…">
+      </div>
+    </div>
+
+    <!-- Birthday fields -->
+    <div class="type-fields" id="fields-birthday">
+      <div class="field">
+        <label>Who's the birthday for?</label>
+        <input type="text" id="fBirthdayName" maxlength="80" placeholder="Name">
+      </div>
+      <div class="field">
+        <label>Song request for them <span class="optional-tag">(optional)</span></label>
+        <input type="text" id="fBirthdaySong" maxlength="80" placeholder="Artist – Track">
+      </div>
+    </div>
+
+    <!-- Dedication fields -->
+    <div class="type-fields" id="fields-dedication">
+      <div class="field">
+        <label>Who is this dedicated to?</label>
+        <input type="text" id="fDedicationTo" maxlength="80" placeholder="Name">
+      </div>
+      <div class="field">
+        <label>Song request <span class="optional-tag">(optional)</span></label>
+        <input type="text" id="fDedicationSong" maxlength="80" placeholder="Artist – Track">
+      </div>
     </div>
 
     <div class="btn-row">
@@ -288,6 +412,44 @@
     <h2>Message sent</h2>
     <p>Your message is in the queue. Keep listening — it might play live.</p>
     <button class="btn btn-primary" id="newMsgBtn" style="max-width:220px;">Send Another</button>
+  </div>
+
+  <button class="support-toggle" id="supportToggle">💚 Support the Show</button>
+
+  <div class="support-panel" id="supportPanel">
+    <h3>Support the Show</h3>
+    <p class="support-sub">Choose how you'd like to tip, then let us know so we can give you a shoutout!</p>
+
+    <div class="support-options">
+      <a class="support-card tip-link" href="https://cash.app/$YourCashtag" target="_blank" rel="noopener" data-method="Cash App">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=0a0a0a&bgcolor=ffffff&data=https://cash.app/%24YourCashtag" alt="Cash App QR" width="80" height="80">
+        <span class="support-label">Cash App</span>
+      </a>
+      <a class="support-card tip-link" href="https://paypal.me/YourPayPalName" target="_blank" rel="noopener" data-method="PayPal">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=0a0a0a&bgcolor=ffffff&data=https://paypal.me/YourPayPalName" alt="PayPal QR" width="80" height="80">
+        <span class="support-label">PayPal</span>
+      </a>
+      <a class="support-card tip-link" href="https://venmo.com/YourVenmoUsername" target="_blank" rel="noopener" data-method="Venmo">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=0a0a0a&bgcolor=ffffff&data=https://venmo.com/YourVenmoUsername" alt="Venmo QR" width="80" height="80">
+        <span class="support-label">Venmo</span>
+      </a>
+    </div>
+
+    <!-- Tip confirmation form — shown after tapping a payment link -->
+    <div class="tip-confirm" id="tipConfirm" style="display:none;">
+      <p class="tip-confirm-label">✅ Nice! Let us know so we can shout you out:</p>
+      <div class="tip-confirm-fields">
+        <input type="text" id="tipName" placeholder="Your name (optional)" maxlength="40">
+        <input type="text" id="tipAmount" placeholder='Amount (e.g. "$10")' maxlength="20">
+        <input type="text" id="tipNote" placeholder="Message or dedication (optional)" maxlength="100">
+      </div>
+      <button class="btn btn-primary" id="tipLogBtn" style="width:100%; margin-top:10px;">Log My Tip 💚</button>
+      <div class="tip-log-confirm" id="tipLogConfirm" style="display:none;">
+        🎉 Thank you! Your tip has been noted. You might get a live shoutout!
+      </div>
+    </div>
+
+    <p class="support-thanks">Every bit helps keep the show running. Thank you! 💚</p>
   </div>
 
   <div class="footnote">By submitting, you agree your message may be broadcast on-air or on stream.</div>
@@ -465,6 +627,22 @@ tapZone.addEventListener('click', ()=>{
   }
 });
 
+// Message type pill switching
+let selectedType = 'general';
+const typePills = document.querySelectorAll('.type-pill');
+const allTypeFields = document.querySelectorAll('.type-fields');
+
+typePills.forEach(pill =>{
+  pill.addEventListener('click', ()=>{
+    typePills.forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    selectedType = pill.dataset.type;
+    allTypeFields.forEach(f => f.classList.remove('show'));
+    const target = document.getElementById('fields-' + selectedType);
+    if(target) target.classList.add('show');
+  });
+});
+
 rerecordBtn.addEventListener('click', ()=>{
   audioBlob = null;
   resetToRecordView();
@@ -497,15 +675,38 @@ sendBtn.addEventListener('click', async ()=>{
     await addDoc(collection(db, 'hotlineMessages'), {
       name: document.getElementById('fName').value.trim() || null,
       city: document.getElementById('fCity').value.trim() || null,
-      songRequest: document.getElementById('fSong').value.trim() || null,
+      messageType: selectedType, // general | shoutout | birthday | dedication
+      // Shoutout
+      shoutoutName: document.getElementById('fShoutoutName')?.value.trim() || null,
+      // Birthday
+      birthdayName: document.getElementById('fBirthdayName')?.value.trim() || null,
+      birthdaySong: document.getElementById('fBirthdaySong')?.value.trim() || null,
+      // Dedication
+      dedicationTo: document.getElementById('fDedicationTo')?.value.trim() || null,
+      dedicationSong: document.getElementById('fDedicationSong')?.value.trim() || null,
       audioUrl,
       cloudinaryPublicId: uploadData.public_id || null,
-      status: 'pending', // pending | approved | deleted
+      status: 'pending',
       createdAt: serverTimestamp()
     });
 
     reviewPanel.classList.remove('show');
     confirmView.classList.add('show');
+
+    // Auto-close the browser tab 3 seconds after successful send
+    setTimeout(()=>{
+      window.close();
+      // window.close() only works if the tab was opened by script.
+      // As a fallback for PWA / direct navigation, redirect to a blank thank-you screen.
+      document.body.innerHTML = `
+        <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;
+          justify-content:center;background:#0a0a0a;color:#f2f2f2;font-family:Arial,sans-serif;
+          text-align:center;padding:40px 20px;gap:18px;">
+          <div style="font-size:52px;">✅</div>
+          <div style="font-size:22px;font-weight:900;">Message Sent!</div>
+          <div style="font-size:14px;color:#888;">Your message is in the queue.<br>You can close this window.</div>
+        </div>`;
+    }, 3000);
   }catch(err){
     console.error(err);
     showError("Something went wrong sending your message. Check your connection and try again.");
@@ -514,15 +715,71 @@ sendBtn.addEventListener('click', async ()=>{
   }
 });
 
+const supportToggle = document.getElementById('supportToggle');
+const supportPanel = document.getElementById('supportPanel');
+const tipConfirm = document.getElementById('tipConfirm');
+const tipLogBtn = document.getElementById('tipLogBtn');
+const tipLogConfirm = document.getElementById('tipLogConfirm');
+
+supportToggle.addEventListener('click', ()=>{
+  supportPanel.classList.toggle('show');
+  supportToggle.textContent = supportPanel.classList.contains('show')
+    ? '💚 Hide Support Options' : '💚 Support the Show';
+});
+
+// Show the "I tipped" form when any payment link is tapped
+document.querySelectorAll('.tip-link').forEach(link =>{
+  link.addEventListener('click', ()=>{
+    setTimeout(()=>{
+      tipConfirm.style.display = 'block';
+      tipConfirm.dataset.method = link.dataset.method;
+    }, 800); // slight delay so the payment app can open first
+  });
+});
+
+tipLogBtn.addEventListener('click', async ()=>{
+  tipLogBtn.disabled = true;
+  tipLogBtn.textContent = 'Logging…';
+  try{
+    await addDoc(collection(db, 'tips'), {
+      name: document.getElementById('tipName').value.trim() || null,
+      amount: document.getElementById('tipAmount').value.trim() || null,
+      note: document.getElementById('tipNote').value.trim() || null,
+      method: tipConfirm.dataset.method || 'Unknown',
+      selfReported: true, // honor-system — not verified by payment processor
+      createdAt: serverTimestamp()
+    });
+    tipLogBtn.style.display = 'none';
+    tipLogConfirm.style.display = 'block';
+  }catch(err){
+    tipLogBtn.disabled = false;
+    tipLogBtn.textContent = 'Log My Tip 💚';
+    console.error('Tip log failed:', err);
+  }
+});
+
 newMsgBtn.addEventListener('click', ()=>{
   document.getElementById('fName').value = '';
   document.getElementById('fCity').value = '';
-  document.getElementById('fSong').value = '';
+  document.getElementById('fShoutoutName').value = '';
+  document.getElementById('fBirthdayName').value = '';
+  document.getElementById('fBirthdaySong').value = '';
+  document.getElementById('fDedicationTo').value = '';
+  document.getElementById('fDedicationSong').value = '';
+  // Reset type to general
+  selectedType = 'general';
+  typePills.forEach(p => p.classList.toggle('active', p.dataset.type === 'general'));
+  allTypeFields.forEach(f => f.classList.remove('show'));
   audioBlob = null;
   resetToRecordView();
 });
 
 updateCountdown();
+
+// PWA service worker registration
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
 </script>
 </body>
 </html>
