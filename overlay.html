@@ -242,7 +242,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
   import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
   import {
-    getFirestore, doc, collection, query, where,
+    getFirestore, doc, collection, query,
     onSnapshot, orderBy
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
@@ -325,14 +325,16 @@
     });
 
     // ── 2 & 3. Queue — incoming call notification + counter ──
+    // Uses orderBy only (no compound where+orderBy) so no composite index needed.
+    // Filters to pending client-side to count the queue.
     const queueQ = query(
       collection(db, 'hotlineMessages'),
-      where('status', '==', 'pending'),
       orderBy('createdAt', 'desc')
     );
 
     onSnapshot(queueQ, (snap)=>{
-      const count = snap.size;
+      const pendingDocs = snap.docs.filter(d => d.data().status === 'pending');
+      const count = pendingDocs.length;
 
       // Queue counter badge
       queueNum.textContent = count;
@@ -344,10 +346,8 @@
 
       // Incoming call notification — fires when count goes UP
       if(count > prevQueueCount){
-        const newCount = count - prevQueueCount;
         incomingCount.textContent = `${count} waiting`;
         incomingCall.classList.add('show');
-        // Clear any existing timer
         if(incomingTimer) clearTimeout(incomingTimer);
         incomingTimer = setTimeout(()=>{
           incomingCall.classList.remove('show');
