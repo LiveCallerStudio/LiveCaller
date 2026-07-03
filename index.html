@@ -263,6 +263,76 @@
     padding:10px; margin-top:8px;
   }
 
+  /* ── Live Call UI ── */
+  .call-divider{
+    font-family:Arial,Helvetica,sans-serif; color:#3a3a3a; font-size:12px;
+    letter-spacing:2px; text-transform:uppercase; margin:20px 0 14px; text-align:center; width:100%;
+  }
+  .live-call-btn{
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    width:100%; padding:14px; border-radius:12px;
+    border:1px solid #333; background:var(--panel);
+    color:var(--text); font-family:Arial,Helvetica,sans-serif; font-weight:700;
+    font-size:14px; cursor:pointer; transition:border-color .15s ease;
+  }
+  .live-call-btn:hover{border-color:var(--green);}
+
+  .call-view{
+    display:none; width:100%; flex-direction:column; align-items:center; gap:16px;
+  }
+  .call-view.show{display:flex;}
+
+  .call-status-ring{
+    width:120px; height:120px; border-radius:50%;
+    border:3px solid var(--green);
+    box-shadow:0 0 30px rgba(83,252,24,0.3);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--green); position:relative;
+  }
+  .call-status-ring.ringing{animation:callpulse 1.2s ease-in-out infinite;}
+  .call-status-ring.on-hold{border-color:var(--gold); color:var(--gold); box-shadow:0 0 20px rgba(245,166,35,0.25);}
+  .call-status-ring.ended{border-color:var(--red); color:var(--red); box-shadow:none;}
+  :root{--gold:#f5a623;}
+  @keyframes callpulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(83,252,24,0.4);}
+    50%{box-shadow:0 0 0 18px rgba(83,252,24,0);}
+  }
+  .call-status-ring svg{width:48px; height:48px;}
+
+  .call-status-label{
+    font-size:13px; letter-spacing:1.5px; text-transform:uppercase; color:var(--sub);
+    font-family:Arial,Helvetica,sans-serif; text-align:center;
+  }
+  .call-timer{
+    font-size:32px; font-weight:900; color:var(--text);
+    font-variant-numeric:tabular-nums; letter-spacing:1px;
+  }
+  .call-name-row{
+    display:flex; flex-direction:column; gap:8px; width:100%;
+  }
+  .call-name-row input{
+    width:100%; background:var(--black); border:1px solid var(--line); border-radius:8px;
+    padding:11px 12px; color:var(--text); font-family:Arial,Helvetica,sans-serif; font-size:14px;
+    box-sizing:border-box;
+  }
+  .call-name-row input:focus{outline:none; border-color:var(--green);}
+  .call-actions{display:flex; gap:10px; width:100%;}
+  .call-end-btn{
+    flex:1; padding:14px; border-radius:10px; border:none;
+    background:var(--red); color:#fff; font-weight:900; font-size:14px;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+    letter-spacing:.5px;
+  }
+  .call-end-btn:disabled{opacity:.4; cursor:not-allowed;}
+  .call-back-btn{
+    padding:14px 16px; border-radius:10px; border:1px solid var(--line);
+    background:transparent; color:var(--sub); font-weight:700; font-size:13px;
+    cursor:pointer;
+  }
+  .call-error{
+    color:var(--red); font-size:13px; font-family:Arial,Helvetica,sans-serif; text-align:center;
+  }
+
   .footnote{
     margin-top:30px; font-family:Arial,Helvetica,sans-serif; color:#6b6b6b; font-size:12.5px;
     text-align:center; letter-spacing:.2px; line-height:1.5; max-width:300px;
@@ -412,6 +482,42 @@
     <h2>Message sent</h2>
     <p>Your message is in the queue. Keep listening — it might play live.</p>
     <button class="btn btn-primary" id="newMsgBtn" style="max-width:220px;">Send Another</button>
+  </div>
+
+  <!-- ── Live Call Section ── -->
+  <div id="callSection" style="width:100%;">
+    <div class="call-divider">— or call in live —</div>
+    <button class="live-call-btn" id="liveCallBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+      </svg>
+      📞 Call In Live
+    </button>
+  </div>
+
+  <!-- ── Active Call View ── -->
+  <div class="call-view" id="callView">
+    <div class="call-status-ring" id="callRing">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+      </svg>
+    </div>
+    <div class="call-timer" id="callTimer">0:00</div>
+    <div class="call-status-label" id="callStatusLabel">Calling…</div>
+    <div class="call-error" id="callError"></div>
+    <div class="call-name-row" id="callNameRow">
+      <input type="text" id="callName" placeholder="Your name (optional)" maxlength="40">
+      <input type="text" id="callCity" placeholder="Your city (optional)" maxlength="40">
+    </div>
+    <div class="call-actions">
+      <button class="call-back-btn" id="callBackBtn">← Back</button>
+      <button class="call-end-btn" id="callEndBtn" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+        End Call
+      </button>
+    </div>
   </div>
 
   <button class="support-toggle" id="supportToggle">💚 Support the Show</button>
@@ -780,6 +886,171 @@ updateCountdown();
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
+
+// ════════════════════════════════════════════
+//  LIVE CALL — WebRTC caller side
+// Uses db, addDoc, collection, onSnapshot, serverTimestamp already imported above
+// ════════════════════════════════════════════
+
+const liveCallBtn     = document.getElementById('liveCallBtn');
+const callSection     = document.getElementById('callSection');
+const callView        = document.getElementById('callView');
+const callRing        = document.getElementById('callRing');
+const callTimerEl     = document.getElementById('callTimer');
+const callStatusLabel = document.getElementById('callStatusLabel');
+const callError       = document.getElementById('callError');
+const callNameRow     = document.getElementById('callNameRow');
+const callBackBtn     = document.getElementById('callBackBtn');
+const callEndBtn      = document.getElementById('callEndBtn');
+
+const ICE_SERVERS = {
+  iceServers:[
+    { urls:'stun:stun.l.google.com:19302' },
+    { urls:'stun:stun1.l.google.com:19302' },
+  ]
+};
+
+let callPc = null;
+let callDocRef = null;
+let callTimerInterval = null;
+let callSeconds = 0;
+let callStream = null;
+let callUnsubAnswer = null;
+let callUnsubCandidates = null;
+
+function updateCallTimer(){
+  callSeconds++;
+  const m = Math.floor(callSeconds/60);
+  const s = callSeconds % 60;
+  callTimerEl.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function setCallStatus(status, cls){
+  callStatusLabel.textContent = status;
+  callRing.className = 'call-status-ring ' + (cls||'');
+}
+
+function cleanupCall(){
+  clearInterval(callTimerInterval);
+  if(callPc){ callPc.close(); callPc = null; }
+  if(callStream){ callStream.getTracks().forEach(t=>t.stop()); callStream = null; }
+  if(callUnsubAnswer){ callUnsubAnswer(); callUnsubAnswer = null; }
+  if(callUnsubCandidates){ callUnsubCandidates(); callUnsubCandidates = null; }
+}
+
+async function startCall(){
+  callError.textContent = '';
+  callSection.style.display = 'none';
+  document.getElementById('recordView').style.display = 'none';
+  document.getElementById('reviewPanel').classList.remove('show');
+  document.getElementById('confirmView').classList.remove('show');
+  callNameRow.style.display = 'flex';
+  callView.classList.add('show');
+  setCallStatus('Calling\u2026', 'ringing');
+  callTimerEl.textContent = '0:00';
+  callEndBtn.disabled = true;
+
+  try{
+    callStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  }catch(err){
+    callError.textContent = 'Microphone access denied.';
+    setCallStatus('Failed', 'ended');
+    return;
+  }
+
+  callPc = new RTCPeerConnection(ICE_SERVERS);
+  callStream.getTracks().forEach(t => callPc.addTrack(t, callStream));
+
+  // Play producer voice back to caller
+  const remoteAudio = new Audio();
+  remoteAudio.autoplay = true;
+  callPc.ontrack = (e)=>{ remoteAudio.srcObject = e.streams[0]; };
+
+  const callerName = document.getElementById('callName').value.trim() || 'Anonymous Caller';
+  const callerCity = document.getElementById('callCity').value.trim() || '';
+
+  callDocRef = await addDoc(collection(db, 'liveCalls'), {
+    status: 'ringing',
+    callerName, callerCity,
+    offer: null, answer: null,
+    createdAt: serverTimestamp()
+  });
+
+  const callId = callDocRef.id;
+
+  callPc.onicecandidate = async (e)=>{
+    if(e.candidate){
+      await addDoc(collection(db, `liveCalls/${callId}/callerCandidates`), e.candidate.toJSON());
+    }
+  };
+
+  const offer = await callPc.createOffer();
+  await callPc.setLocalDescription(offer);
+
+  // Use updateDoc imported from top of script — re-import to be safe
+  const firestoreMod = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js");
+  await firestoreMod.updateDoc(callDocRef, { offer: { type: offer.type, sdp: offer.sdp } });
+
+  callEndBtn.disabled = false;
+
+  callUnsubAnswer = onSnapshot(callDocRef, async (docSnap)=>{
+    const data = docSnap.data();
+    if(!data) return;
+    if(data.status === 'ended'){
+      setCallStatus('Call ended', 'ended');
+      clearInterval(callTimerInterval);
+      cleanupCall();
+      return;
+    }
+    if(data.status === 'on-hold'){
+      setCallStatus('On hold\u2026', 'on-hold');
+      return;
+    }
+    if(data.status === 'answered') setCallStatus('Connected', '');
+    if(data.answer && callPc && !callPc.currentRemoteDescription){
+      await callPc.setRemoteDescription(new RTCSessionDescription(data.answer));
+      clearInterval(callTimerInterval);
+      callSeconds = 0;
+      callTimerInterval = setInterval(updateCallTimer, 1000);
+    }
+  });
+
+  callUnsubCandidates = onSnapshot(
+    collection(db, `liveCalls/${callId}/dashboardCandidates`),
+    (snapshot)=>{
+      snapshot.docChanges().forEach(async (change)=>{
+        if(change.type === 'added' && callPc){
+          try{ await callPc.addIceCandidate(new RTCIceCandidate(change.doc.data())); }catch(e){}
+        }
+      });
+    }
+  );
+}
+
+async function endCall(){
+  if(callDocRef){
+    const firestoreMod = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js");
+    await firestoreMod.updateDoc(callDocRef, { status: 'ended' }).catch(()=>{});
+  }
+  cleanupCall();
+  setCallStatus('Call ended', 'ended');
+  callEndBtn.disabled = true;
+  setTimeout(()=>{
+    callView.classList.remove('show');
+    callSection.style.display = 'block';
+    document.getElementById('recordView').style.display = 'block';
+  }, 2000);
+}
+
+liveCallBtn.addEventListener('click', startCall);
+callBackBtn.addEventListener('click', ()=>{
+  cleanupCall();
+  callView.classList.remove('show');
+  callSection.style.display = 'block';
+  document.getElementById('recordView').style.display = 'block';
+});
+callEndBtn.addEventListener('click', endCall);
+
 </script>
 </body>
 </html>
