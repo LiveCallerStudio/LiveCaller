@@ -308,6 +308,20 @@ async function startCall(){
       setStatus('ended', 'Call ended. Thank you for calling in!');
       stopTimer();
       cleanup(false);
+      // Auto-close after 3 seconds
+      setTimeout(()=>{
+        window.close();
+        // Fallback if window.close() is blocked
+        document.body.innerHTML = `
+          <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;
+            justify-content:center;background:#0a0a0a;color:#f2f2f2;font-family:Arial,sans-serif;
+            text-align:center;padding:40px 20px;gap:16px;">
+            <div style="font-size:48px;">📞</div>
+            <div style="font-size:22px;font-weight:900;">Call Ended</div>
+            <div style="font-size:14px;color:#888;">Thanks for calling in to Live Caller Studio!</div>
+            <div style="font-size:12px;color:#555;margin-top:8px;">You can close this window.</div>
+          </div>`;
+      }, 3000);
     }
   });
 
@@ -349,6 +363,18 @@ endBtn.addEventListener('click', async ()=>{
   setStatus('ended', 'Call ended. Thank you for calling in!');
   if(callDocRef) await updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
   cleanup(false);
+  setTimeout(()=>{
+    window.close();
+    document.body.innerHTML = `
+      <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;
+        justify-content:center;background:#0a0a0a;color:#f2f2f2;font-family:Arial,sans-serif;
+        text-align:center;padding:40px 20px;gap:16px;">
+        <div style="font-size:48px;">📞</div>
+        <div style="font-size:22px;font-weight:900;">Call Ended</div>
+        <div style="font-size:14px;color:#888;">Thanks for calling in to Live Caller Studio!</div>
+        <div style="font-size:12px;color:#555;margin-top:8px;">You can close this window.</div>
+      </div>`;
+  }, 2000);
 });
 
 callBtn.addEventListener('click', startCall);

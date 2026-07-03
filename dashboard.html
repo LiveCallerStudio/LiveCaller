@@ -616,6 +616,37 @@ function playChime(){
   }catch(e){}
 }
 
+// ── Phone ring — classic dual-tone (440Hz + 480Hz) with on/off pattern ──
+let phoneRingInterval = null;
+function startPhoneRing(){
+  stopPhoneRing();
+  function ring(){
+    try{
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const gain = ctx.createGain();
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + 1.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.4);
+      [440, 480].forEach(freq=>{
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 1.4);
+      });
+      setTimeout(()=> ctx.close().catch(()=>{}), 2000);
+    }catch(e){}
+  }
+  ring(); // Ring immediately
+  phoneRingInterval = setInterval(ring, 3000); // Ring every 3s (1.4s tone + 1.6s silence)
+}
+function stopPhoneRing(){
+  clearInterval(phoneRingInterval);
+  phoneRingInterval = null;
+}
+
 function timeAgo(ts){
   if(!ts) return '';
   const d = ts.toDate ? ts.toDate() : new Date(ts);
@@ -978,6 +1009,8 @@ async function answerCall(callId, callerName, callerCity){
   // Only one call at a time
   if(activePc){ alert('End the current call before answering a new one.'); return; }
 
+  stopPhoneRing(); // Stop ringing immediately on answer
+
   activeCallId = callId;
   activeCallRef = doc(db, 'liveCalls', callId);
 
@@ -997,13 +1030,15 @@ async function answerCall(callId, callerName, callerCity){
   activePc.ontrack = (event)=>{
     if(event.streams && event.streams[0]){
       callerAudio.srcObject = event.streams[0];
+      callerAudio.play().catch(e => console.warn('callerAudio play blocked:', e));
     }
   };
 
   // 4. ICE candidates — save to Firestore
+  // CRITICAL: must write to 'dashboardCandidates' to match what call.html reads
   activePc.onicecandidate = async(event)=>{
     if(event.candidate && activeCallId){
-      await addDoc(collection(db, 'liveCalls', activeCallId, 'producerCandidates'), event.candidate.toJSON());
+      await addDoc(collection(db, 'liveCalls', activeCallId, 'dashboardCandidates'), event.candidate.toJSON());
     }
   };
 
@@ -1116,7 +1151,7 @@ function startCallsListener(){
     (snap)=>{
       const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
 
-      // Incoming = ringing calls only
+      // Incoming = waiting calls only
       const ringing = calls.filter(c => c.status === 'waiting');
       const count = ringing.length;
 
@@ -1124,12 +1159,17 @@ function startCallsListener(){
       callCountNum.textContent = count;
       count > 0 ? callCounter.classList.add('show') : callCounter.classList.remove('show');
 
-      // Alert chime on new incoming call
-      snap.docChanges().forEach(change=>{
-        if(change.type === 'added' && change.doc.data().status === 'waiting'){
-          playChime();
-        }
-      });
+      // Phone ring — start when there are waiting calls, stop when queue is clear
+      if(count > 0 && !activePc){
+        // Only start ring if a NEW call just arrived
+        snap.docChanges().forEach(change=>{
+          if(change.type === 'added' && change.doc.data().status === 'waiting'){
+            startPhoneRing();
+          }
+        });
+      } else {
+        stopPhoneRing();
+      }
 
       // Render incoming call cards
       if(ringing.length === 0 && !activePc){

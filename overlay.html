@@ -4,10 +4,7 @@
 <meta charset="UTF-8">
 <title>Live Caller Studio — OBS Overlay</title>
 <style>
-  :root{
-    --green:#53FC18;
-    --black:#0a0a0a;
-  }
+  :root{ --green:#53FC18; --red:#ff3b3b; }
   html,body{
     margin:0; padding:0; background:transparent; overflow:hidden;
     width:1920px; height:1080px;
@@ -26,11 +23,12 @@
 
   .mic-badge{
     width:68px; height:68px; border-radius:50%; flex-shrink:0;
-    background:radial-gradient(circle at 35% 30%, #1c1c1c, var(--black));
+    background:radial-gradient(circle at 35% 30%, #1c1c1c, #0a0a0a);
     border:3px solid var(--green);
     box-shadow:0 0 28px rgba(83,252,24,0.55);
     display:flex; align-items:center; justify-content:center;
     color:var(--green); position:relative; z-index:2;
+    transition:border-color .3s ease, box-shadow .3s ease, color .3s ease;
   }
   .mic-badge svg{ width:30px; height:30px; }
   .mic-badge .pulse{
@@ -46,30 +44,25 @@
     background:linear-gradient(90deg, rgba(10,10,10,0.96), rgba(10,10,10,0.82) 80%, transparent);
     border-top:2px solid var(--green); border-bottom:2px solid var(--green);
     padding:10px 42px 10px 26px; margin-left:-14px; z-index:1;
+    transition:border-color .3s ease;
   }
   .lt-label{
     color:var(--green); font-size:12px; letter-spacing:2.5px;
     text-transform:uppercase; font-weight:900; margin-bottom:2px;
+    transition:color .3s ease;
   }
-  .lt-name{
-    color:#fff; font-size:26px; font-weight:900; letter-spacing:.5px;
-    text-shadow:0 0 16px rgba(0,0,0,.9);
-  }
-  .lt-city{
-    color:#b8b8b8; font-size:13px; font-weight:400;
-    font-family:Arial,Helvetica,sans-serif; margin-top:2px;
-  }
-  .lt-type{
-    font-size:11px; color:var(--green); letter-spacing:1px;
-    text-transform:uppercase; margin-top:3px;
-    font-family:Arial,Helvetica,sans-serif; font-weight:700;
-  }
-  .lower-third.livecall .mic-badge{ border-color:#ff3b3b; box-shadow:0 0 28px rgba(255,59,59,0.55); color:#ff3b3b; }
-  .lower-third.livecall .text-block{ border-top-color:#ff3b3b; border-bottom-color:#ff3b3b; }
-  .lower-third.livecall .lt-label{ color:#ff3b3b; }
-  .lower-third.livecall .lt-type{ color:#ff3b3b; }
+  .lt-name{ color:#fff; font-size:26px; font-weight:900; letter-spacing:.5px; text-shadow:0 0 16px rgba(0,0,0,.9); }
+  .lt-city{ color:#b8b8b8; font-size:13px; font-weight:400; font-family:Arial,Helvetica,sans-serif; margin-top:2px; }
+  .lt-type{ font-size:11px; color:var(--green); letter-spacing:1px; text-transform:uppercase; margin-top:3px; font-family:Arial,Helvetica,sans-serif; font-weight:700; transition:color .3s ease; }
 
-  /* ── Incoming Call ── */
+  /* Live call = red theme */
+  .lower-third.livecall .mic-badge{ border-color:var(--red); box-shadow:0 0 28px rgba(255,59,59,0.55); color:var(--red); }
+  .lower-third.livecall .text-block{ border-top-color:var(--red); border-bottom-color:var(--red); }
+  .lower-third.livecall .lt-label{ color:var(--red); }
+  .lower-third.livecall .lt-type{ color:var(--red); }
+  .lower-third.livecall .pulse{ border-color:var(--red); }
+
+  /* ── Incoming Call Notification ── */
   .incoming-call{
     position:fixed; top:40px; right:40px;
     display:flex; align-items:center; gap:14px;
@@ -83,13 +76,10 @@
   .incoming-call.show{ transform:translateY(0); opacity:1; }
   .incoming-ring{
     width:52px; height:52px; border-radius:50%; border:2px solid var(--green);
-    display:flex; align-items:center; justify-content:center;
-    color:var(--green); animation:ringpulse 1s ease-in-out infinite;
+    display:flex; align-items:center; justify-content:center; color:var(--green);
+    animation:ringpulse 1s ease-in-out infinite;
   }
-  @keyframes ringpulse{
-    0%,100%{ box-shadow:0 0 0 0 rgba(83,252,24,.5); }
-    50%{ box-shadow:0 0 0 10px rgba(83,252,24,0); }
-  }
+  @keyframes ringpulse{ 0%,100%{box-shadow:0 0 0 0 rgba(83,252,24,.5);} 50%{box-shadow:0 0 0 10px rgba(83,252,24,0);} }
   .incoming-ring svg{ width:24px; height:24px; }
   .incoming-label{ font-size:11px; color:var(--green); letter-spacing:2px; text-transform:uppercase; font-weight:900; }
   .incoming-count{ font-size:22px; font-weight:900; color:#fff; }
@@ -114,7 +104,7 @@
 </head>
 <body>
 
-<!-- 1. Lower Third -->
+<!-- Lower Third -->
 <div class="lower-third" id="lowerThird">
   <div class="mic-badge">
     <div class="pulse"></div>
@@ -126,14 +116,14 @@
     </svg>
   </div>
   <div class="text-block">
-    <div class="lt-label">⚡ LIVE CALLER</div>
+    <div class="lt-label" id="ltLabel">⚡ LIVE CALLER</div>
     <div class="lt-name" id="ltName">—</div>
     <div class="lt-city" id="ltCity"></div>
     <div class="lt-type" id="ltType"></div>
   </div>
 </div>
 
-<!-- 2. Incoming Call -->
+<!-- Incoming Call Notification -->
 <div class="incoming-call" id="incomingCall">
   <div class="incoming-ring">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -147,123 +137,137 @@
   </div>
 </div>
 
-<!-- 3. Queue Badge -->
+<!-- Queue Counter -->
 <div class="queue-badge" id="queueBadge">
   <div class="queue-dot"></div>
   <div class="queue-num" id="queueNum">0</div>
   <div class="queue-lbl">Waiting</div>
 </div>
 
-<!-- Audio — OBS captures this directly, autoplay works natively in OBS browser -->
-<audio id="overlayAudio" autoplay style="display:none;"></audio>
+<!-- Audio — voice messages play here. Live calls play through dashboard browser source in OBS -->
+<audio id="overlayAudio" autoplay playsinline style="display:none;"></audio>
 
 <script type="module">
-  import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-  import {
-    getFirestore, doc, collection, query, orderBy, onSnapshot
-  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import {
+  getFirestore, doc, collection, query, orderBy, onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey:            "AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc",
-    authDomain:        "djdeeze-hotline.firebaseapp.com",
-    projectId:         "djdeeze-hotline",
-    storageBucket:     "djdeeze-hotline.firebasestorage.app",
-    messagingSenderId: "663942225296",
-    appId:             "1:663942225296:web:c6117cf6c23656b9842715"
-  };
+const firebaseConfig = {
+  apiKey:            "AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc",
+  authDomain:        "djdeeze-hotline.firebaseapp.com",
+  projectId:         "djdeeze-hotline",
+  storageBucket:     "djdeeze-hotline.firebasestorage.app",
+  messagingSenderId: "663942225296",
+  appId:             "1:663942225296:web:c6117cf6c23656b9842715"
+};
 
-  const app  = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db   = getFirestore(app);
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
 
-  const liveStateRef  = doc(db, 'hotlineLive', 'nowPlaying');
+const liveStateRef = doc(db, 'hotlineLive', 'nowPlaying');
 
-  const lowerThird    = document.getElementById('lowerThird');
-  const ltName        = document.getElementById('ltName');
-  const ltCity        = document.getElementById('ltCity');
-  const ltType        = document.getElementById('ltType');
-  const incomingCall  = document.getElementById('incomingCall');
-  const incomingCount = document.getElementById('incomingCount');
-  const queueBadge    = document.getElementById('queueBadge');
-  const queueNum      = document.getElementById('queueNum');
-  const overlayAudio  = document.getElementById('overlayAudio');
+const lowerThird    = document.getElementById('lowerThird');
+const ltLabel       = document.getElementById('ltLabel');
+const ltName        = document.getElementById('ltName');
+const ltCity        = document.getElementById('ltCity');
+const ltType        = document.getElementById('ltType');
+const incomingCall  = document.getElementById('incomingCall');
+const incomingCount = document.getElementById('incomingCount');
+const queueBadge    = document.getElementById('queueBadge');
+const queueNum      = document.getElementById('queueNum');
+const overlayAudio  = document.getElementById('overlayAudio');
 
-  let lastUrl = null;
-  let incomingTimer = null;
-  let prevCount = 0;
+let lastUrl = null;
+let incomingTimer = null;
+let prevCount = 0;
 
-  const typeLabels = {
-    general:    '🎙️ Voice Message',
-    song:       '🎵 Song Request',
-    shoutout:   '📢 Shout-Out',
-    birthday:   '🎂 Birthday',
-    dedication: '💌 Dedication'
-  };
+const typeLabels = {
+  general:    '🎙️ Voice Message',
+  song:       '🎵 Song Request',
+  shoutout:   '📢 Shout-Out',
+  birthday:   '🎂 Birthday',
+  dedication: '💌 Dedication'
+};
 
-  signInAnonymously(auth).then(()=>{
+signInAnonymously(auth).then(()=>{
 
-    // ── Live state → lower third + audio ──
-    onSnapshot(liveStateRef, (snap)=>{
-      const data = snap.data();
+  // ── Live state → lower third + audio ──
+  onSnapshot(liveStateRef, (snap)=>{
+    const data = snap.data();
 
-      if(data && data.active){
-        ltName.textContent = data.name || 'Live Caller';
-        ltCity.textContent = data.city || '';
-        lowerThird.classList.add('show');
+    if(data && data.active){
+      const isLiveCall = data.messageType === 'livecall';
 
-        if(data.messageType === 'livecall'){
-          lowerThird.classList.add('livecall');
-          ltType.textContent = '🔴 LIVE CALL';
-          overlayAudio.pause();
-          overlayAudio.src = '';
-          lastUrl = null;
-        } else {
-          lowerThird.classList.remove('livecall');
-          ltType.textContent = typeLabels[data.messageType] || '';
+      // Set name and city
+      ltName.textContent = data.name || 'Live Caller';
+      ltCity.textContent = data.city || '';
 
-          // OBS autoplay fix — start muted, unmute immediately after play() resolves
-          if(data.audioUrl && data.audioUrl !== lastUrl){
-            lastUrl = data.audioUrl;
-            overlayAudio.src = data.audioUrl;
-            overlayAudio.muted = true;
-            overlayAudio.play().then(()=>{
-              overlayAudio.muted = false;
-            }).catch(err=> console.error('Play failed:', err));
-          }
-        }
-      } else {
-        lowerThird.classList.remove('show');
-        lowerThird.classList.remove('livecall');
+      if(isLiveCall){
+        // LIVE CALL — red theme, no audio here (OBS captures dashboard browser source)
+        lowerThird.classList.add('livecall');
+        ltLabel.textContent = '🔴 LIVE CALL';
+        ltType.textContent = 'On Air';
+        // Stop any voice message audio that was playing
         overlayAudio.pause();
-        overlayAudio.currentTime = 0;
         overlayAudio.src = '';
         lastUrl = null;
-      }
-    });
+      } else {
+        // VOICE MESSAGE — green theme, play audio through overlay
+        lowerThird.classList.remove('livecall');
+        ltLabel.textContent = '⚡ LIVE CALLER';
+        ltType.textContent = typeLabels[data.messageType] || '';
 
-    // ── Queue counter + incoming call ──
-    onSnapshot(
-      query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc')),
-      (snap)=>{
-        const count = snap.docs.filter(d => d.data().status === 'pending').length;
-
-        queueNum.textContent = count;
-        count > 0
-          ? queueBadge.classList.add('show')
-          : queueBadge.classList.remove('show');
-
-        if(count > prevCount){
-          incomingCount.textContent = `${count} waiting`;
-          incomingCall.classList.add('show');
-          clearTimeout(incomingTimer);
-          incomingTimer = setTimeout(()=> incomingCall.classList.remove('show'), 4500);
+        // Play audio — muted-then-unmute is the OBS autoplay fix
+        if(data.audioUrl && data.audioUrl !== lastUrl){
+          lastUrl = data.audioUrl;
+          overlayAudio.src = data.audioUrl;
+          overlayAudio.muted = true;
+          overlayAudio.play().then(()=>{
+            overlayAudio.muted = false;
+          }).catch(()=>{
+            // Last resort fallback — try unmuted directly
+            overlayAudio.muted = false;
+            overlayAudio.play().catch(()=>{});
+          });
         }
-        prevCount = count;
       }
-    );
 
-  }).catch(err => console.error('Overlay auth error:', err.code));
+      lowerThird.classList.add('show');
+
+    } else {
+      // Nothing on air — hide everything and stop audio
+      lowerThird.classList.remove('show');
+      lowerThird.classList.remove('livecall');
+      overlayAudio.pause();
+      overlayAudio.currentTime = 0;
+      overlayAudio.src = '';
+      lastUrl = null;
+    }
+  });
+
+  // ── Queue counter + incoming notification ──
+  onSnapshot(
+    query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc')),
+    (snap)=>{
+      const count = snap.docs.filter(d => d.data().status === 'pending').length;
+
+      queueNum.textContent = count;
+      count > 0 ? queueBadge.classList.add('show') : queueBadge.classList.remove('show');
+
+      if(count > prevCount){
+        incomingCount.textContent = `${count} waiting`;
+        incomingCall.classList.add('show');
+        clearTimeout(incomingTimer);
+        incomingTimer = setTimeout(()=> incomingCall.classList.remove('show'), 4500);
+      }
+      prevCount = count;
+    }
+  );
+
+}).catch(err=> console.error('Overlay auth error:', err.code));
 </script>
 </body>
 </html>
