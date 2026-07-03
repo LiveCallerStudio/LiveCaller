@@ -140,6 +140,50 @@
     cursor:pointer; letter-spacing:.3px; transition:color .15s ease, border-color .15s ease;
   }
   .signout-btn:hover{color:var(--red); border-color:var(--red);}
+
+  /* ── Live Call Cards ── */
+  .call-card{
+    background:var(--panel); border:2px solid var(--green); border-radius:12px;
+    padding:18px; margin-bottom:12px;
+  }
+  .call-card.on-hold{ border-color:var(--gold,#f5a623); }
+  .call-card.ended{ border-color:var(--line); opacity:.5; }
+  .call-card-top{
+    display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;
+  }
+  .call-card-ring{
+    width:46px; height:46px; border-radius:50%; border:2px solid var(--green);
+    display:flex; align-items:center; justify-content:center; color:var(--green);
+    animation:callring 1.2s ease-in-out infinite; flex-shrink:0;
+  }
+  .call-card-ring.active{ animation:none; border-color:var(--green); }
+  .call-card-ring.on-hold{ border-color:var(--gold,#f5a623); color:var(--gold,#f5a623); animation:none; }
+  .call-card-ring.ended{ border-color:var(--sub); color:var(--sub); animation:none; }
+  @keyframes callring{
+    0%,100%{box-shadow:0 0 0 0 rgba(83,252,24,.5);}
+    50%{box-shadow:0 0 0 8px rgba(83,252,24,0);}
+  }
+  .call-card-ring svg{ width:20px; height:20px; }
+  .call-card-info{ flex:1; }
+  .call-card-name{ font-size:16px; font-weight:900; }
+  .call-card-city{ color:var(--sub); font-size:12px; margin-top:2px; }
+  .call-card-status{
+    font-size:11px; letter-spacing:1px; text-transform:uppercase;
+    color:var(--green); font-weight:700; margin-top:4px;
+  }
+  .call-card-timer{ font-size:22px; font-weight:900; font-variant-numeric:tabular-nums; color:var(--text); }
+  .call-card-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .cbtn{
+    flex:1; padding:11px 10px; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--text); cursor:pointer;
+    font-size:12px; font-weight:700; letter-spacing:.3px; min-width:80px;
+    transition:filter .15s ease;
+  }
+  .cbtn:hover{ filter:brightness(1.3); }
+  .cbtn.answer{ border-color:var(--green); color:var(--green); }
+  .cbtn.end{ border-color:var(--red); color:var(--red); }
+  .cbtn.hold{ border-color:#f5a623; color:#f5a623; }
+  .cbtn.live{ background:var(--red); border-color:var(--red); color:#fff; font-weight:900; animation:pulse-red 1.5s infinite; }
   .badge{
     font-size:10px; padding:3px 8px; border-radius:10px; text-transform:uppercase; letter-spacing:.5px;
     background:rgba(83,252,24,0.15); color:var(--green); font-weight:700;
@@ -164,6 +208,79 @@
   .ibtn.favorite.active{background:#f5a623; color:#0a0a0a;}
   .ibtn.skip{color:var(--sub);}
   .card.favorited{border-left:3px solid #f5a623;}
+
+  /* ── Call Center ── */
+  .active-call-panel{
+    background:linear-gradient(135deg, rgba(83,252,24,0.06), rgba(10,10,10,0));
+    border:1px solid var(--green); border-radius:14px; padding:20px; margin-bottom:20px;
+    box-shadow:0 0 30px rgba(83,252,24,0.1);
+  }
+  .active-call-header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:8px;}
+  .active-call-badge{font-size:11px; color:var(--green); letter-spacing:2px;
+    text-transform:uppercase; font-weight:900; margin-bottom:4px;}
+  .active-call-name{font-size:22px; font-weight:900; color:var(--text);}
+  .active-call-city{font-size:12px; color:var(--sub);}
+  .active-call-timer{font-size:36px; font-weight:900; color:var(--green);
+    font-variant-numeric:tabular-nums; flex-shrink:0;}
+  .active-call-status{
+    font-size:12px; color:var(--sub); letter-spacing:1.5px; text-transform:uppercase;
+    margin-bottom:16px; font-family:Arial,Helvetica,sans-serif;
+  }
+  .active-call-status.on-air{color:var(--red); font-weight:900;}
+  .active-call-status.on-hold{color:#f5a623;}
+  .active-call-controls{display:flex; gap:10px; flex-wrap:wrap;}
+  .cbtn{
+    flex:1; min-width:100px; padding:12px 10px; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--text); cursor:pointer; font-size:13px;
+    font-weight:700; letter-spacing:.3px; transition:all .15s ease;
+  }
+  .cbtn:hover{filter:brightness(1.3);}
+  .cbtn:disabled{opacity:.3; cursor:not-allowed;}
+  .cbtn-hold{border-color:#f5a623; color:#f5a623;}
+  .cbtn-hold.on-hold{background:#f5a623; color:#0a0a0a;}
+  .cbtn-air{border-color:var(--red); color:var(--red); font-weight:900;}
+  .cbtn-air.live{background:var(--red); color:#fff; animation:pulse-red 1.5s infinite;}
+  .cbtn-end{border-color:var(--red); color:var(--red);}
+  .cbtn-end:hover{background:var(--red); color:#fff;}
+
+  .calls-section-title{font-size:11px; color:var(--sub); text-transform:uppercase;
+    letter-spacing:1.5px; margin-bottom:10px;}
+
+  .call-card{
+    background:var(--panel); border:1px solid var(--green); border-radius:12px;
+    padding:16px 18px; display:flex; align-items:center; gap:16px;
+    flex-wrap:wrap; margin-bottom:12px;
+    box-shadow:0 0 18px rgba(83,252,24,0.12); animation:flash-new 2s ease;
+  }
+  @keyframes flash-new{
+    0%,100%{box-shadow:0 0 18px rgba(83,252,24,.12);}
+    50%{box-shadow:0 0 30px rgba(83,252,24,.4);}
+  }
+  .call-ring-icon{
+    width:46px; height:46px; min-width:46px; border-radius:50%;
+    border:2px solid var(--green); display:flex; align-items:center; justify-content:center;
+    color:var(--green); animation:ringpulse 1.2s ease-in-out infinite;
+  }
+  @keyframes ringpulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(83,252,24,.5);}
+    50%{box-shadow:0 0 0 8px rgba(83,252,24,0);}
+  }
+  .call-card-body{flex:1; min-width:160px;}
+  .call-card-name{font-size:16px; font-weight:800; margin-bottom:2px;}
+  .call-card-city{font-size:12px; color:var(--sub);}
+  .call-card-time{font-size:11px; color:#555; margin-top:3px;}
+  .call-card-actions{display:flex; gap:8px;}
+  .ibtn-answer{background:var(--green); color:#0a0a0a; border:none; font-weight:900;}
+  .ibtn-reject{border-color:var(--red); color:var(--red);}
+
+  /* incoming call notification in header */
+  .call-counter{
+    display:none; align-items:center; gap:8px; background:rgba(83,252,24,0.12);
+    border:1px solid var(--green); color:var(--green); padding:6px 12px;
+    border-radius:20px; font-size:13px; font-weight:700; animation:blink-border 1s infinite;
+  }
+  .call-counter.show{display:flex;}
+  @keyframes blink-border{0%,100%{border-color:var(--green);}50%{border-color:transparent;}}
     .card{flex-direction:column; align-items:stretch;}
     .card-actions{justify-content:stretch;}
     .ibtn{flex:1; justify-content:center;}
@@ -290,6 +407,7 @@
     </div>
   </div>
   <div class="header-right">
+    <div class="call-counter" id="callCounter">📞 <span id="callCountNum">0</span> Incoming</div>
     <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
     <div class="counter"><span class="dot"></span><span id="queueCount">0 waiting</span></div>
     <input class="search" id="searchInput" placeholder="Search name, city, song…">
@@ -307,7 +425,8 @@
 <!-- Tab Navigation -->
 <nav class="tab-nav">
   <button class="tab-btn active" data-tab="queue">📥 Queue</button>
-<button class="tab-btn" data-tab="analytics">📊 Analytics</button>
+  <button class="tab-btn" data-tab="calls">📞 Calls</button>
+  <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
 </nav>
 
 <main>
@@ -318,6 +437,41 @@
       <div>No messages waiting. The queue's clear.</div>
     </div>
     <div class="queue" id="queue"></div>
+  </div>
+
+  <!-- CALLS TAB -->
+  <div class="tab-content" id="tab-calls" style="display:none;">
+
+    <!-- Active call panel — shown when a call is connected -->
+    <div class="active-call-panel" id="activeCallPanel" style="display:none;">
+      <div class="active-call-header">
+        <div class="active-call-info">
+          <div class="active-call-badge">📞 LIVE CALL</div>
+          <div class="active-call-name" id="activeCallerName">—</div>
+          <div class="active-call-city" id="activeCallerCity"></div>
+        </div>
+        <div class="active-call-timer" id="activeCallTimer">0:00</div>
+      </div>
+      <div class="active-call-status" id="activeCallStatus">Screening</div>
+      <div class="active-call-controls">
+        <button class="cbtn cbtn-hold" id="holdBtn">⏸ Hold</button>
+        <button class="cbtn cbtn-air" id="callOnAirBtn">🔴 Send On Air</button>
+        <button class="cbtn cbtn-end" id="endBtn">📵 End Call</button>
+      </div>
+    </div>
+
+    <!-- Incoming calls queue -->
+    <div class="calls-section-title" id="incomingCallsTitle" style="display:none;">
+      Incoming Calls
+    </div>
+    <div class="empty" id="callsEmpty">
+      <div class="ic">📞</div>
+      <div>No incoming calls right now.</div>
+    </div>
+    <div class="queue" id="callsQueue"></div>
+
+    <!-- Hidden audio element — producer hears caller here, OBS captures via Browser Source -->
+    <audio id="callerAudio" autoplay style="display:none;"></audio>
   </div>
 
   <!-- ANALYTICS TAB -->
@@ -369,7 +523,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   getFirestore, collection, query, orderBy, onSnapshot,
-  doc, updateDoc, deleteDoc, setDoc
+  doc, updateDoc, deleteDoc, setDoc, addDoc, getDoc
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ====== STEP 1: PASTE YOUR FIREBASE CONFIG HERE (same as index.html) ======
@@ -415,6 +569,7 @@ onAuthStateChanged(auth, (user)=>{
     loginScreen.style.display = 'none';
     dashboardApp.style.display = 'block';
     startQueueListener();
+    startCallsListener();
   } else {
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
@@ -754,6 +909,279 @@ function renderAnalytics(){
 // Only starts after login succeeds (see onAuthStateChanged below) so the queue
 // is never queried while logged out.
 let queueListenerStarted = false;
+// ═══════════════════════════════════════════════════════
+//  LIVE CALLS — WebRTC via Firestore signaling
+// ═══════════════════════════════════════════════════════
+const iceConfig = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+  ]
+};
+
+let activePc = null;         // RTCPeerConnection for current call
+let activeCallId = null;     // current call Firestore ID
+let activeCallRef = null;    // Firestore doc ref for current call
+let producerStream = null;   // producer mic stream
+let callTimerInterval = null;
+let callSeconds = 0;
+let callIsOnAir = false;
+let callIsOnHold = false;
+let callCandidateUnsub = null;
+
+// DOM refs for call UI
+const activeCallPanel  = document.getElementById('activeCallPanel');
+const activeCallerName = document.getElementById('activeCallerName');
+const activeCallerCity = document.getElementById('activeCallerCity');
+const activeCallTimer  = document.getElementById('activeCallTimer');
+const activeCallStatus = document.getElementById('activeCallStatus');
+const holdBtn          = document.getElementById('holdBtn');
+const callOnAirBtn     = document.getElementById('callOnAirBtn');
+const endBtn           = document.getElementById('endBtn');
+const callsEmpty       = document.getElementById('callsEmpty');
+const callsQueue       = document.getElementById('callsQueue');
+const callCounter      = document.getElementById('callCounter');
+const callCountNum     = document.getElementById('callCountNum');
+const incomingCallsTitle = document.getElementById('incomingCallsTitle');
+const callerAudio      = document.getElementById('callerAudio');
+
+function startCallTimer(){
+  callSeconds = 0;
+  clearInterval(callTimerInterval);
+  callTimerInterval = setInterval(()=>{
+    callSeconds++;
+    const m = Math.floor(callSeconds/60);
+    const s = callSeconds % 60;
+    activeCallTimer.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  }, 1000);
+}
+
+function setCallStatus(text, cls=''){
+  activeCallStatus.textContent = text;
+  activeCallStatus.className = 'active-call-status' + (cls ? ' '+cls : '');
+}
+
+function cleanupActiveCall(){
+  clearInterval(callTimerInterval);
+  if(callCandidateUnsub){ callCandidateUnsub(); callCandidateUnsub = null; }
+  if(activePc){ activePc.close(); activePc = null; }
+  if(producerStream){ producerStream.getTracks().forEach(t=>t.stop()); producerStream = null; }
+  callerAudio.srcObject = null;
+  activePc = null; activeCallId = null; activeCallRef = null;
+  callIsOnAir = false; callIsOnHold = false;
+  activeCallPanel.style.display = 'none';
+  onAirBadge.classList.remove('show');
+}
+
+async function answerCall(callId, callerName, callerCity){
+  // Only one call at a time
+  if(activePc){ alert('End the current call before answering a new one.'); return; }
+
+  activeCallId = callId;
+  activeCallRef = doc(db, 'liveCalls', callId);
+
+  // 1. Get producer mic
+  try{
+    producerStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  }catch(err){
+    alert('Microphone access required to answer calls. Please allow mic permissions.');
+    return;
+  }
+
+  // 2. Create peer connection
+  activePc = new RTCPeerConnection(iceConfig);
+  producerStream.getTracks().forEach(track => activePc.addTrack(track, producerStream));
+
+  // 3. Route caller audio to the hidden <audio> element (OBS captures this)
+  activePc.ontrack = (event)=>{
+    if(event.streams && event.streams[0]){
+      callerAudio.srcObject = event.streams[0];
+    }
+  };
+
+  // 4. ICE candidates — save to Firestore
+  activePc.onicecandidate = async(event)=>{
+    if(event.candidate && activeCallId){
+      await addDoc(collection(db, 'liveCalls', activeCallId, 'producerCandidates'), event.candidate.toJSON());
+    }
+  };
+
+  // 5. Get caller's offer from Firestore
+  const callSnap = await getDoc(activeCallRef);
+  const callData = callSnap.data();
+  if(!callData?.offer){ alert('Could not read call offer from Firestore.'); cleanupActiveCall(); return; }
+
+  await activePc.setRemoteDescription(new RTCSessionDescription(callData.offer));
+
+  // 6. Create answer
+  const answer = await activePc.createAnswer();
+  await activePc.setLocalDescription(answer);
+
+  // 7. Write answer + update status to 'screening'
+  await setDoc(activeCallRef, {
+    answer: { type: answer.type, sdp: answer.sdp },
+    status: 'answered'
+  }, { merge: true });
+
+  // 8. Listen for caller ICE candidates
+  callCandidateUnsub = onSnapshot(
+    collection(db, 'liveCalls', callId, 'callerCandidates'),
+    (snap)=>{
+      snap.docChanges().forEach(async(change)=>{
+        if(change.type === 'added' && activePc){
+          try{
+            await activePc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+          }catch(e){ console.error('ICE candidate error:', e); }
+        }
+      });
+    }
+  );
+
+  // 9. Show active call panel
+  activeCallerName.textContent = callerName || 'Anonymous Caller';
+  activeCallerCity.textContent = callerCity || '';
+  activeCallPanel.style.display = 'block';
+  setCallStatus('Screening — caller not on air yet');
+  holdBtn.textContent = '⏸ Hold';
+  holdBtn.classList.remove('on-hold');
+  callOnAirBtn.textContent = '🔴 Send On Air';
+  callOnAirBtn.classList.remove('live');
+  callIsOnAir = false; callIsOnHold = false;
+  startCallTimer();
+
+  // Switch to Calls tab if not already there
+  document.querySelectorAll('.tab-btn').forEach(b=> b.classList.remove('active'));
+  document.querySelector('[data-tab="calls"]').classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c=> c.style.display = 'none');
+  document.getElementById('tab-calls').style.display = 'block';
+}
+
+// Hold / unhold
+holdBtn.addEventListener('click', async()=>{
+  if(!activeCallRef) return;
+  callIsOnHold = !callIsOnHold;
+  const newStatus = callIsOnHold ? 'on-hold' : 'screening';
+  await setDoc(activeCallRef, { status: newStatus }, { merge: true });
+  holdBtn.textContent = callIsOnHold ? '▶ Resume' : '⏸ Hold';
+  holdBtn.classList.toggle('on-hold', callIsOnHold);
+  setCallStatus(callIsOnHold ? 'On Hold' : 'Screening', callIsOnHold ? 'on-hold' : '');
+});
+
+// Send call on air — audio stays in dashboard (OBS captures via Browser Source)
+// Overlay just shows the visual lower-third, no audio routed through it
+callOnAirBtn.addEventListener('click', async()=>{
+  if(!activeCallRef) return;
+  callIsOnAir = !callIsOnAir;
+
+  if(callIsOnAir){
+    callOnAirBtn.textContent = '⏹ Take Off Air';
+    callOnAirBtn.classList.add('live');
+    setCallStatus('ON AIR — Live Call Broadcasting', 'on-air');
+    onAirBadge.classList.add('show');
+    // Tell overlay to show live call lower-third (visual only — no audio URL)
+    await setDoc(liveStateRef, {
+      active: true,
+      name: activeCallerName.textContent,
+      city: activeCallerCity.textContent,
+      messageType: 'livecall',
+      audioUrl: null, // no audio URL — OBS captures call audio from dashboard browser source
+      updatedAt: Date.now()
+    });
+    await setDoc(activeCallRef, { status: 'live' }, { merge: true });
+  } else {
+    callOnAirBtn.textContent = '🔴 Send On Air';
+    callOnAirBtn.classList.remove('live');
+    setCallStatus('Screening — call taken off air');
+    onAirBadge.classList.remove('show');
+    await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+    await setDoc(activeCallRef, { status: 'answered' }, { merge: true });
+  }
+});
+
+// End call
+endBtn.addEventListener('click', async()=>{
+  if(!activeCallRef) return;
+  await setDoc(activeCallRef, { status: 'ended' }, { merge: true });
+  if(callIsOnAir){
+    await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+  }
+  cleanupActiveCall();
+});
+
+// Calls Firestore listener — shows incoming calls queue
+function startCallsListener(){
+  onSnapshot(
+    query(collection(db, 'liveCalls'), orderBy('createdAt', 'desc')),
+    (snap)=>{
+      const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
+
+      // Incoming = ringing calls only
+      const ringing = calls.filter(c => c.status === 'waiting');
+      const count = ringing.length;
+
+      // Header counter
+      callCountNum.textContent = count;
+      count > 0 ? callCounter.classList.add('show') : callCounter.classList.remove('show');
+
+      // Alert chime on new incoming call
+      snap.docChanges().forEach(change=>{
+        if(change.type === 'added' && change.doc.data().status === 'waiting'){
+          playChime();
+        }
+      });
+
+      // Render incoming call cards
+      if(ringing.length === 0 && !activePc){
+        callsEmpty.style.display = 'block';
+        callsQueue.innerHTML = '';
+        incomingCallsTitle.style.display = 'none';
+        return;
+      }
+      callsEmpty.style.display = 'none';
+      incomingCallsTitle.style.display = ringing.length > 0 ? 'block' : 'none';
+
+      callsQueue.innerHTML = ringing.map(c=>`
+        <div class="call-card" data-id="${c.id}">
+          <div class="call-ring-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+          </div>
+          <div class="call-card-body">
+            <div class="call-card-name">${escapeHtml(c.callerName || 'Anonymous Caller')}</div>
+            <div class="call-card-city">${c.callerCity ? escapeHtml(c.callerCity) : ''}</div>
+            <div class="call-card-time">${timeAgo(c.createdAt)}</div>
+          </div>
+          <div class="call-card-actions">
+            <button class="ibtn ibtn-answer" data-action="answer" data-id="${c.id}"
+              data-name="${escapeHtml(c.callerName||'')}" data-city="${escapeHtml(c.callerCity||'')}">
+              ✆ Answer
+            </button>
+            <button class="ibtn ibtn-reject" data-action="reject" data-id="${c.id}">
+              ✕ Reject
+            </button>
+          </div>
+        </div>`).join('');
+    }
+  );
+}
+
+// Calls tab action delegation
+document.addEventListener('click', async(e)=>{
+  const btn = e.target.closest('[data-action="answer"],[data-action="reject"]');
+  if(!btn) return;
+  const id   = btn.dataset.id;
+  const name = btn.dataset.name;
+  const city = btn.dataset.city;
+  if(btn.dataset.action === 'answer'){
+    await answerCall(id, name, city);
+  }
+  if(btn.dataset.action === 'reject'){
+    await setDoc(doc(db, 'liveCalls', id), { status: 'rejected' }, { merge: true });
+  }
+});
+
 function startQueueListener(){
   if(queueListenerStarted) return;
   queueListenerStarted = true;

@@ -64,6 +64,10 @@
     text-transform:uppercase; margin-top:3px;
     font-family:Arial,Helvetica,sans-serif; font-weight:700;
   }
+  .lower-third.livecall .mic-badge{ border-color:#ff3b3b; box-shadow:0 0 28px rgba(255,59,59,0.55); color:#ff3b3b; }
+  .lower-third.livecall .text-block{ border-top-color:#ff3b3b; border-bottom-color:#ff3b3b; }
+  .lower-third.livecall .lt-label{ color:#ff3b3b; }
+  .lower-third.livecall .lt-type{ color:#ff3b3b; }
 
   /* ── Incoming Call ── */
   .incoming-call{
@@ -206,20 +210,31 @@
       if(data && data.active){
         ltName.textContent = data.name || 'Live Caller';
         ltCity.textContent = data.city || '';
-        ltType.textContent = typeLabels[data.messageType] || '';
         lowerThird.classList.add('show');
 
-        // OBS autoplay fix — start muted, unmute immediately after play() resolves
-        if(data.audioUrl && data.audioUrl !== lastUrl){
-          lastUrl = data.audioUrl;
-          overlayAudio.src = data.audioUrl;
-          overlayAudio.muted = true;
-          overlayAudio.play().then(()=>{
-            overlayAudio.muted = false; // unmute once playing — bypasses OBS autoplay restriction
-          }).catch(err=> console.error('Play failed:', err));
+        if(data.messageType === 'livecall'){
+          lowerThird.classList.add('livecall');
+          ltType.textContent = '🔴 LIVE CALL';
+          overlayAudio.pause();
+          overlayAudio.src = '';
+          lastUrl = null;
+        } else {
+          lowerThird.classList.remove('livecall');
+          ltType.textContent = typeLabels[data.messageType] || '';
+
+          // OBS autoplay fix — start muted, unmute immediately after play() resolves
+          if(data.audioUrl && data.audioUrl !== lastUrl){
+            lastUrl = data.audioUrl;
+            overlayAudio.src = data.audioUrl;
+            overlayAudio.muted = true;
+            overlayAudio.play().then(()=>{
+              overlayAudio.muted = false;
+            }).catch(err=> console.error('Play failed:', err));
+          }
         }
       } else {
         lowerThird.classList.remove('show');
+        lowerThird.classList.remove('livecall');
         overlayAudio.pause();
         overlayAudio.currentTime = 0;
         overlayAudio.src = '';

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#53FC18">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Live Call In">
+<title>Live Caller Studio — Call In Live</title>
+<style>
+  :root{
+    --green:#53FC18;
+    --red:#ff3b3b;
+    --black:#0a0a0a;
+    --panel:#131313;
+    --panel2:#1b1b1b;
+    --line:#2a2a2a;
+    --text:#f2f2f2;
+    --sub:#9a9a9a;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0;
+    background:radial-gradient(circle at 50% -10%, rgba(83,252,24,0.10), transparent 55%), var(--black);
+    color:var(--text);
+    font-family:'Arial Black','Helvetica Neue',Arial,sans-serif;
+    min-height:100vh;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:32px 16px;
+  }
+  .bolt{ position:fixed; opacity:.07; color:var(--green); font-size:140px; z-index:0; pointer-events:none; user-select:none; }
+  .bolt.b1{ top:-20px; left:-30px; transform:rotate(-12deg); }
+  .bolt.b2{ bottom:-40px; right:-30px; transform:rotate(8deg); }
+  .wrap{ position:relative; z-index:1; width:100%; max-width:420px; display:flex; flex-direction:column; align-items:center; }
+
+  .brand{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .brand-bolt{ color:var(--green); font-size:20px; }
+  .brand-name{ font-size:16px; letter-spacing:2px; font-weight:900; text-transform:uppercase; }
+  .brand-name span{ color:var(--green); }
+  .page-type{ color:var(--sub); font-family:Arial,sans-serif; font-size:11px; letter-spacing:2px; text-transform:uppercase; margin-bottom:28px; }
+
+  /* Setup screen */
+  #setupScreen{ width:100%; }
+  #setupScreen h1{ font-size:24px; text-align:center; margin:0 0 6px; line-height:1.2; }
+  #setupScreen p{ font-family:Arial,sans-serif; color:var(--sub); font-size:13px; text-align:center; margin:0 0 28px; }
+
+  .field{ margin-bottom:14px; width:100%; }
+  .field label{ display:block; font-family:Arial,sans-serif; font-size:11px; color:var(--sub); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+  .field input{ width:100%; background:var(--black); border:1px solid var(--line); border-radius:8px; padding:12px 14px; color:var(--text); font-family:Arial,sans-serif; font-size:14px; }
+  .field input:focus{ outline:none; border-color:var(--green); }
+
+  .call-btn{
+    width:100%; padding:16px; border-radius:12px; border:none;
+    background:var(--green); color:#0a0a0a; font-weight:900;
+    font-size:16px; letter-spacing:.5px; text-transform:uppercase; cursor:pointer;
+    margin-top:8px; transition:filter .15s ease;
+  }
+  .call-btn:hover{ filter:brightness(1.1); }
+  .call-btn:disabled{ opacity:.4; cursor:not-allowed; }
+
+  /* Call screen */
+  #callScreen{ display:none; width:100%; text-align:center; }
+
+  .call-visual{
+    width:140px; height:140px; border-radius:50%; margin:0 auto 20px;
+    border:3px solid var(--green);
+    box-shadow:0 0 40px rgba(83,252,24,0.3);
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+  }
+  .call-visual.ringing{ border-color:var(--green); animation:ringpulse 1.2s ease-in-out infinite; }
+  .call-visual.connected{ border-color:var(--green); }
+  .call-visual.held{ border-color:#f5a623; box-shadow:0 0 40px rgba(245,166,35,0.3); }
+  .call-visual.ended{ border-color:var(--red); box-shadow:0 0 40px rgba(255,59,59,0.3); }
+  @keyframes ringpulse{
+    0%,100%{ box-shadow:0 0 0 0 rgba(83,252,24,0.5), 0 0 40px rgba(83,252,24,0.3); }
+    50%{ box-shadow:0 0 0 20px rgba(83,252,24,0), 0 0 40px rgba(83,252,24,0.3); }
+  }
+  .call-visual svg{ width:60px; height:60px; color:var(--green); }
+  .call-visual.held svg{ color:#f5a623; }
+  .call-visual.ended svg{ color:var(--red); }
+
+  .call-status{ font-size:22px; font-weight:900; margin:0 0 6px; }
+  .call-timer{ font-size:32px; font-weight:900; color:var(--green); font-variant-numeric:tabular-nums; letter-spacing:2px; min-height:40px; margin-bottom:6px; }
+  .call-sub{ font-family:Arial,sans-serif; color:var(--sub); font-size:13px; margin-bottom:28px; }
+
+  .call-controls{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; width:100%; }
+  .ctrl-btn{
+    flex:1; min-width:100px; padding:14px 10px; border-radius:10px; border:none; cursor:pointer;
+    font-family:Arial,sans-serif; font-weight:700; font-size:13px; text-transform:uppercase;
+    letter-spacing:.5px; transition:filter .15s ease;
+  }
+  .ctrl-btn:active{ transform:scale(.97); }
+  .ctrl-btn.mute{ background:var(--panel2); color:var(--text); border:1px solid var(--line); }
+  .ctrl-btn.mute.active{ background:rgba(255,59,59,0.15); border-color:var(--red); color:var(--red); }
+  .ctrl-btn.endcall{ background:var(--red); color:#fff; }
+  .ctrl-btn:disabled{ opacity:.4; cursor:not-allowed; }
+
+  .status-badge{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 14px; border-radius:20px; font-size:12px;
+    font-family:Arial,sans-serif; font-weight:700; letter-spacing:1px;
+    text-transform:uppercase; margin-bottom:16px;
+  }
+  .status-badge.waiting{ background:rgba(83,252,24,0.12); color:var(--green); border:1px solid rgba(83,252,24,0.3); }
+  .status-badge.connected{ background:rgba(83,252,24,0.2); color:var(--green); border:1px solid var(--green); }
+  .status-badge.held{ background:rgba(245,166,35,0.15); color:#f5a623; border:1px solid rgba(245,166,35,0.4); }
+  .status-badge.ended{ background:rgba(255,59,59,0.12); color:var(--red); border:1px solid rgba(255,59,59,0.3); }
+  .status-dot{ width:7px; height:7px; border-radius:50%; background:currentColor; animation:blink 1.4s infinite; }
+  .status-badge.connected .status-dot{ animation:blink 1.4s infinite; }
+  .status-badge.ended .status-dot{ animation:none; }
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.2;} }
+
+  .error-banner{
+    display:none; background:rgba(255,59,59,0.12); border:1px solid var(--red); color:#ff8a8a;
+    font-family:Arial,sans-serif; font-size:13px; padding:12px 14px; border-radius:8px;
+    margin-bottom:18px; width:100%; line-height:1.4;
+  }
+  .error-banner.show{ display:block; }
+
+  @media(max-width:380px){
+    #setupScreen h1{ font-size:20px; }
+    .call-visual{ width:120px; height:120px; }
+    .call-timer{ font-size:26px; }
+  }
+</style>
+</head>
+<body>
+<div class="bolt b1">⚡</div>
+<div class="bolt b2">⚡</div>
+
+<div class="wrap">
+  <div class="brand">
+    <span class="brand-bolt">⚡</span>
+    <span class="brand-name">LIVE <span>CALLER</span> STUDIO</span>
+  </div>
+  <div class="page-type">Live Call In</div>
+
+  <!-- Setup Screen -->
+  <div id="setupScreen">
+    <h1>Call In Live</h1>
+    <p>Enter your name and tap Call In. You'll be connected to the producer for screening before going on air.</p>
+    <div class="error-banner" id="errorBanner"></div>
+    <div class="field">
+      <label>Your Name</label>
+      <input type="text" id="callerName" maxlength="40" placeholder="What should we call you?" autocomplete="name">
+    </div>
+    <div class="field">
+      <label>City <span style="color:#555;font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+      <input type="text" id="callerCity" maxlength="40" placeholder="Where are you calling from?">
+    </div>
+    <button class="call-btn" id="callBtn">📞 Call In Live</button>
+  </div>
+
+  <!-- Call Screen -->
+  <div id="callScreen">
+    <div class="call-visual" id="callVisual">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+      </svg>
+    </div>
+
+    <div class="status-badge waiting" id="statusBadge"><span class="status-dot"></span><span id="statusText">Waiting</span></div>
+    <div class="call-status" id="callerNameDisplay">—</div>
+    <div class="call-timer" id="callTimer"></div>
+    <div class="call-sub" id="callSub">Waiting for producer to answer…</div>
+
+    <div class="call-controls">
+      <button class="ctrl-btn mute" id="muteBtn">🎤 Mute</button>
+      <button class="ctrl-btn endcall" id="endBtn">End Call</button>
+    </div>
+  </div>
+</div>
+
+<audio id="remoteAudio" autoplay playsinline style="display:none;"></audio>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getFirestore, collection, doc, addDoc, updateDoc,
+  onSnapshot, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc",
+  authDomain:        "djdeeze-hotline.firebaseapp.com",
+  projectId:         "djdeeze-hotline",
+  storageBucket:     "djdeeze-hotline.firebasestorage.app",
+  messagingSenderId: "663942225296",
+  appId:             "1:663942225296:web:c6117cf6c23656b9842715"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+const STUN = { iceServers:[{ urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302'] }] };
+
+let pc = null;
+let localStream = null;
+let callDocRef = null;
+let timerInterval = null;
+let callSeconds = 0;
+let micMuted = false;
+
+const setupScreen      = document.getElementById('setupScreen');
+const callScreen       = document.getElementById('callScreen');
+const callBtn          = document.getElementById('callBtn');
+const callerNameInput  = document.getElementById('callerName');
+const callerCityInput  = document.getElementById('callerCity');
+const callVisual       = document.getElementById('callVisual');
+const statusBadge      = document.getElementById('statusBadge');
+const statusText       = document.getElementById('statusText');
+const callerNameDisplay= document.getElementById('callerNameDisplay');
+const callTimer        = document.getElementById('callTimer');
+const callSub          = document.getElementById('callSub');
+const muteBtn          = document.getElementById('muteBtn');
+const endBtn           = document.getElementById('endBtn');
+const remoteAudio      = document.getElementById('remoteAudio');
+const errorBanner      = document.getElementById('errorBanner');
+
+function showError(msg){ errorBanner.textContent = msg; errorBanner.classList.add('show'); }
+function clearError(){ errorBanner.classList.remove('show'); }
+
+function formatTimer(s){
+  const m = Math.floor(s/60);
+  return `${m}:${(s%60).toString().padStart(2,'0')}`;
+}
+
+function setStatus(state, sub){
+  statusBadge.className = 'status-badge ' + state;
+  statusText.textContent = { waiting:'Waiting', connected:'Connected', held:'On Hold', ended:'Call Ended' }[state] || state;
+  callVisual.className = 'call-visual ' + state;
+  callSub.textContent = sub || '';
+}
+
+function startTimer(){
+  callSeconds = 0;
+  timerInterval = setInterval(()=>{ callSeconds++; callTimer.textContent = formatTimer(callSeconds); }, 1000);
+}
+
+function stopTimer(){ clearInterval(timerInterval); }
+
+async function startCall(){
+  clearError();
+  const name = callerNameInput.value.trim();
+  if(!name){ showError('Please enter your name before calling in.'); return; }
+
+  callBtn.disabled = true;
+  callBtn.textContent = 'Connecting…';
+
+  try{
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio:{ echoCancellation:true, noiseSuppression:true, sampleRate:48000 }
+    });
+  }catch(err){
+    showError('Microphone access is required to call in. Please allow microphone access and try again.');
+    callBtn.disabled = false;
+    callBtn.textContent = '📞 Call In Live';
+    return;
+  }
+
+  pc = new RTCPeerConnection(STUN);
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+  // Receive producer audio
+  const remoteStream = new MediaStream();
+  pc.ontrack = (e) => {
+    remoteStream.addTrack(e.track);
+    remoteAudio.srcObject = remoteStream;
+  };
+
+  // Create offer
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+
+  // Save call to Firestore
+  callDocRef = await addDoc(collection(db, 'liveCalls'), {
+    callerName: name,
+    callerCity: callerCityInput.value.trim() || null,
+    offer:{ type: offer.type, sdp: offer.sdp },
+    status: 'waiting',
+    createdAt: serverTimestamp()
+  });
+
+  // Send caller ICE candidates
+  pc.onicecandidate = (e) => {
+    if(e.candidate){
+      addDoc(collection(db, 'liveCalls', callDocRef.id, 'callerCandidates'), e.candidate.toJSON());
+    }
+  };
+
+  // Listen for answer + status changes
+  onSnapshot(callDocRef, async (snap) => {
+    const data = snap.data();
+    if(!data) return;
+
+    if(data.answer && !pc.currentRemoteDescription){
+      await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+    }
+
+    if(data.status === 'answered' || data.status === 'live'){
+      setStatus('connected', 'Connected to producer');
+      if(!timerInterval) startTimer();
+    } else if(data.status === 'held'){
+      setStatus('held', 'You\'re on hold — producer will be right with you');
+    } else if(data.status === 'ended'){
+      setStatus('ended', 'Call ended. Thank you for calling in!');
+      stopTimer();
+      cleanup(false);
+    }
+  });
+
+  // Receive dashboard ICE candidates
+  onSnapshot(collection(db, 'liveCalls', callDocRef.id, 'dashboardCandidates'), (snap) => {
+    snap.docChanges().forEach(async (change) => {
+      if(change.type === 'added'){
+        try{ await pc.addIceCandidate(new RTCIceCandidate(change.doc.data())); }catch(e){}
+      }
+    });
+  });
+
+  // Show call screen
+  setupScreen.style.display = 'none';
+  callScreen.style.display = 'block';
+  callerNameDisplay.textContent = name;
+  setStatus('waiting', 'Waiting for producer to answer…');
+}
+
+function cleanup(updateFirestore = true){
+  if(localStream) localStream.getTracks().forEach(t => t.stop());
+  if(pc){ pc.close(); pc = null; }
+  if(updateFirestore && callDocRef){
+    updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
+  }
+}
+
+muteBtn.addEventListener('click', ()=>{
+  if(!localStream) return;
+  micMuted = !micMuted;
+  localStream.getAudioTracks().forEach(t => t.enabled = !micMuted);
+  muteBtn.textContent = micMuted ? '🔇 Unmute' : '🎤 Mute';
+  muteBtn.classList.toggle('active', micMuted);
+});
+
+endBtn.addEventListener('click', async ()=>{
+  endBtn.disabled = true;
+  stopTimer();
+  setStatus('ended', 'Call ended. Thank you for calling in!');
+  if(callDocRef) await updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
+  cleanup(false);
+});
+
+callBtn.addEventListener('click', startCall);
+callerNameInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') startCall(); });
+
+window.addEventListener('beforeunload', ()=> cleanup(true));
+</script>
+</body>
+</html>
