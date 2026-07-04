@@ -203,6 +203,72 @@ let timerInterval = null;
 let callSeconds = 0;
 let micMuted = false;
 
+// ── Outgoing ring tone (caller hears this while waiting for answer) ──
+let outgoingRingInterval = null;
+function startOutgoingRing(){
+  stopOutgoingRing();
+  function ring(){
+    try{
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const gain = ctx.createGain();
+      gain.connect(ctx.destination);
+      // Single clear tone - standard mobile outgoing ring pattern
+      [440].forEach(freq=>{
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.gain.setValueAtTime(0.25, ctx.currentTime);
+        gain.gain.setValueAtTime(0.25, ctx.currentTime + 0.5);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.65);
+      });
+      setTimeout(()=> ctx.close().catch(()=>{}), 1000);
+    }catch(e){}
+  }
+  ring();
+  // Ring twice rapidly (brring brring) then pause
+  setTimeout(ring, 700);
+  outgoingRingInterval = setInterval(()=>{ ring(); setTimeout(ring, 700); }, 3500);
+}
+function stopOutgoingRing(){
+  clearInterval(outgoingRingInterval);
+  outgoingRingInterval = null;
+}
+
+// ── Hold music (plays in caller's browser when producer puts them on hold) ──
+let holdMusicCtx = null;
+let holdMusicTimeout = null;
+function startHoldMusicCaller(){
+  stopHoldMusicCaller();
+  holdMusicCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const notes = [261.63,329.63,392.00,523.25,392.00,329.63,261.63,0,0,0];
+  let idx = 0;
+  function tick(){
+    if(!holdMusicCtx) return;
+    const freq = notes[idx % notes.length];
+    if(freq){
+      const osc = holdMusicCtx.createOscillator();
+      const env = holdMusicCtx.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      osc.connect(env); env.connect(holdMusicCtx.destination);
+      env.gain.setValueAtTime(0, holdMusicCtx.currentTime);
+      env.gain.linearRampToValueAtTime(0.15, holdMusicCtx.currentTime + 0.04);
+      env.gain.exponentialRampToValueAtTime(0.001, holdMusicCtx.currentTime + 0.45);
+      osc.start(); osc.stop(holdMusicCtx.currentTime + 0.45);
+    }
+    idx++;
+    holdMusicTimeout = setTimeout(tick, 480);
+  }
+  tick();
+}
+function stopHoldMusicCaller(){
+  clearTimeout(holdMusicTimeout);
+  holdMusicTimeout = null;
+  if(holdMusicCtx){ holdMusicCtx.close().catch(()=>{}); holdMusicCtx = null; }
+}
+
 const setupScreen      = document.getElementById('setupScreen');
 const callScreen       = document.getElementById('callScreen');
 const callBtn          = document.getElementById('callBtn');
@@ -300,18 +366,39 @@ async function startCall(){
     }
 
     if(data.status === 'answered' || data.status === 'live'){
-      setStatus('connected', 'Connected to producer');
+      stopOutgoingRing(); // Stop ringing — producer answered
+      stopHoldMusicCaller(); // Stop hold music if resuming from hold
+      setStatus('connected', 'Connected — you may be put on air');
       if(!timerInterval) startTimer();
     } else if(data.status === 'held'){
+      stopOutgoingRing();
       setStatus('held', 'You\'re on hold — producer will be right with you');
+      startHoldMusicCaller(); // Play hold music in caller's browser
+    } else if(data.status === 'rejected'){
+      stopOutgoingRing();
+      stopHoldMusicCaller();
+      setStatus('ended', 'Call could not be connected right now. Try again soon!');
+      stopTimer();
+      cleanup(false);
+      setTimeout(()=>{
+        window.close();
+        document.body.innerHTML = `
+          <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;
+            justify-content:center;background:#0a0a0a;color:#f2f2f2;font-family:Arial,sans-serif;
+            text-align:center;padding:40px 20px;gap:16px;">
+            <div style="font-size:48px;">📵</div>
+            <div style="font-size:22px;font-weight:900;">Not Available</div>
+            <div style="font-size:14px;color:#888;">The producer is unavailable right now. Try calling back soon!</div>
+          </div>`;
+      }, 3000);
     } else if(data.status === 'ended'){
+      stopOutgoingRing();
+      stopHoldMusicCaller();
       setStatus('ended', 'Call ended. Thank you for calling in!');
       stopTimer();
       cleanup(false);
-      // Auto-close after 3 seconds
       setTimeout(()=>{
         window.close();
-        // Fallback if window.close() is blocked
         document.body.innerHTML = `
           <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;
             justify-content:center;background:#0a0a0a;color:#f2f2f2;font-family:Arial,sans-serif;
@@ -334,11 +421,12 @@ async function startCall(){
     });
   });
 
-  // Show call screen
+  // Show call screen and start ringing
   setupScreen.style.display = 'none';
   callScreen.style.display = 'block';
   callerNameDisplay.textContent = name;
-  setStatus('waiting', 'Waiting for producer to answer…');
+  setStatus('waiting', 'Calling Live Caller Studio…');
+  startOutgoingRing(); // Start outgoing ring while waiting
 }
 
 function cleanup(updateFirestore = true){
@@ -359,6 +447,8 @@ muteBtn.addEventListener('click', ()=>{
 
 endBtn.addEventListener('click', async ()=>{
   endBtn.disabled = true;
+  stopOutgoingRing();
+  stopHoldMusicCaller();
   stopTimer();
   setStatus('ended', 'Call ended. Thank you for calling in!');
   if(callDocRef) await updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
@@ -380,7 +470,7 @@ endBtn.addEventListener('click', async ()=>{
 callBtn.addEventListener('click', startCall);
 callerNameInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') startCall(); });
 
-window.addEventListener('beforeunload', ()=> cleanup(true));
+window.addEventListener('beforeunload', ()=>{ stopOutgoingRing(); stopHoldMusicCaller(); cleanup(true); });
 </script>
 </body>
 </html>

@@ -238,9 +238,37 @@
   .cbtn:disabled{opacity:.3; cursor:not-allowed;}
   .cbtn-hold{border-color:#f5a623; color:#f5a623;}
   .cbtn-hold.on-hold{background:#f5a623; color:#0a0a0a;}
+  .cbtn-mute{border-color:var(--sub); color:var(--sub);}
+  .cbtn-mute.muted{background:var(--red); border-color:var(--red); color:#fff;}
+  .cbtn-record{border-color:#e74c3c; color:#e74c3c;}
+  .cbtn-record.recording{background:#e74c3c; color:#fff; animation:pulse-red 1.2s infinite;}
   .cbtn-air{border-color:var(--red); color:var(--red); font-weight:900;}
   .cbtn-air.live{background:var(--red); color:#fff; animation:pulse-red 1.5s infinite;}
   .cbtn-end{border-color:var(--red); color:var(--red);}
+  .record-status{
+    font-family:Arial,sans-serif; font-size:12px; color:var(--sub);
+    text-align:center; min-height:18px; margin-top:8px; letter-spacing:.5px;
+  }
+  .record-status.saved{color:var(--green);}
+
+  /* History cards */
+  .hist-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:14px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    margin-bottom:10px;
+  }
+  .hist-icon{font-size:22px; min-width:28px;}
+  .hist-body{flex:1; min-width:160px;}
+  .hist-name{font-weight:800; font-size:14px;}
+  .hist-meta{font-size:12px; color:var(--sub); margin-top:2px; font-family:Arial,sans-serif;}
+  .hist-right{display:flex; flex-direction:column; align-items:flex-end; gap:6px;}
+  .hist-dur{font-size:13px; color:var(--green); font-weight:700; font-variant-numeric:tabular-nums;}
+  .hist-time{font-size:11px; color:#5a5a5a;}
+  .hist-play{
+    padding:6px 12px; border-radius:6px; border:1px solid var(--green); background:transparent;
+    color:var(--green); font-size:11px; font-weight:700; cursor:pointer;
+  }
+  .hist-play:hover{background:var(--green); color:#0a0a0a;}
   .cbtn-end:hover{background:var(--red); color:#fff;}
 
   .calls-section-title{font-size:11px; color:var(--sub); text-transform:uppercase;
@@ -426,6 +454,7 @@
 <nav class="tab-nav">
   <button class="tab-btn active" data-tab="queue">📥 Queue</button>
   <button class="tab-btn" data-tab="calls">📞 Calls</button>
+  <button class="tab-btn" data-tab="history">📋 History</button>
   <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
 </nav>
 
@@ -455,9 +484,12 @@
       <div class="active-call-status" id="activeCallStatus">Screening</div>
       <div class="active-call-controls">
         <button class="cbtn cbtn-hold" id="holdBtn">⏸ Hold</button>
+        <button class="cbtn cbtn-mute" id="micMuteBtn">🎤 Mute Mic</button>
+        <button class="cbtn cbtn-record" id="recordBtn">⏺ Record</button>
         <button class="cbtn cbtn-air" id="callOnAirBtn">🔴 Send On Air</button>
         <button class="cbtn cbtn-end" id="endBtn">📵 End Call</button>
       </div>
+      <div class="record-status" id="recordStatus"></div>
     </div>
 
     <!-- Incoming calls queue -->
@@ -510,6 +542,33 @@
       <div id="topCities" class="breakdown-list"></div>
     </div>
   </div>
+
+  <!-- CALL HISTORY TAB -->
+  <div class="tab-content" id="tab-history" style="display:none;">
+    <div class="analytics-grid" style="margin-bottom:20px;">
+      <div class="stat-card">
+        <div class="stat-value" id="histTotal">—</div>
+        <div class="stat-label">Total Calls</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="histToday">—</div>
+        <div class="stat-label">Today</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="histAvgDur">—</div>
+        <div class="stat-label">Avg Duration</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="histRecorded">—</div>
+        <div class="stat-label">Recorded</div>
+      </div>
+    </div>
+    <div class="empty" id="histEmpty" style="display:none;">
+      <div class="ic">📋</div>
+      <div>No call history yet. Calls appear here after they end.</div>
+    </div>
+    <div class="queue" id="histList"></div>
+  </div>
 </main>
 
 <audio id="hiddenPlayer" class="hiddenplayer"></audio>
@@ -523,7 +582,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   getFirestore, collection, query, orderBy, onSnapshot,
-  doc, updateDoc, deleteDoc, setDoc, addDoc, getDoc
+  doc, updateDoc, deleteDoc, setDoc, addDoc, getDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ====== STEP 1: PASTE YOUR FIREBASE CONFIG HERE (same as index.html) ======
@@ -570,6 +629,7 @@ onAuthStateChanged(auth, (user)=>{
     dashboardApp.style.display = 'block';
     startQueueListener();
     startCallsListener();
+    startCallHistoryListener();
   } else {
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
@@ -976,6 +1036,19 @@ const callCounter      = document.getElementById('callCounter');
 const callCountNum     = document.getElementById('callCountNum');
 const incomingCallsTitle = document.getElementById('incomingCallsTitle');
 const callerAudio      = document.getElementById('callerAudio');
+const micMuteBtn       = document.getElementById('micMuteBtn');
+const recordBtn        = document.getElementById('recordBtn');
+const recordStatus     = document.getElementById('recordStatus');
+let micMuted = false;
+let callRecorder = null;
+let callRecordingChunks = [];
+let isRecording = false;
+let callStartTime = null;
+let activeCallerCity2 = ''; // store city for history
+
+// Hold music state
+let holdMusicCtx = null;
+let holdMusicTimeout = null;
 
 function startCallTimer(){
   callSeconds = 0;
@@ -1083,6 +1156,15 @@ async function answerCall(callId, callerName, callerCity){
   callOnAirBtn.textContent = '🔴 Send On Air';
   callOnAirBtn.classList.remove('live');
   callIsOnAir = false; callIsOnHold = false;
+  // Reset recording + mute state
+  callStartTime = Date.now();
+  micMuted = false;
+  micMuteBtn.textContent = '🎤 Mute Mic';
+  micMuteBtn.classList.remove('muted');
+  recordBtn.textContent = '⏺ Record';
+  recordBtn.classList.remove('recording');
+  recordStatus.textContent = '';
+  isRecording = false;
   startCallTimer();
 
   // Switch to Calls tab if not already there
@@ -1092,16 +1174,147 @@ async function answerCall(callId, callerName, callerCity){
   document.getElementById('tab-calls').style.display = 'block';
 }
 
+// ── Hold music via WebRTC track replacement ──
+function buildHoldMusicStream(){
+  holdMusicCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const dest = holdMusicCtx.createMediaStreamDestination();
+  // Pleasant C-major arpeggio — caller hears this while on hold
+  const notes = [261.63,329.63,392.00,523.25,392.00,329.63,261.63,0];
+  let idx = 0;
+  function tick(){
+    if(!holdMusicCtx) return;
+    const freq = notes[idx % notes.length];
+    if(freq){
+      const osc = holdMusicCtx.createOscillator();
+      const env = holdMusicCtx.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      osc.connect(env); env.connect(dest);
+      env.gain.setValueAtTime(0, holdMusicCtx.currentTime);
+      env.gain.linearRampToValueAtTime(0.18, holdMusicCtx.currentTime + 0.04);
+      env.gain.exponentialRampToValueAtTime(0.001, holdMusicCtx.currentTime + 0.45);
+      osc.start(); osc.stop(holdMusicCtx.currentTime + 0.45);
+    }
+    idx++;
+    holdMusicTimeout = setTimeout(tick, 420);
+  }
+  tick();
+  return dest.stream;
+}
+
+function stopHoldMusic(){
+  clearTimeout(holdMusicTimeout);
+  if(holdMusicCtx){ holdMusicCtx.close().catch(()=>{}); holdMusicCtx = null; }
+}
+
 // Hold / unhold
 holdBtn.addEventListener('click', async()=>{
-  if(!activeCallRef) return;
+  if(!activeCallRef || !activePc) return;
   callIsOnHold = !callIsOnHold;
-  const newStatus = callIsOnHold ? 'on-hold' : 'screening';
-  await setDoc(activeCallRef, { status: newStatus }, { merge: true });
-  holdBtn.textContent = callIsOnHold ? '▶ Resume' : '⏸ Hold';
-  holdBtn.classList.toggle('on-hold', callIsOnHold);
-  setCallStatus(callIsOnHold ? 'On Hold' : 'Screening', callIsOnHold ? 'on-hold' : '');
+
+  if(callIsOnHold){
+    // Mute producer mic
+    if(producerStream) producerStream.getAudioTracks().forEach(t => t.enabled = false);
+    // Replace sender track with hold music
+    const holdStream = buildHoldMusicStream();
+    const holdTrack = holdStream.getAudioTracks()[0];
+    const sender = activePc.getSenders().find(s => s.track?.kind === 'audio');
+    if(sender && holdTrack) await sender.replaceTrack(holdTrack).catch(()=>{});
+    holdBtn.textContent = '▶ Resume';
+    holdBtn.classList.add('on-hold');
+    setCallStatus('On Hold — caller hears hold music', 'on-hold');
+    await setDoc(activeCallRef, { status: 'held' }, { merge: true });
+  } else {
+    // Restore producer mic track
+    stopHoldMusic();
+    if(producerStream){
+      producerStream.getAudioTracks().forEach(t => t.enabled = true);
+      const sender = activePc.getSenders().find(s => s.track?.kind === 'audio');
+      const micTrack = producerStream.getAudioTracks()[0];
+      if(sender && micTrack) await sender.replaceTrack(micTrack).catch(()=>{});
+    }
+    holdBtn.textContent = '⏸ Hold';
+    holdBtn.classList.remove('on-hold');
+    setCallStatus('Screening', '');
+    await setDoc(activeCallRef, { status: 'answered' }, { merge: true });
+  }
 });
+
+// Mic mute (dashboard only — caller still hears hold music or silence)
+micMuteBtn.addEventListener('click', ()=>{
+  if(!producerStream) return;
+  micMuted = !micMuted;
+  producerStream.getAudioTracks().forEach(t => t.enabled = !micMuted);
+  micMuteBtn.textContent = micMuted ? '🔇 Unmute Mic' : '🎤 Mute Mic';
+  micMuteBtn.classList.toggle('muted', micMuted);
+});
+
+// ── Call Recording ──
+function startCallRecording(){
+  if(!callerAudio.srcObject){ recordStatus.textContent = 'No call audio to record.'; return; }
+  callRecordingChunks = [];
+  const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+  try{
+    callRecorder = new MediaRecorder(callerAudio.srcObject, { mimeType });
+  }catch(e){
+    recordStatus.textContent = 'Recording not supported in this browser.'; return;
+  }
+  callRecorder.ondataavailable = e =>{ if(e.data.size > 0) callRecordingChunks.push(e.data); };
+  callRecorder.start(1000);
+  isRecording = true;
+  recordBtn.textContent = '⏹ Stop Recording';
+  recordBtn.classList.add('recording');
+  recordStatus.textContent = '⏺ Recording…';
+}
+
+async function stopCallRecording(){
+  if(!callRecorder || callRecorder.state === 'inactive') return null;
+  isRecording = false;
+  recordBtn.textContent = '⏺ Record';
+  recordBtn.classList.remove('recording');
+  recordStatus.textContent = '☁ Uploading recording…';
+
+  return new Promise(resolve =>{
+    callRecorder.onstop = async ()=>{
+      const blob = new Blob(callRecordingChunks, { type: callRecorder.mimeType });
+      const fd = new FormData();
+      fd.append('file', blob);
+      fd.append('upload_preset', 'djdeeze_hotline');
+      try{
+        const res = await fetch('https://api.cloudinary.com/v1_1/vz1v6nzp/video/upload',{ method:'POST', body:fd });
+        const data = await res.json();
+        recordStatus.textContent = '✅ Recording saved';
+        recordStatus.className = 'record-status saved';
+        setTimeout(()=>{ recordStatus.textContent = ''; recordStatus.className = 'record-status'; }, 4000);
+        resolve(data.secure_url);
+      }catch(e){
+        recordStatus.textContent = 'Recording upload failed.';
+        resolve(null);
+      }
+    };
+    callRecorder.stop();
+  });
+}
+
+recordBtn.addEventListener('click', ()=>{
+  if(isRecording) stopCallRecording().catch(()=>{});
+  else startCallRecording();
+});
+
+// ── Save call to history ──
+async function saveCallHistory(recordingUrl = null){
+  const endTime = Date.now();
+  const duration = callStartTime ? Math.floor((endTime - callStartTime) / 1000) : 0;
+  try{
+    await addDoc(collection(db, 'callHistory'), {
+      callerName: document.getElementById('activeCallerName').textContent || 'Unknown',
+      callerCity: document.getElementById('activeCallerCity').textContent || null,
+      duration,
+      recordingUrl: recordingUrl || null,
+      status: 'completed',
+      createdAt: serverTimestamp()
+    });
+  }catch(e){ console.warn('Could not save call history:', e); }
+}
 
 // Send call on air — audio stays in dashboard (OBS captures via Browser Source)
 // Overlay just shows the visual lower-third, no audio routed through it
@@ -1137,11 +1350,28 @@ callOnAirBtn.addEventListener('click', async()=>{
 // End call
 endBtn.addEventListener('click', async()=>{
   if(!activeCallRef) return;
+  endBtn.disabled = true;
+  endBtn.textContent = 'Ending…';
+
+  // Stop recording if active and save URL
+  let recUrl = null;
+  if(isRecording) recUrl = await stopCallRecording();
+
+  // Stop hold music if on hold
+  stopHoldMusic();
+  stopPhoneRing();
+
   await setDoc(activeCallRef, { status: 'ended' }, { merge: true });
   if(callIsOnAir){
     await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
   }
+
+  // Save to call history
+  await saveCallHistory(recUrl);
+
   cleanupActiveCall();
+  endBtn.disabled = false;
+  endBtn.textContent = '📵 End Call';
 });
 
 // Calls Firestore listener — shows incoming calls queue
@@ -1221,6 +1451,60 @@ document.addEventListener('click', async(e)=>{
     await setDoc(doc(db, 'liveCalls', id), { status: 'rejected' }, { merge: true });
   }
 });
+
+function startCallHistoryListener(){
+  const histList   = document.getElementById('histList');
+  const histEmpty  = document.getElementById('histEmpty');
+  const histTotal  = document.getElementById('histTotal');
+  const histToday  = document.getElementById('histToday');
+  const histAvgDur = document.getElementById('histAvgDur');
+  const histRec    = document.getElementById('histRecorded');
+
+  onSnapshot(
+    query(collection(db, 'callHistory'), orderBy('createdAt', 'desc')),
+    (snap)=>{
+      const calls = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      const today = new Date(); today.setHours(0,0,0,0);
+
+      histTotal.textContent = calls.length;
+      histToday.textContent = calls.filter(c=>{
+        const t = c.createdAt?.toDate ? c.createdAt.toDate() : null;
+        return t && t >= today;
+      }).length;
+      histRec.textContent = calls.filter(c=> c.recordingUrl).length;
+      const durations = calls.filter(c=> c.duration > 0).map(c=> c.duration);
+      histAvgDur.textContent = durations.length
+        ? formatDur(Math.round(durations.reduce((a,b)=>a+b,0)/durations.length))
+        : '—';
+
+      if(calls.length === 0){
+        histEmpty.style.display = 'block';
+        histList.innerHTML = '';
+        return;
+      }
+      histEmpty.style.display = 'none';
+
+      histList.innerHTML = calls.map(c=>`
+        <div class="hist-card">
+          <div class="hist-icon">📞</div>
+          <div class="hist-body">
+            <div class="hist-name">${escapeHtml(c.callerName || 'Unknown')}</div>
+            <div class="hist-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${c.status || ''}</div>
+          </div>
+          <div class="hist-right">
+            <div class="hist-dur">${formatDur(c.duration || 0)}</div>
+            <div class="hist-time">${timeAgo(c.createdAt)}</div>
+            ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" target="_blank" rel="noopener">▶ Play Recording</a>` : ''}
+          </div>
+        </div>`).join('');
+    }
+  );
+}
+
+function formatDur(s){
+  const m = Math.floor(s/60);
+  return `${m}:${(s%60).toString().padStart(2,'0')}`;
+}
 
 function startQueueListener(){
   if(queueListenerStarted) return;
