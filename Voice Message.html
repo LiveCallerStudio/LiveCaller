@@ -12,7 +12,7 @@
 <!-- PWA icons — uses the green bolt emoji rendered as SVG data URIs, no image file needed -->
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" href="icon-192.png">
-<title>Live Caller Studio — Leave a Voice Message</title>
+<title>Live Caller — Leave a Voice Message</title>
 <style>
   :root{
     --green:#53FC18;
@@ -207,67 +207,10 @@
   .confirm h2{font-size:22px; margin:0 0 10px;}
   .confirm p{font-family:Arial,Helvetica,sans-serif; color:var(--sub); font-size:14px; line-height:1.6; max-width:300px; margin:0 auto 24px;}
 
-  .support-toggle{
-    background:transparent; border:1px solid var(--line); color:var(--sub);
-    padding:10px 20px; border-radius:20px; font-family:Arial,Helvetica,sans-serif;
-    font-size:13px; font-weight:700; cursor:pointer; margin-top:18px;
-    transition:border-color .15s ease, color .15s ease;
-  }
-  .support-toggle:hover{border-color:var(--green); color:var(--green);}
-
-  .support-panel{
-    display:none; width:100%; background:var(--panel); border:1px solid var(--line); border-radius:14px;
-    padding:22px 18px; margin-top:14px; text-align:center;
-  }
-  .support-panel.show{display:block;}
-  .support-panel h3{
-    margin:0 0 6px; font-size:15px; letter-spacing:1px; text-transform:uppercase; color:var(--green);
-  }
-  .support-sub{
-    font-family:Arial,Helvetica,sans-serif; font-weight:400; color:var(--sub);
-    font-size:13px; margin:0 0 18px;
-  }
-  .support-options{
-    display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin-bottom:16px;
-  }
-  .support-card{
-    display:flex; flex-direction:column; align-items:center; gap:8px;
-    text-decoration:none; padding:12px; border-radius:10px; border:1px solid var(--line);
-    background:var(--black); transition:border-color .15s ease;
-    width:100px;
-  }
-  .support-card:hover{border-color:var(--green);}
-  .support-card img{border-radius:6px; background:#fff; padding:4px;}
-  .support-label{
-    color:var(--text); font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:700;
-  }
-  .support-thanks{
-    font-family:Arial,Helvetica,sans-serif; font-weight:400; color:var(--sub); font-size:12.5px; margin:0;
-  }
-  .tip-confirm{
-    margin:14px 0 10px; padding:14px; border:1px solid var(--green);
-    border-radius:10px; background:rgba(83,252,24,0.05);
-  }
-  .tip-confirm-label{
-    font-size:13px; color:var(--green); font-weight:700; margin:0 0 10px; text-align:center;
-  }
-  .tip-confirm-fields{display:flex; flex-direction:column; gap:8px;}
-  .tip-confirm-fields input{
-    width:100%; background:var(--black); border:1px solid var(--line); border-radius:8px;
-    padding:10px 12px; color:var(--text); font-family:Arial,Helvetica,sans-serif; font-size:13px;
-    box-sizing:border-box;
-  }
-  .tip-confirm-fields input:focus{outline:none; border-color:var(--green);}
-  .tip-log-confirm{
-    text-align:center; font-size:13px; color:var(--green); font-weight:700;
-    padding:10px; margin-top:8px;
-  }
-
   .footnote{
     margin-top:30px; font-family:Arial,Helvetica,sans-serif; color:#6b6b6b; font-size:12.5px;
     text-align:center; letter-spacing:.2px; line-height:1.5; max-width:300px;
   }
-
   .error-banner{
     display:none; background:rgba(255,59,59,0.12); border:1px solid var(--red); color:#ff8a8a;
     font-family:Arial,Helvetica,sans-serif; font-size:13px; padding:12px 14px; border-radius:8px;
@@ -309,13 +252,13 @@
 <div class="wrap">
   <div class="brand">
     <span class="brand-bolt">⚡</span>
-    <span class="brand-name">LIVE <span>CALLER</span> STUDIO</span>
+    <span class="brand-name">LIVE <span>CALLER</span>
   </div>
   <div class="product-tagline">Where Your Audience Joins the Show</div>
 
   <div id="recordView">
     <h1 class="hotline-title">Tap Microphone To Leave<br>a Voice Message</h1>
-    <p class="hotline-sub">Voice Song Requests, Birthday Shoutouts, Dedications, <strong>Subscriber Priority</strong>, VIP Callers, Live Call-Ins.</p>
+    <p class="hotline-sub">Song Requests, Birthday Shoutouts, Dedications, <strong>Subscriber Priority</strong> </p>
 
     <div class="error-banner" id="errorBanner"></div>
 
@@ -350,6 +293,7 @@
       <div class="type-pills">
         <button class="type-pill active" data-type="general">🎙️ General</button>
         <button class="type-pill" data-type="shoutout">📢 Shout-Out</button>
+        <button class="type-pill" data-type="shoutout">🎶 Song-Request</button>
         <button class="type-pill" data-type="birthday">🎂 Birthday</button>
         <button class="type-pill" data-type="dedication">💌 Dedication</button>
       </div>
@@ -361,8 +305,8 @@
       <input type="text" id="fName" maxlength="40" placeholder="What should we call you?">
     </div>
     <div class="field">
-      <label>City <span class="optional-tag">(optional)</span></label>
-      <input type="text" id="fCity" maxlength="40" placeholder="Where are you tuning in from?">
+      <label>City, State <span class="optional-tag">(optional)</span></label>
+      <input type="text" id="fCity & State" maxlength="40" placeholder="Where are you tuning in from?">
     </div>
 
     <!-- Shout-out fields -->
@@ -370,6 +314,14 @@
       <div class="field">
         <label>Who are you shouting out?</label>
         <input type="text" id="fShoutoutName" maxlength="80" placeholder="Name, club, business…">
+      </div>
+    </div>
+
+     <!-- Song-Request fields -->
+    <div class="type-fields" id="fields-song request">
+      <div class="field">
+        <label>Artist Name - Song Title</label>
+        <input type="text" id="fSongRequestName" maxlength="80" placeholder="Any Song, Any Genre…">
       </div>
     </div>
 
@@ -412,44 +364,6 @@
     <h2>Message sent</h2>
     <p>Your message is in the queue. Keep listening — it might play live.</p>
     <button class="btn btn-primary" id="newMsgBtn" style="max-width:220px;">Send Another</button>
-  </div>
-
-  <button class="support-toggle" id="supportToggle">💚 Support the Show</button>
-
-  <div class="support-panel" id="supportPanel">
-    <h3>Support the Show</h3>
-    <p class="support-sub">Choose how you'd like to tip, then let us know so we can give you a shoutout!</p>
-
-    <div class="support-options">
-      <a class="support-card tip-link" href="https://cash.app/$YourCashtag" target="_blank" rel="noopener" data-method="Cash App">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=0a0a0a&bgcolor=ffffff&data=https://cash.app/%24YourCashtag" alt="Cash App QR" width="80" height="80">
-        <span class="support-label">Cash App</span>
-      </a>
-      <a class="support-card tip-link" href="https://paypal.me/YourPayPalName" target="_blank" rel="noopener" data-method="PayPal">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=0a0a0a&bgcolor=ffffff&data=https://paypal.me/YourPayPalName" alt="PayPal QR" width="80" height="80">
-        <span class="support-label">PayPal</span>
-      </a>
-      <a class="support-card tip-link" href="https://venmo.com/YourVenmoUsername" target="_blank" rel="noopener" data-method="Venmo">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=0a0a0a&bgcolor=ffffff&data=https://venmo.com/YourVenmoUsername" alt="Venmo QR" width="80" height="80">
-        <span class="support-label">Venmo</span>
-      </a>
-    </div>
-
-    <!-- Tip confirmation form — shown after tapping a payment link -->
-    <div class="tip-confirm" id="tipConfirm" style="display:none;">
-      <p class="tip-confirm-label">✅ Nice! Let us know so we can shout you out:</p>
-      <div class="tip-confirm-fields">
-        <input type="text" id="tipName" placeholder="Your name (optional)" maxlength="40">
-        <input type="text" id="tipAmount" placeholder='Amount (e.g. "$10")' maxlength="20">
-        <input type="text" id="tipNote" placeholder="Message or dedication (optional)" maxlength="100">
-      </div>
-      <button class="btn btn-primary" id="tipLogBtn" style="width:100%; margin-top:10px;">Log My Tip 💚</button>
-      <div class="tip-log-confirm" id="tipLogConfirm" style="display:none;">
-        🎉 Thank you! Your tip has been noted. You might get a live shoutout!
-      </div>
-    </div>
-
-    <p class="support-thanks">Every bit helps keep the show running. Thank you! 💚</p>
   </div>
 
   <div class="footnote">By submitting, you agree your message may be broadcast on-air or on stream.</div>
