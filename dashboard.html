@@ -1003,12 +1003,29 @@ let queueListenerStarted = false;
 // ═══════════════════════════════════════════════════════
 //  LIVE CALLS — WebRTC via Firestore signaling
 // ═══════════════════════════════════════════════════════
+// ICE config — STUN for direct connections + TURN relay for cross-network/NAT traversal
+// Open Relay Project is free, no account required — handles symmetric NAT and mobile networks
 const iceConfig = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-  ]
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ],
+  iceCandidatePoolSize: 10
 };
 
 let activePc = null;         // RTCPeerConnection for current call

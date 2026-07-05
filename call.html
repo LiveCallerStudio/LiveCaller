@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Live Call In">
-<title>Live Caller — Call In Live</title>
+<title>Live Caller Studio — Call In Live</title>
 <style>
   :root{
     --green:#53FC18;
@@ -133,24 +133,24 @@
 <div class="wrap">
   <div class="brand">
     <span class="brand-bolt">⚡</span>
-    <span class="brand-name">LIVE <span>CALLER</span>
+    <span class="brand-name">LIVE <span>CALLER</span> STUDIO</span>
   </div>
   <div class="page-type">Live Call In</div>
 
   <!-- Setup Screen -->
   <div id="setupScreen">
     <h1>Call In Live</h1>
-    <p>Enter your name, city & state and tap Call. You'll be connected to the producer for screening before going on air.</p>
+    <p>Enter your name and tap Call In. You'll be connected to the producer for screening before going on air.</p>
     <div class="error-banner" id="errorBanner"></div>
     <div class="field">
       <label>Your Name</label>
       <input type="text" id="callerName" maxlength="40" placeholder="What should we call you?" autocomplete="name">
     </div>
     <div class="field">
-      <label>City & State</label>
+      <label>City <span style="color:#555;font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
       <input type="text" id="callerCity" maxlength="40" placeholder="Where are you calling from?">
     </div>
-    <button class="call-btn" id="callBtn">📞 Call</button>
+    <button class="call-btn" id="callBtn">📞 Call In Live</button>
   </div>
 
   <!-- Call Screen -->
@@ -194,7 +194,30 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 
-const STUN = { iceServers:[{ urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302'] }] };
+// ICE config — STUN for direct connections + TURN relay for cross-network/NAT traversal
+// Open Relay Project (openrelay.metered.ca) is free with no account required
+const STUN = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ],
+  iceCandidatePoolSize: 10
+};
 
 let pc = null;
 let localStream = null;
