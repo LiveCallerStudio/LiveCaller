@@ -12,7 +12,7 @@
 <!-- PWA icons — uses the green bolt emoji rendered as SVG data URIs, no image file needed -->
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" href="icon-192.png">
-<title>Live Caller Studio — Leave a Voice Message</title>
+<title>Live Caller — Leave a Voice Message</title>
 <style>
   :root{
     --green:#53FC18;
@@ -329,7 +329,7 @@
 
   <div id="recordView">
     <h1 class="hotline-title">Tap Microphone To Leave<br>a Voice Message</h1>
-    <p class="hotline-sub">Voice Song Requests, Birthday Shoutouts, Dedications, <strong>Subscriber Priority</strong>, VIP Callers, Live Call-Ins.</p>
+    <p class="hotline-sub">Song Requests, Birthday Shoutouts, Dedications, <strong>Subscriber Priority</strong></p>
 
     <div class="error-banner" id="errorBanner"></div>
 
@@ -767,171 +767,3 @@ updateCountdown();
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
-
-// ════════════════════════════════════════════
-//  LIVE CALL — WebRTC caller side
-// Uses db, addDoc, collection, onSnapshot, serverTimestamp already imported above
-// ════════════════════════════════════════════
-
-const liveCallBtn     = document.getElementById('liveCallBtn');
-const callSection     = document.getElementById('callSection');
-const callView        = document.getElementById('callView');
-const callRing        = document.getElementById('callRing');
-const callTimerEl     = document.getElementById('callTimer');
-const callStatusLabel = document.getElementById('callStatusLabel');
-const callError       = document.getElementById('callError');
-const callNameRow     = document.getElementById('callNameRow');
-const callBackBtn     = document.getElementById('callBackBtn');
-const callEndBtn      = document.getElementById('callEndBtn');
-
-const ICE_SERVERS = {
-  iceServers:[
-    { urls:'stun:stun.l.google.com:19302' },
-    { urls:'stun:stun1.l.google.com:19302' },
-  ]
-};
-
-let callPc = null;
-let callDocRef = null;
-let callTimerInterval = null;
-let callSeconds = 0;
-let callStream = null;
-let callUnsubAnswer = null;
-let callUnsubCandidates = null;
-
-function updateCallTimer(){
-  callSeconds++;
-  const m = Math.floor(callSeconds/60);
-  const s = callSeconds % 60;
-  callTimerEl.textContent = `${m}:${s.toString().padStart(2,'0')}`;
-}
-
-function setCallStatus(status, cls){
-  callStatusLabel.textContent = status;
-  callRing.className = 'call-status-ring ' + (cls||'');
-}
-
-function cleanupCall(){
-  clearInterval(callTimerInterval);
-  if(callPc){ callPc.close(); callPc = null; }
-  if(callStream){ callStream.getTracks().forEach(t=>t.stop()); callStream = null; }
-  if(callUnsubAnswer){ callUnsubAnswer(); callUnsubAnswer = null; }
-  if(callUnsubCandidates){ callUnsubCandidates(); callUnsubCandidates = null; }
-}
-
-async function startCall(){
-  callError.textContent = '';
-  callSection.style.display = 'none';
-  document.getElementById('recordView').style.display = 'none';
-  document.getElementById('reviewPanel').classList.remove('show');
-  document.getElementById('confirmView').classList.remove('show');
-  callNameRow.style.display = 'flex';
-  callView.classList.add('show');
-  setCallStatus('Calling\u2026', 'ringing');
-  callTimerEl.textContent = '0:00';
-  callEndBtn.disabled = true;
-
-  try{
-    callStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-  }catch(err){
-    callError.textContent = 'Microphone access denied.';
-    setCallStatus('Failed', 'ended');
-    return;
-  }
-
-  callPc = new RTCPeerConnection(ICE_SERVERS);
-  callStream.getTracks().forEach(t => callPc.addTrack(t, callStream));
-
-  // Play producer voice back to caller
-  const remoteAudio = new Audio();
-  remoteAudio.autoplay = true;
-  callPc.ontrack = (e)=>{ remoteAudio.srcObject = e.streams[0]; };
-
-  const callerName = document.getElementById('callName').value.trim() || 'Anonymous Caller';
-  const callerCity = document.getElementById('callCity').value.trim() || '';
-
-  callDocRef = await addDoc(collection(db, 'liveCalls'), {
-    status: 'ringing',
-    callerName, callerCity,
-    offer: null, answer: null,
-    createdAt: serverTimestamp()
-  });
-
-  const callId = callDocRef.id;
-
-  callPc.onicecandidate = async (e)=>{
-    if(e.candidate){
-      await addDoc(collection(db, `liveCalls/${callId}/callerCandidates`), e.candidate.toJSON());
-    }
-  };
-
-  const offer = await callPc.createOffer();
-  await callPc.setLocalDescription(offer);
-
-  // Use updateDoc imported from top of script — re-import to be safe
-  const firestoreMod = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js");
-  await firestoreMod.updateDoc(callDocRef, { offer: { type: offer.type, sdp: offer.sdp } });
-
-  callEndBtn.disabled = false;
-
-  callUnsubAnswer = onSnapshot(callDocRef, async (docSnap)=>{
-    const data = docSnap.data();
-    if(!data) return;
-    if(data.status === 'ended'){
-      setCallStatus('Call ended', 'ended');
-      clearInterval(callTimerInterval);
-      cleanupCall();
-      return;
-    }
-    if(data.status === 'on-hold'){
-      setCallStatus('On hold\u2026', 'on-hold');
-      return;
-    }
-    if(data.status === 'answered') setCallStatus('Connected', '');
-    if(data.answer && callPc && !callPc.currentRemoteDescription){
-      await callPc.setRemoteDescription(new RTCSessionDescription(data.answer));
-      clearInterval(callTimerInterval);
-      callSeconds = 0;
-      callTimerInterval = setInterval(updateCallTimer, 1000);
-    }
-  });
-
-  callUnsubCandidates = onSnapshot(
-    collection(db, `liveCalls/${callId}/dashboardCandidates`),
-    (snapshot)=>{
-      snapshot.docChanges().forEach(async (change)=>{
-        if(change.type === 'added' && callPc){
-          try{ await callPc.addIceCandidate(new RTCIceCandidate(change.doc.data())); }catch(e){}
-        }
-      });
-    }
-  );
-}
-
-async function endCall(){
-  if(callDocRef){
-    const firestoreMod = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js");
-    await firestoreMod.updateDoc(callDocRef, { status: 'ended' }).catch(()=>{});
-  }
-  cleanupCall();
-  setCallStatus('Call ended', 'ended');
-  callEndBtn.disabled = true;
-  setTimeout(()=>{
-    callView.classList.remove('show');
-    callSection.style.display = 'block';
-    document.getElementById('recordView').style.display = 'block';
-  }, 2000);
-}
-
-liveCallBtn.addEventListener('click', startCall);
-callBackBtn.addEventListener('click', ()=>{
-  cleanupCall();
-  callView.classList.remove('show');
-  callSection.style.display = 'block';
-  document.getElementById('recordView').style.display = 'block';
-});
-callEndBtn.addEventListener('click', endCall);
-
-</script>
-</body>
-</html>
