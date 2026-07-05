@@ -352,51 +352,67 @@ async function startCall(){
   pc = new RTCPeerConnection(STUN);
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-  // Receive producer audio
-  const remoteStream = new MediaStream();
-  pc.ontrack = (e) => {
-    remoteStream.addTrack(e.track);
-    remoteAudio.srcObject = remoteStream;
+  // Play remote audio (producer's voice)
+  pc.ontrack = (event) => {
+    if(event.streams && event.streams[0]){
+      remoteAudio.srcObject = event.streams[0];
+      remoteAudio.play().catch(()=>{});
+    }
   };
 
-  // Create offer
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
+  // Buffer dashboard ICE candidates that arrive before remote description is set
+  const pendingCandidates = [];
+  let remoteDescSet = false;
 
-  // Save call to Firestore
+  // Create offer BEFORE setting up onicecandidate so we have the callDocRef first
+  const offer = await pc.createOffer();
+
+  // Save call to Firestore FIRST so we have the ID for ICE candidate collection path
   callDocRef = await addDoc(collection(db, 'liveCalls'), {
     callerName: name,
     callerCity: callerCityInput.value.trim() || null,
-    offer:{ type: offer.type, sdp: offer.sdp },
+    offer: { type: offer.type, sdp: offer.sdp },
     status: 'waiting',
     createdAt: serverTimestamp()
   });
 
-  // Send caller ICE candidates
+  // Wire onicecandidate BEFORE setLocalDescription so no candidates are missed
   pc.onicecandidate = (e) => {
     if(e.candidate){
-      addDoc(collection(db, 'liveCalls', callDocRef.id, 'callerCandidates'), e.candidate.toJSON());
+      addDoc(collection(db, 'liveCalls', callDocRef.id, 'callerCandidates'), e.candidate.toJSON())
+        .catch(()=>{});
     }
   };
+
+  // Now set local description — ICE gathering starts here, handler is already wired
+  await pc.setLocalDescription(offer);
 
   // Listen for answer + status changes
   onSnapshot(callDocRef, async (snap) => {
     const data = snap.data();
     if(!data) return;
 
+    // Set remote description as soon as answer arrives, then drain buffered candidates
     if(data.answer && !pc.currentRemoteDescription){
-      await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+      try{
+        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        remoteDescSet = true;
+        for(const c of pendingCandidates){
+          await pc.addIceCandidate(c).catch(()=>{});
+        }
+        pendingCandidates.length = 0;
+      }catch(e){ console.error('setRemoteDescription failed:', e); }
     }
 
     if(data.status === 'answered' || data.status === 'live'){
-      stopOutgoingRing(); // Stop ringing — producer answered
-      stopHoldMusicCaller(); // Stop hold music if resuming from hold
+      stopOutgoingRing();
+      stopHoldMusicCaller();
       setStatus('connected', 'Connected — you may be put on air');
       if(!timerInterval) startTimer();
     } else if(data.status === 'held'){
       stopOutgoingRing();
       setStatus('held', 'You\'re on hold — producer will be right with you');
-      startHoldMusicCaller(); // Play hold music in caller's browser
+      startHoldMusicCaller();
     } else if(data.status === 'rejected'){
       stopOutgoingRing();
       stopHoldMusicCaller();
@@ -435,11 +451,16 @@ async function startCall(){
     }
   });
 
-  // Receive dashboard ICE candidates
+  // Listen for dashboard ICE candidates — buffer them if remote desc not set yet
   onSnapshot(collection(db, 'liveCalls', callDocRef.id, 'dashboardCandidates'), (snap) => {
     snap.docChanges().forEach(async (change) => {
       if(change.type === 'added'){
-        try{ await pc.addIceCandidate(new RTCIceCandidate(change.doc.data())); }catch(e){}
+        const candidate = new RTCIceCandidate(change.doc.data());
+        if(remoteDescSet){
+          await pc.addIceCandidate(candidate).catch(()=>{});
+        } else {
+          pendingCandidates.push(candidate);
+        }
       }
     });
   });

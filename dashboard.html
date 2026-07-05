@@ -1096,27 +1096,26 @@ function cleanupActiveCall(){
 }
 
 async function answerCall(callId, callerName, callerCity){
-  // Only one call at a time
   if(activePc){ alert('End the current call before answering a new one.'); return; }
 
-  stopPhoneRing(); // Stop ringing immediately on answer
+  stopPhoneRing();
 
   activeCallId = callId;
   activeCallRef = doc(db, 'liveCalls', callId);
 
   // 1. Get producer mic
   try{
-    producerStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    producerStream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true }, video:false });
   }catch(err){
     alert('Microphone access required to answer calls. Please allow mic permissions.');
     return;
   }
 
-  // 2. Create peer connection
+  // 2. Create peer connection and add local tracks
   activePc = new RTCPeerConnection(iceConfig);
   producerStream.getTracks().forEach(track => activePc.addTrack(track, producerStream));
 
-  // 3. Route caller audio to the hidden <audio> element (OBS captures this)
+  // 3. Play caller audio when remote track arrives
   activePc.ontrack = (event)=>{
     if(event.streams && event.streams[0]){
       callerAudio.srcObject = event.streams[0];
@@ -1124,40 +1123,39 @@ async function answerCall(callId, callerName, callerCity){
     }
   };
 
-  // 4. ICE candidates — save to Firestore
-  // CRITICAL: must write to 'dashboardCandidates' to match what call.html reads
-  activePc.onicecandidate = async(event)=>{
+  // 4. Wire onicecandidate BEFORE any setDescription call so no candidates are dropped
+  activePc.onicecandidate = (event)=>{
     if(event.candidate && activeCallId){
-      await addDoc(collection(db, 'liveCalls', activeCallId, 'dashboardCandidates'), event.candidate.toJSON());
+      addDoc(collection(db, 'liveCalls', activeCallId, 'dashboardCandidates'), event.candidate.toJSON())
+        .catch(()=>{});
     }
   };
 
-  // 5. Get caller's offer from Firestore
+  // 5. Get caller's offer and set remote description
   const callSnap = await getDoc(activeCallRef);
   const callData = callSnap.data();
   if(!callData?.offer){ alert('Could not read call offer from Firestore.'); cleanupActiveCall(); return; }
 
   await activePc.setRemoteDescription(new RTCSessionDescription(callData.offer));
 
-  // 6. Create answer
+  // 6. Create answer and set local description — ICE gathering starts here (handler already wired)
   const answer = await activePc.createAnswer();
   await activePc.setLocalDescription(answer);
 
-  // 7. Write answer + update status to 'screening'
+  // 7. Save answer to Firestore
   await setDoc(activeCallRef, {
     answer: { type: answer.type, sdp: answer.sdp },
     status: 'answered'
   }, { merge: true });
 
-  // 8. Listen for caller ICE candidates
+  // 8. Listen for caller ICE candidates — start immediately, Firestore delivers existing docs too
+  // No buffering needed on this side because setRemoteDescription already happened above
   callCandidateUnsub = onSnapshot(
     collection(db, 'liveCalls', callId, 'callerCandidates'),
     (snap)=>{
       snap.docChanges().forEach(async(change)=>{
         if(change.type === 'added' && activePc){
-          try{
-            await activePc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
-          }catch(e){ console.error('ICE candidate error:', e); }
+          await activePc.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(()=>{});
         }
       });
     }
