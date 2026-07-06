@@ -12,7 +12,7 @@
 <!-- PWA icons — uses the green bolt emoji rendered as SVG data URIs, no image file needed -->
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" href="icon-192.png">
-<title>Live Caller — Leave a Voice Message</title>
+<title>Live Caller Studio — Leave a Voice Message</title>
 <style>
   :root{
     --green:#53FC18;
@@ -176,8 +176,8 @@
   .field input:focus, .field select:focus, .field textarea:focus{outline:none; border-color:var(--green);}
   .field select{appearance:none; cursor:pointer;}
   .field textarea{resize:none; line-height:1.5;}
+  .optional-tag{color:#5a5a5a; font-weight:400; text-transform:none; letter-spacing:0;}
 
-  /* message type pill selector */
   .type-pills{
     display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px;
   }
@@ -189,10 +189,8 @@
   .type-pill:hover{border-color:var(--green); color:var(--text);}
   .type-pill.active{background:var(--green); color:#0a0a0a; border-color:var(--green);}
 
-  /* conditional fields shown by type */
   .type-fields{display:none;}
   .type-fields.show{display:block;}
-  .optional-tag{color:#5a5a5a; font-weight:400; text-transform:none; letter-spacing:0;}
 
   /* Confirmation */
   .confirm{
@@ -206,62 +204,6 @@
   }
   .confirm h2{font-size:22px; margin:0 0 10px;}
   .confirm p{font-family:Arial,Helvetica,sans-serif; color:var(--sub); font-size:14px; line-height:1.6; max-width:300px; margin:0 auto 24px;}
-
-  .support-toggle{
-    background:transparent; border:1px solid var(--line); color:var(--sub);
-    padding:10px 20px; border-radius:20px; font-family:Arial,Helvetica,sans-serif;
-    font-size:13px; font-weight:700; cursor:pointer; margin-top:18px;
-    transition:border-color .15s ease, color .15s ease;
-  }
-  .support-toggle:hover{border-color:var(--green); color:var(--green);}
-
-  .support-panel{
-    display:none; width:100%; background:var(--panel); border:1px solid var(--line); border-radius:14px;
-    padding:22px 18px; margin-top:14px; text-align:center;
-  }
-  .support-panel.show{display:block;}
-  .support-panel h3{
-    margin:0 0 6px; font-size:15px; letter-spacing:1px; text-transform:uppercase; color:var(--green);
-  }
-  .support-sub{
-    font-family:Arial,Helvetica,sans-serif; font-weight:400; color:var(--sub);
-    font-size:13px; margin:0 0 18px;
-  }
-  .support-options{
-    display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin-bottom:16px;
-  }
-  .support-card{
-    display:flex; flex-direction:column; align-items:center; gap:8px;
-    text-decoration:none; padding:12px; border-radius:10px; border:1px solid var(--line);
-    background:var(--black); transition:border-color .15s ease;
-    width:100px;
-  }
-  .support-card:hover{border-color:var(--green);}
-  .support-card img{border-radius:6px; background:#fff; padding:4px;}
-  .support-label{
-    color:var(--text); font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:700;
-  }
-  .support-thanks{
-    font-family:Arial,Helvetica,sans-serif; font-weight:400; color:var(--sub); font-size:12.5px; margin:0;
-  }
-  .tip-confirm{
-    margin:14px 0 10px; padding:14px; border:1px solid var(--green);
-    border-radius:10px; background:rgba(83,252,24,0.05);
-  }
-  .tip-confirm-label{
-    font-size:13px; color:var(--green); font-weight:700; margin:0 0 10px; text-align:center;
-  }
-  .tip-confirm-fields{display:flex; flex-direction:column; gap:8px;}
-  .tip-confirm-fields input{
-    width:100%; background:var(--black); border:1px solid var(--line); border-radius:8px;
-    padding:10px 12px; color:var(--text); font-family:Arial,Helvetica,sans-serif; font-size:13px;
-    box-sizing:border-box;
-  }
-  .tip-confirm-fields input:focus{outline:none; border-color:var(--green);}
-  .tip-log-confirm{
-    text-align:center; font-size:13px; color:var(--green); font-weight:700;
-    padding:10px; margin-top:8px;
-  }
 
   .footnote{
     margin-top:30px; font-family:Arial,Helvetica,sans-serif; color:#6b6b6b; font-size:12.5px;
@@ -309,13 +251,13 @@
 <div class="wrap">
   <div class="brand">
     <span class="brand-bolt">⚡</span>
-    <span class="brand-name">LIVE <span>CALLER</span>
+    <span class="brand-name">LIVE <span>CALLER</span> STUDIO</span>
   </div>
   <div class="product-tagline">Where Your Audience Joins the Show</div>
 
   <div id="recordView">
     <h1 class="hotline-title">Tap Microphone To Leave<br>a Voice Message</h1>
-    <p class="hotline-sub">Song Requests, Birthday Shoutouts, Dedications, <strong>Subscriber Priority</strong></p>
+    <p class="hotline-sub">Voice Song Requests, Birthday Shoutouts, Dedications &amp; More.</p>
 
     <div class="error-banner" id="errorBanner"></div>
 
@@ -349,34 +291,39 @@
       <label>Message Type</label>
       <div class="type-pills">
         <button class="type-pill active" data-type="general">🎙️ General</button>
-        <button class="type-pill" data-type="songrequest">🎵 Song Request</button>
-        <button class="type-pill" data-type="shoutout">📢 Shout Out</button>
+        <button class="type-pill" data-type="song">🎵 Song Request</button>
+        <button class="type-pill" data-type="shoutout">📢 Shout-Out</button>
         <button class="type-pill" data-type="birthday">🎂 Birthday</button>
         <button class="type-pill" data-type="dedication">💌 Dedication</button>
       </div>
     </div>
 
-    <!-- Always-visible fields -->
+    <!-- Always visible -->
     <div class="field">
-      <label>Display Name</label>
+      <label>1. Display Name <span class="optional-tag">(Your Name)</span></label>
       <input type="text" id="fName" maxlength="40" placeholder="What should we call you?">
     </div>
     <div class="field">
-      <label>City & State</label>
-      <input type="text" id="fCity & State" maxlength="40" placeholder="Where are you tuning in from?">
+      <label>2. City &amp; State <span class="optional-tag">(Where you're calling from)</span></label>
+      <input type="text" id="fCity" maxlength="60" placeholder="e.g. Dallas, TX">
     </div>
-    
-    
-    <!-- Song Requeest fields -->
-        <label>Song Request</label>
-        <input type="text" id="fSongRequest" maxlength="80" placeholder="Artist Name – Song Title">
+
+    <!-- Song Request fields -->
+    <div class="type-fields" id="fields-song">
+      <div class="field">
+        <label>3. Artist Name</label>
+        <input type="text" id="fArtist" maxlength="80" placeholder="Artist name">
+      </div>
+      <div class="field">
+        <label>4. Song Title</label>
+        <input type="text" id="fTrack" maxlength="80" placeholder="Song title">
       </div>
     </div>
 
-    <!-- Shout-out fields -->
+    <!-- Shout-Out fields -->
     <div class="type-fields" id="fields-shoutout">
       <div class="field">
-        <label>Who are you shouting out?</label>
+        <label>3. Who are you shouting out?</label>
         <input type="text" id="fShoutoutName" maxlength="80" placeholder="Name, club, business…">
       </div>
     </div>
@@ -384,24 +331,24 @@
     <!-- Birthday fields -->
     <div class="type-fields" id="fields-birthday">
       <div class="field">
-        <label>Who's the birthday for?</label>
+        <label>3. Who's the birthday for?</label>
         <input type="text" id="fBirthdayName" maxlength="80" placeholder="Name">
       </div>
       <div class="field">
-        <label>Song request for them <span class="optional-tag">(optional)</span></label>
-        <input type="text" id="fBirthdaySong" maxlength="80" placeholder="Artist Name – Song Title">
+        <label>4. Song Request <span class="optional-tag">(optional)</span></label>
+        <input type="text" id="fBirthdaySong" maxlength="80" placeholder="Artist – Track">
       </div>
     </div>
 
     <!-- Dedication fields -->
     <div class="type-fields" id="fields-dedication">
       <div class="field">
-        <label>Who is this dedicated to?</label>
+        <label>3. Who is this dedicated to?</label>
         <input type="text" id="fDedicationTo" maxlength="80" placeholder="Name">
       </div>
       <div class="field">
-        <label>Song request <span class="optional-tag">(optional)</span></label>
-        <input type="text" id="fDedicationSong" maxlength="80" placeholder="Artist Name – Song Title">
+        <label>4. Song Request <span class="optional-tag">(optional)</span></label>
+        <input type="text" id="fDedicationSong" maxlength="80" placeholder="Artist – Track">
       </div>
     </div>
 
@@ -598,6 +545,7 @@ tapZone.addEventListener('click', ()=>{
 });
 
 // Message type pill switching
+// Message type pill switching
 let selectedType = 'general';
 const typePills = document.querySelectorAll('.type-pill');
 const allTypeFields = document.querySelectorAll('.type-fields');
@@ -645,15 +593,8 @@ sendBtn.addEventListener('click', async ()=>{
     await addDoc(collection(db, 'hotlineMessages'), {
       name: document.getElementById('fName').value.trim() || null,
       city: document.getElementById('fCity').value.trim() || null,
-      messageType: selectedType, // general | shoutout | birthday | dedication
-      // Shoutout
-      shoutoutName: document.getElementById('fShoutoutName')?.value.trim() || null,
-      // Birthday
-      birthdayName: document.getElementById('fBirthdayName')?.value.trim() || null,
-      birthdaySong: document.getElementById('fBirthdaySong')?.value.trim() || null,
-      // Dedication
-      dedicationTo: document.getElementById('fDedicationTo')?.value.trim() || null,
-      dedicationSong: document.getElementById('fDedicationSong')?.value.trim() || null,
+      songArtist: document.getElementById('fArtist').value.trim() || null,
+      songTrack: document.getElementById('fTrack').value.trim() || null,
       audioUrl,
       cloudinaryPublicId: uploadData.public_id || null,
       status: 'pending',
@@ -685,61 +626,11 @@ sendBtn.addEventListener('click', async ()=>{
   }
 });
 
-const supportToggle = document.getElementById('supportToggle');
-const supportPanel = document.getElementById('supportPanel');
-const tipConfirm = document.getElementById('tipConfirm');
-const tipLogBtn = document.getElementById('tipLogBtn');
-const tipLogConfirm = document.getElementById('tipLogConfirm');
-
-supportToggle.addEventListener('click', ()=>{
-  supportPanel.classList.toggle('show');
-  supportToggle.textContent = supportPanel.classList.contains('show')
-    ? '💚 Hide Support Options' : '💚 Support the Show';
-});
-
-// Show the "I tipped" form when any payment link is tapped
-document.querySelectorAll('.tip-link').forEach(link =>{
-  link.addEventListener('click', ()=>{
-    setTimeout(()=>{
-      tipConfirm.style.display = 'block';
-      tipConfirm.dataset.method = link.dataset.method;
-    }, 800); // slight delay so the payment app can open first
-  });
-});
-
-tipLogBtn.addEventListener('click', async ()=>{
-  tipLogBtn.disabled = true;
-  tipLogBtn.textContent = 'Logging…';
-  try{
-    await addDoc(collection(db, 'tips'), {
-      name: document.getElementById('tipName').value.trim() || null,
-      amount: document.getElementById('tipAmount').value.trim() || null,
-      note: document.getElementById('tipNote').value.trim() || null,
-      method: tipConfirm.dataset.method || 'Unknown',
-      selfReported: true, // honor-system — not verified by payment processor
-      createdAt: serverTimestamp()
-    });
-    tipLogBtn.style.display = 'none';
-    tipLogConfirm.style.display = 'block';
-  }catch(err){
-    tipLogBtn.disabled = false;
-    tipLogBtn.textContent = 'Log My Tip 💚';
-    console.error('Tip log failed:', err);
-  }
-});
-
 newMsgBtn.addEventListener('click', ()=>{
   document.getElementById('fName').value = '';
   document.getElementById('fCity').value = '';
-  document.getElementById('fShoutoutName').value = '';
-  document.getElementById('fBirthdayName').value = '';
-  document.getElementById('fBirthdaySong').value = '';
-  document.getElementById('fDedicationTo').value = '';
-  document.getElementById('fDedicationSong').value = '';
-  // Reset type to general
-  selectedType = 'general';
-  typePills.forEach(p => p.classList.toggle('active', p.dataset.type === 'general'));
-  allTypeFields.forEach(f => f.classList.remove('show'));
+  document.getElementById('fArtist').value = '';
+  document.getElementById('fTrack').value = '';
   audioBlob = null;
   resetToRecordView();
 });
@@ -750,6 +641,7 @@ updateCountdown();
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
+
 </script>
 </body>
 </html>
