@@ -12,7 +12,7 @@
 <!-- PWA icons — uses the green bolt emoji rendered as SVG data URIs, no image file needed -->
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" href="icon-192.png">
-<title>Live Caller — Leave a Voice Message</title>
+<title>Live Caller Studio — Leave a Voice Message</title>
 <style>
   :root{
     --green:#53FC18;
@@ -241,6 +241,56 @@
     .hotline-sub{margin-bottom:22px;}
     .mic-stage{margin-bottom:14px;}
   }
+
+  /* ── Type Selection Screen ── */
+  #typeScreen{ width:100%; }
+  #typeScreen h1{ font-size:22px; text-align:center; margin:0 0 6px; line-height:1.3; }
+  #typeScreen p{ font-family:Arial,sans-serif; color:var(--sub); font-size:13px; text-align:center; margin:0 0 22px; }
+
+  .type-grid{
+    display:flex; flex-direction:column; gap:10px; width:100%;
+  }
+  .type-card{
+    display:flex; align-items:center; gap:14px;
+    background:var(--panel); border:2px solid var(--line); border-radius:12px;
+    padding:14px 16px; cursor:pointer; text-align:left;
+    transition:border-color .15s ease, background .15s ease;
+    width:100%;
+  }
+  .type-card:hover{ border-color:var(--green); background:var(--panel-2); }
+  .type-card.selected{ border-color:var(--green); background:rgba(83,252,24,0.06); }
+  .type-card-icon{ font-size:26px; line-height:1; flex-shrink:0; }
+  .type-card-text{ flex:1; }
+  .type-card-title{ font-size:15px; font-weight:900; color:var(--text); margin-bottom:2px; }
+  .type-card-desc{ font-family:Arial,sans-serif; font-size:12px; color:var(--sub); }
+  .type-card-check{
+    width:20px; height:20px; border-radius:50%; border:2px solid var(--line);
+    flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    color:var(--green); font-size:11px; transition:all .15s ease;
+  }
+  .type-card.selected .type-card-check{
+    background:var(--green); border-color:var(--green); color:#0a0a0a;
+  }
+  .next-btn{
+    width:100%; padding:14px; border-radius:10px; border:none;
+    background:var(--green); color:#0a0a0a; font-weight:900;
+    font-size:14px; text-transform:uppercase; letter-spacing:.5px;
+    cursor:pointer; margin-top:14px; transition:filter .15s ease;
+  }
+  .next-btn:hover{ filter:brightness(1.1); }
+  .next-btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .type-back{
+    background:transparent; border:none; color:var(--sub);
+    font-family:Arial,sans-serif; font-size:13px; cursor:pointer;
+    margin-top:10px; padding:6px 0; text-decoration:underline;
+  }
+  .type-back:hover{ color:var(--text); }
+  .selected-type-badge{
+    display:inline-flex; align-items:center; gap:6px;
+    background:rgba(83,252,24,0.12); border:1px solid rgba(83,252,24,0.3);
+    color:var(--green); font-size:12px; font-weight:700; letter-spacing:.5px;
+    padding:5px 12px; border-radius:20px; margin-bottom:16px;
+  }
 </style>
 </head>
 <body>
@@ -251,13 +301,65 @@
 <div class="wrap">
   <div class="brand">
     <span class="brand-bolt">⚡</span>
-    <span class="brand-name">LIVE <span>CALLER</span>
+    <span class="brand-name">LIVE <span>CALLER</span> STUDIO</span>
   </div>
   <div class="product-tagline">Where Your Audience Joins the Show</div>
 
-  <div id="recordView">
-    <h1 class="hotline-title">Tap Screen To Leave<br>a Voice Message</h1>
-    <p class="hotline-sub">Song Requests, Birthday Shoutouts, Dedications</p>
+  <!-- STEP 1: Choose message type -->
+  <div id="typeScreen">
+    <h1 class="hotline-title">What are you<br>sending in?</h1>
+    <p class="hotline-sub">Choose your message type, then record your voice message.</p>
+
+    <div class="type-grid">
+      <div class="type-card selected" data-type="general">
+        <div class="type-card-icon">🎙️</div>
+        <div class="type-card-text">
+          <div class="type-card-title">General Message</div>
+          <div class="type-card-desc">Shoutout, comment, or anything on your mind</div>
+        </div>
+        <div class="type-card-check">✓</div>
+      </div>
+      <div class="type-card" data-type="song">
+        <div class="type-card-icon">🎵</div>
+        <div class="type-card-text">
+          <div class="type-card-title">Song Request</div>
+          <div class="type-card-desc">Request a track to be played live on air</div>
+        </div>
+        <div class="type-card-check">✓</div>
+      </div>
+      <div class="type-card" data-type="shoutout">
+        <div class="type-card-icon">📢</div>
+        <div class="type-card-text">
+          <div class="type-card-title">Shout-Out</div>
+          <div class="type-card-desc">Give someone a special shoutout on air</div>
+        </div>
+        <div class="type-card-check">✓</div>
+      </div>
+      <div class="type-card" data-type="birthday">
+        <div class="type-card-icon">🎂</div>
+        <div class="type-card-text">
+          <div class="type-card-title">Birthday Message</div>
+          <div class="type-card-desc">Happy birthday dedication for someone special</div>
+        </div>
+        <div class="type-card-check">✓</div>
+      </div>
+      <div class="type-card" data-type="dedication">
+        <div class="type-card-icon">💌</div>
+        <div class="type-card-text">
+          <div class="type-card-title">Dedication</div>
+          <div class="type-card-desc">Dedicate a song or message to someone</div>
+        </div>
+        <div class="type-card-check">✓</div>
+      </div>
+    </div>
+
+    <button class="next-btn" id="nextBtn">Next — Record Message →</button>
+  </div>
+
+  <!-- STEP 2: Record -->
+  <div id="recordView" style="display:none;">
+    <div class="selected-type-badge" id="selectedTypeBadge">🎙️ General Message</div>
+    <h1 class="hotline-title">Tap Microphone To<br>Leave a Voice Message</h1>
 
     <div class="error-banner" id="errorBanner"></div>
 
@@ -275,81 +377,33 @@
           </svg>
         </button>
       </div>
-
       <div class="countdown" id="countdown">0:30</div>
       <div class="status-text" id="statusText">Tap the screen to record</div>
       <div class="viz" id="viz"></div>
     </div>
+    <button class="type-back" id="backToTypeBtn">← Change message type</button>
   </div>
 
+  <!-- STEP 3: Review & Details -->
   <div class="panel" id="reviewPanel">
     <h3>Review Your Message</h3>
     <audio id="playback" controls></audio>
 
-    <!-- Message type pills -->
     <div class="field">
-      <label>Message Type</label>
-      <div class="type-pills">
-        <button class="type-pill active" data-type="general">🎙️ General</button>
-        <button class="type-pill" data-type="song">🎵 Song Request</button>
-        <button class="type-pill" data-type="shoutout">📢 Shout-Out</button>
-        <button class="type-pill" data-type="birthday">🎂 Birthday</button>
-        <button class="type-pill" data-type="dedication">💌 Dedication</button>
-      </div>
-    </div>
-
-    <!-- Always visible -->
-    <div class="field">
-      <label>Display Name <span class="optional-tag">(Your Name)</span></label>
+      <label>1. Display Name <span class="optional-tag">(Your Name)</span></label>
       <input type="text" id="fName" maxlength="40" placeholder="What should we call you?">
     </div>
     <div class="field">
-      <label>City &amp; State <span class="optional-tag">(Where you're calling from)</span></label>
-      <input type="text" id="fCity" maxlength="60" placeholder="e.g. Your City, Your State">
+      <label>2. City &amp; State <span class="optional-tag">(Where you're calling from)</span></label>
+      <input type="text" id="fCity" maxlength="60" placeholder="e.g. Dallas, TX">
     </div>
-
-    <!-- Song Request fields -->
-    <div class="type-fields" id="fields-song">
-      <div class="field">
-        <label>Artist Name</label>
-        <input type="text" id="fArtist" maxlength="80" placeholder="Artist name">
-      </div>
-      <div class="field">
-        <label>Song Title</label>
-        <input type="text" id="fTrack" maxlength="80" placeholder="Song title">
-      </div>
+    <div class="field">
+      <label>3. Artist Name <span class="optional-tag">(optional)</span></label>
+      <input type="text" id="fArtist" maxlength="80" placeholder="Artist name">
     </div>
-
-    <!-- Shout-Out fields -->
-    <div class="type-fields" id="fields-shoutout">
-      <div class="field">
-        <label>Who are you shouting out?</label>
-        <input type="text" id="fShoutoutName" maxlength="80" placeholder="Name, club, business…">
-      </div>
-    </div>
-
-    <!-- Birthday fields -->
-    <div class="type-fields" id="fields-birthday">
-      <div class="field">
-        <label>Who's the birthday for?</label>
-        <input type="text" id="fBirthdayName" maxlength="80" placeholder="Name">
-      </div>
-      <div class="field">
-        <label>Song Request <span class="optional-tag">(optional)</span></label>
-        <input type="text" id="fBirthdaySong" maxlength="80" placeholder="Artist – Track">
-      </div>
-    </div>
-
-    <!-- Dedication fields -->
-    <div class="type-fields" id="fields-dedication">
-      <div class="field">
-        <label>Who is this dedicated to?</label>
-        <input type="text" id="fDedicationTo" maxlength="80" placeholder="Name">
-      </div>
-      <div class="field">
-        <label>Song Request <span class="optional-tag">(optional)</span></label>
-        <input type="text" id="fDedicationSong" maxlength="80" placeholder="Artist – Track">
-      </div>
+    <div class="field">
+      <label>4. Song Title <span class="optional-tag">(optional)</span></label>
+      <input type="text" id="fTrack" maxlength="80" placeholder="Song title">
     </div>
 
     <div class="btn-row">
@@ -524,9 +578,16 @@ function onRecordingStop(){
 }
 
 function resetToRecordView(){
-  recordView.style.display = 'block';
+  // Go back to type selection screen so user can pick a new type
+  recordView.style.display = 'none';
   reviewPanel.classList.remove('show');
   confirmView.classList.remove('show');
+  typeScreen.style.display = 'block';
+  // Reset type selection to default
+  typeCards.forEach(c => c.classList.remove('selected'));
+  document.querySelector('.type-card[data-type="general"]').classList.add('selected');
+  selectedType = 'general';
+  // Reset recording state
   statusText.textContent = 'Tap the screen to record';
   secondsLeft = MAX_SECONDS;
   updateCountdown();
@@ -534,6 +595,9 @@ function resetToRecordView(){
   sendBtn.disabled = false;
   sendBtn.textContent = 'Send Message';
 }
+
+// Also fix recordView display to flex (not block) since it uses flexbox layout
+// This is handled by setting display:flex in nextBtn click handler above
 
 tapZone.addEventListener('click', ()=>{
   if(micBtn.disabled) return;
@@ -544,21 +608,33 @@ tapZone.addEventListener('click', ()=>{
   }
 });
 
-// Message type pill switching
-// Message type pill switching
+// ── Step 1: Type selection screen → Step 2: Record ──
 let selectedType = 'general';
-const typePills = document.querySelectorAll('.type-pill');
-const allTypeFields = document.querySelectorAll('.type-fields');
+const typeScreen        = document.getElementById('typeScreen');
+const nextBtnEl         = document.getElementById('nextBtn');
+const selectedTypeBadge = document.getElementById('selectedTypeBadge');
+const typeCards         = document.querySelectorAll('.type-card');
 
-typePills.forEach(pill =>{
-  pill.addEventListener('click', ()=>{
-    typePills.forEach(p => p.classList.remove('active'));
-    pill.classList.add('active');
-    selectedType = pill.dataset.type;
-    allTypeFields.forEach(f => f.classList.remove('show'));
-    const target = document.getElementById('fields-' + selectedType);
-    if(target) target.classList.add('show');
+const typeLabels = {
+  general:    '🎙️ General Message',
+  song:       '🎵 Song Request',
+  shoutout:   '📢 Shout-Out',
+  birthday:   '🎂 Birthday Message',
+  dedication: '💌 Dedication'
+};
+
+typeCards.forEach(card =>{
+  card.addEventListener('click', ()=>{
+    typeCards.forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedType = card.dataset.type;
   });
+});
+
+nextBtnEl.addEventListener('click', ()=>{
+  typeScreen.style.display = 'none';
+  recordView.style.display = 'flex';
+  selectedTypeBadge.textContent = typeLabels[selectedType] || '🎙️ General Message';
 });
 
 rerecordBtn.addEventListener('click', ()=>{
@@ -593,6 +669,7 @@ sendBtn.addEventListener('click', async ()=>{
     await addDoc(collection(db, 'hotlineMessages'), {
       name: document.getElementById('fName').value.trim() || null,
       city: document.getElementById('fCity').value.trim() || null,
+      messageType: selectedType,
       songArtist: document.getElementById('fArtist').value.trim() || null,
       songTrack: document.getElementById('fTrack').value.trim() || null,
       audioUrl,
