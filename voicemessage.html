@@ -12,7 +12,7 @@
 <!-- PWA icons — uses the green bolt emoji rendered as SVG data URIs, no image file needed -->
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" href="icon-192.png">
-<title>Live Caller Studio — Leave a Voice Message</title>
+<title>Live Caller — Leave a Voice Message</title>
 <style>
   :root{
     --green:#53FC18;
@@ -301,21 +301,21 @@
 <div class="wrap">
   <div class="brand">
     <span class="brand-bolt">⚡</span>
-    <span class="brand-name">LIVE <span>CALLER</span> STUDIO</span>
+    <span class="brand-name">LIVE <span>CALLER</span>
   </div>
   <div class="product-tagline">Where Your Audience Joins the Show</div>
 
   <!-- STEP 1: Choose message type -->
   <div id="typeScreen">
-    <h1 class="hotline-title">What are you<br>sending in?</h1>
-    <p class="hotline-sub">Choose your message type, then record your voice message.</p>
+    <h1 class="hotline-title">What Are You Sending In?</h1>
+    <p class="hotline-sub">Choose Your Message Type<br>Then Record Your Voice Message.</p>
 
     <div class="type-grid">
       <div class="type-card selected" data-type="general">
         <div class="type-card-icon">🎙️</div>
         <div class="type-card-text">
           <div class="type-card-title">General Message</div>
-          <div class="type-card-desc">Shoutout, comment, or anything on your mind</div>
+          <div class="type-card-desc">Shoutout, Comment, or Anything On Your Mind</div>
         </div>
         <div class="type-card-check">✓</div>
       </div>
@@ -323,15 +323,15 @@
         <div class="type-card-icon">🎵</div>
         <div class="type-card-text">
           <div class="type-card-title">Song Request</div>
-          <div class="type-card-desc">Request a track to be played live on air</div>
+          <div class="type-card-desc">Request A Track To Be Played Live On Air</div>
         </div>
         <div class="type-card-check">✓</div>
       </div>
       <div class="type-card" data-type="shoutout">
         <div class="type-card-icon">📢</div>
         <div class="type-card-text">
-          <div class="type-card-title">Shout-Out</div>
-          <div class="type-card-desc">Give someone a special shoutout on air</div>
+          <div class="type-card-title">Shout Out</div>
+          <div class="type-card-desc">Give Someone A Special Shoutout On Air</div>
         </div>
         <div class="type-card-check">✓</div>
       </div>
@@ -339,7 +339,7 @@
         <div class="type-card-icon">🎂</div>
         <div class="type-card-text">
           <div class="type-card-title">Birthday Message</div>
-          <div class="type-card-desc">Happy birthday dedication for someone special</div>
+          <div class="type-card-desc">Happy Birthday Dedication For Someone Special</div>
         </div>
         <div class="type-card-check">✓</div>
       </div>
@@ -347,7 +347,7 @@
         <div class="type-card-icon">💌</div>
         <div class="type-card-text">
           <div class="type-card-title">Dedication</div>
-          <div class="type-card-desc">Dedicate a song or message to someone</div>
+          <div class="type-card-desc">Dedicate A Song Or Message To Someone</div>
         </div>
         <div class="type-card-check">✓</div>
       </div>
@@ -359,7 +359,7 @@
   <!-- STEP 2: Record -->
   <div id="recordView" style="display:none;">
     <div class="selected-type-badge" id="selectedTypeBadge">🎙️ General Message</div>
-    <h1 class="hotline-title">Tap Microphone To<br>Leave a Voice Message</h1>
+    <h1 class="hotline-title">Tap Screen To<br>Leave a Voice Message</h1>
 
     <div class="error-banner" id="errorBanner"></div>
 
@@ -378,10 +378,10 @@
         </button>
       </div>
       <div class="countdown" id="countdown">0:30</div>
-      <div class="status-text" id="statusText">Tap the screen to record</div>
+      <div class="status-text" id="statusText">Tap The Screen To Record</div>
       <div class="viz" id="viz"></div>
     </div>
-    <button class="type-back" id="backToTypeBtn">← Change message type</button>
+    <button class="type-back" id="backToTypeBtn">← Change Message Type</button>
   </div>
 
   <!-- STEP 3: Review & Details -->
@@ -391,12 +391,12 @@
 
     <!-- Always visible -->
     <div class="field">
-      <label>1. Display Name <span class="optional-tag">(Your Name)</span></label>
+      <label>Display Name <span class="optional-tag">(Your Name)</span></label>
       <input type="text" id="fName" maxlength="40" placeholder="What should we call you?">
     </div>
     <div class="field">
-      <label>2. City &amp; State <span class="optional-tag">(Where you're calling from)</span></label>
-      <input type="text" id="fCity" maxlength="60" placeholder="e.g. Dallas, TX">
+      <label>City &amp; State <span class="optional-tag">(Where you're calling from)</span></label>
+      <input type="text" id="fCity" maxlength="60" placeholder="e.g. Your City, Your State">
     </div>
 
     <!-- Type-specific fields injected here -->
@@ -414,12 +414,12 @@
         <polyline points="20 6 9 17 4 12"/>
       </svg>
     </div>
-    <h2>Message sent</h2>
-    <p>Your message is in the queue. Keep listening — it might play live.</p>
+    <h2>Message Sent</h2>
+    <p>Your Message Is In The Queue. Keep Listening — It Might Play Live.</p>
     <button class="btn btn-primary" id="newMsgBtn" style="max-width:220px;">Send Another</button>
   </div>
 
-  <div class="footnote">By submitting, you agree your message may be broadcast on-air or on stream.</div>
+  <div class="footnote">By Submitting, You Agree Your Message May Be Broadcast On-Air or On Stream.</div>
 </div>
 
 <!-- Firebase SDKs -->
@@ -563,7 +563,7 @@ function onRecordingStop(){
   stopVizAndStream();
   audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
   if(audioBlob.size === 0){
-    showError("We didn't catch any audio. Please try recording again.");
+    showError("We Didn't Catch Any Audio. Please Try Recording Again.");
     resetToRecordView();
     return;
   }
@@ -585,7 +585,7 @@ function resetToRecordView(){
   document.querySelector('.type-card[data-type="general"]').classList.add('selected');
   selectedType = 'general';
   // Reset recording state
-  statusText.textContent = 'Tap the screen to record';
+  statusText.textContent = 'Tap The Screen To Record';
   secondsLeft = MAX_SECONDS;
   updateCountdown();
   micBtn.disabled = false;
@@ -726,12 +726,12 @@ sendBtn.addEventListener('click', async ()=>{
           text-align:center;padding:40px 20px;gap:18px;">
           <div style="font-size:52px;">✅</div>
           <div style="font-size:22px;font-weight:900;">Message Sent!</div>
-          <div style="font-size:14px;color:#888;">Your message is in the queue.<br>You can close this window.</div>
+          <div style="font-size:14px;color:#888;">Your Message Is In The Queue.<br>You Can Close This Window.</div>
         </div>`;
     }, 3000);
   }catch(err){
     console.error(err);
-    showError("Something went wrong sending your message. Check your connection and try again.");
+    showError("Something Went Wrong Sending Your Message. Check Your Connection and Try Again.");
     sendBtn.disabled = false;
     sendBtn.textContent = 'Send Message';
   }
