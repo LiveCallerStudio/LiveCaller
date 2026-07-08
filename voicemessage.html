@@ -486,13 +486,13 @@ function clearError(){
 async function startRecording(){
   clearError();
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    showError("Your browser doesn't support microphone recording. Try Chrome, Safari, or Firefox.");
+    showError("Your Browser Doesn't Support Microphone Recording. Try Chrome, Safari, or Firefox.");
     return;
   }
   try{
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   }catch(err){
-    showError("Microphone access was blocked. Please allow mic permissions and try again.");
+    showError("Microphone Access Was Blocked. Please Allow Mic Permissions and Try Again.");
     return;
   }
 
@@ -515,7 +515,7 @@ async function startRecording(){
 
   micStage.classList.add('recording');
   micBtn.setAttribute('aria-label','Stop recording');
-  statusText.textContent = 'Recording… tap to stop';
+  statusText.textContent = 'Recording… Tap To Stop';
   secondsLeft = MAX_SECONDS;
   updateCountdown();
   timerInterval = setInterval(()=>{
@@ -611,21 +611,21 @@ const typeSpecificFields = document.getElementById('typeSpecificFields');
 const typeFieldTemplates = {
   general: [],
   song: [
-    { num:3, id:'fArtist', label:'Artist Name', tag:'(optional)', placeholder:'Artist name', max:80 },
-    { num:4, id:'fTrack',  label:'Song Title',  tag:'(optional)', placeholder:'Song title',  max:80 }
+    { id:'fArtist', label:'Artist Name', tag:'(optional)', placeholder:'Artist name', max:80 },
+    { id:'fTrack',  label:'Song Title',  tag:'(optional)', placeholder:'Song title',  max:80 }
   ],
   shoutout: [
-    { num:3, id:'fShoutoutName', label:'Who are you shouting out?', tag:'(name, club, business…)', placeholder:'Enter name', max:80 }
+    { id:'fShoutoutName', label:'Who are you shouting out?', tag:'(name, club, business…)', placeholder:'Enter name', max:80 }
   ],
   birthday: [
-    { num:3, id:'fBirthdayName', label:"Who's the birthday for?", tag:'(their name)', placeholder:'Enter name', max:80 },
-    { num:4, id:'fArtist',       label:'Artist Name',              tag:'(optional)', placeholder:'Artist name', max:80 },
-    { num:5, id:'fTrack',        label:'Song Title',               tag:'(optional)', placeholder:'Song title',  max:80 }
+    { id:'fBirthdayName', label:"Who's the birthday for?", tag:'(their name)', placeholder:'Enter name', max:80 },
+    { id:'fArtist',       label:'Artist Name',              tag:'(optional)', placeholder:'Artist name', max:80 },
+    { id:'fTrack',        label:'Song Title',               tag:'(optional)', placeholder:'Song title',  max:80 }
   ],
   dedication: [
-    { num:3, id:'fDedicationTo', label:'Who is this dedicated to?', tag:'(their name)', placeholder:'Enter name',   max:80 },
-    { num:4, id:'fArtist',       label:'Artist Name',               tag:'(optional)', placeholder:'Artist name', max:80 },
-    { num:5, id:'fTrack',        label:'Song Title',                tag:'(optional)', placeholder:'Song title',  max:80 }
+    { id:'fDedicationTo', label:'Who is this dedicated to?', tag:'(their name)', placeholder:'Enter name',   max:80 },
+    { id:'fArtist',       label:'Artist Name',               tag:'(optional)', placeholder:'Artist name', max:80 },
+    { id:'fTrack',        label:'Song Title',                tag:'(optional)', placeholder:'Song title',  max:80 }
   ]
 };
 
