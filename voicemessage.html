@@ -12,7 +12,7 @@
 <!-- PWA icons — uses the green bolt emoji rendered as SVG data URIs, no image file needed -->
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" href="icon-192.png">
-<title>Live Caller Studio — Leave a Voice Message</title>
+<title>Live Caller — Leave a Voice Message</title>
 <style>
   :root{
     --green:#53FC18;
@@ -301,21 +301,21 @@
 <div class="wrap">
   <div class="brand">
     <span class="brand-bolt">⚡</span>
-    <span class="brand-name">LIVE <span>CALLER</span> STUDIO</span>
+    <span class="brand-name">LIVE <span>CALLER</span>
   </div>
   <div class="product-tagline">Where Your Audience Joins the Show</div>
 
   <!-- STEP 1: Choose message type -->
   <div id="typeScreen">
     <h1 class="hotline-title">What are you<br>sending in?</h1>
-    <p class="hotline-sub">Choose your message type, then record your voice message.</p>
+    <p class="hotline-sub">Choose Your Message Type, Then Record Your Voice Message.</p>
 
     <div class="type-grid">
       <div class="type-card selected" data-type="general">
         <div class="type-card-icon">🎙️</div>
         <div class="type-card-text">
           <div class="type-card-title">General Message</div>
-          <div class="type-card-desc">Shoutout, comment, or anything on your mind</div>
+          <div class="type-card-desc">Shoutout, Comment, or Anything on Your Mind</div>
         </div>
         <div class="type-card-check">✓</div>
       </div>
@@ -323,15 +323,15 @@
         <div class="type-card-icon">🎵</div>
         <div class="type-card-text">
           <div class="type-card-title">Song Request</div>
-          <div class="type-card-desc">Request a track to be played live on air</div>
+          <div class="type-card-desc">Request a Track To Be Played Live On Air</div>
         </div>
         <div class="type-card-check">✓</div>
       </div>
       <div class="type-card" data-type="shoutout">
         <div class="type-card-icon">📢</div>
         <div class="type-card-text">
-          <div class="type-card-title">Shout-Out</div>
-          <div class="type-card-desc">Give someone a special shoutout on air</div>
+          <div class="type-card-title">Shout Out</div>
+          <div class="type-card-desc">Give Someone A Special Shoutout On Air</div>
         </div>
         <div class="type-card-check">✓</div>
       </div>
@@ -339,7 +339,7 @@
         <div class="type-card-icon">🎂</div>
         <div class="type-card-text">
           <div class="type-card-title">Birthday Message</div>
-          <div class="type-card-desc">Happy birthday dedication for someone special</div>
+          <div class="type-card-desc">Happy Birthday Dedication For Someone Special</div>
         </div>
         <div class="type-card-check">✓</div>
       </div>
@@ -347,7 +347,7 @@
         <div class="type-card-icon">💌</div>
         <div class="type-card-text">
           <div class="type-card-title">Dedication</div>
-          <div class="type-card-desc">Dedicate a song or message to someone</div>
+          <div class="type-card-desc">Dedicate A Song or Message To Someone</div>
         </div>
         <div class="type-card-check">✓</div>
       </div>
@@ -359,7 +359,7 @@
   <!-- STEP 2: Record -->
   <div id="recordView" style="display:none;">
     <div class="selected-type-badge" id="selectedTypeBadge">🎙️ General Message</div>
-    <h1 class="hotline-title">Tap Microphone To<br>Leave a Voice Message</h1>
+    <h1 class="hotline-title">Tap Screen To<br>Leave a Voice Message</h1>
 
     <div class="error-banner" id="errorBanner"></div>
 
@@ -378,10 +378,10 @@
         </button>
       </div>
       <div class="countdown" id="countdown">0:30</div>
-      <div class="status-text" id="statusText">Tap the screen to record</div>
+      <div class="status-text" id="statusText">Tap The Screen To Record</div>
       <div class="viz" id="viz"></div>
     </div>
-    <button class="type-back" id="backToTypeBtn">← Change message type</button>
+    <button class="type-back" id="backToTypeBtn">← Change Message Type</button>
   </div>
 
   <!-- STEP 3: Review & Details -->
@@ -389,23 +389,59 @@
     <h3>Review Your Message</h3>
     <audio id="playback" controls></audio>
 
+    <!-- Always visible -->
     <div class="field">
-      <label>1. Display Name <span class="optional-tag">(Your Name)</span></label>
+      <label>Display Name <span class="optional-tag">(Your Name)</span></label>
       <input type="text" id="fName" maxlength="40" placeholder="What should we call you?">
     </div>
     <div class="field">
-      <label>2. City &amp; State <span class="optional-tag">(Where you're calling from)</span></label>
+      <label>City &amp; State <span class="optional-tag">(Where you're calling from)</span></label>
       <input type="text" id="fCity" maxlength="60" placeholder="e.g. Dallas, TX">
     </div>
-    <div class="field">
-      <label>3. Artist Name <span class="optional-tag">(optional)</span></label>
-      <input type="text" id="fArtist" maxlength="80" placeholder="Artist name">
-    </div>
-    <div class="field">
-      <label>4. Song Title <span class="optional-tag">(optional)</span></label>
-      <input type="text" id="fTrack" maxlength="80" placeholder="Song title">
+
+    <!-- Song Request fields -->
+    <div class="type-fields" id="fields-song">
+      <div class="field">
+        <label>Artist Name</label>
+        <input type="text" id="fArtist" maxlength="80" placeholder="Artist name">
+      </div>
+      <div class="field">
+        <label>Song Title</label>
+        <input type="text" id="fTrack" maxlength="80" placeholder="Song title">
+      </div>
     </div>
 
+    <!-- Shout-Out fields -->
+    <div class="type-fields" id="fields-shoutout">
+      <div class="field">
+        <label>Who are you shouting out?</label>
+        <input type="text" id="fShoutoutName" maxlength="80" placeholder="Name, club, business…">
+      </div>
+    </div>
+
+    <!-- Birthday fields -->
+    <div class="type-fields" id="fields-birthday">
+      <div class="field">
+        <label>Who's the birthday for?</label>
+        <input type="text" id="fBirthdayName" maxlength="80" placeholder="Name">
+      </div>
+      <div class="field">
+        <label>Song Request <span class="optional-tag">(optional)</span></label>
+        <input type="text" id="fBirthdaySong" maxlength="80" placeholder="Artist – Track">
+      </div>
+    </div>
+
+    <!-- Dedication fields -->
+    <div class="type-fields" id="fields-dedication">
+      <div class="field">
+        <label>Who is this dedicated to?</label>
+        <input type="text" id="fDedicationTo" maxlength="80" placeholder="Name">
+      </div>
+      <div class="field">
+        <label>Song Request <span class="optional-tag">(optional)</span></label>
+        <input type="text" id="fDedicationSong" maxlength="80" placeholder="Artist – Track">
+      </div>
+    </div>
     <div class="btn-row">
       <button class="btn btn-ghost" id="rerecordBtn">Re-record</button>
       <button class="btn btn-primary" id="sendBtn">Send Message</button>
