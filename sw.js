@@ -4,8 +4,8 @@
 
 const CACHE_NAME = 'lcs-v1';
 const SHELL = [
-  '/LiveCallerStudio/index.html',
-  '/LiveCallerStudio/manifest.json'
+  '/LiveCaller/voicemessage.html',
+  '/LiveCaller/manifest.json'
 ];
 
 // Install: pre-cache the app shell
@@ -59,7 +59,7 @@ self.addEventListener('fetch', (event) => {
       });
     }).catch(() => {
       // Offline fallback — return cached index.html if available
-      return caches.match('/LiveCallerStudio/index.html');
+      return caches.match('/LiveCaller/voicemessage.html');
     })
   );
 });

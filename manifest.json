@@ -1,9 +1,9 @@
 {
-  "name": "Live Caller",
+  "name": "Live Caller Studio",
   "short_name": "Live Caller",
   "description": "Leave a voice message for the show — song requests, shoutouts, birthdays, and more.",
-  "start_url": "/LiveCallerStudio/voicemessage.html",
-  "scope": "/LiveCallerStudio/",
+  "start_url": "https://livecallerstudio.github.io/LiveCaller/voicemessage.html",
+  "scope": "https://livecallerstudio.github.io/LiveCaller/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0a0a",
@@ -26,8 +26,8 @@
   "shortcuts": [
     {
       "name": "Record a Message",
-      "url": "/LiveCallerStudio/voicemessage.html",
-      "description": "Tap Screen To Leave A Voice Message"
+      "url": "https://livecallerstudio.github.io/LiveCaller/voicemessage.html",
+      "description": "Tap to leave a voice message"
     }
   ]
 }
