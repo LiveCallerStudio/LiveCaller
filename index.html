@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#53FC18">
+<meta name="description" content="Live Caller Studio — Professional broadcast call-in system. Leave a voice message or call in live.">
+<title>Live Caller Studio</title>
+<style>
+  :root{
+    --green:#53FC18;
+    --black:#0a0a0a;
+    --panel:#131313;
+    --line:#222;
+    --sub:#888;
+    --text:#f2f2f2;
+    --red:#ff3b3b;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{
+    min-height:100vh;
+    background:var(--black);
+    color:var(--text);
+    font-family:'Arial Black','Helvetica Neue',Arial,sans-serif;
+  }
+
+  /* ── Background glow ── */
+  body::before{
+    content:'';
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(ellipse 80% 40% at 50% -10%, rgba(83,252,24,0.13), transparent),
+      radial-gradient(ellipse 50% 30% at 80% 110%, rgba(83,252,24,0.06), transparent);
+  }
+
+  .page{
+    position:relative; z-index:1;
+    min-height:100vh;
+    display:flex; flex-direction:column; align-items:center;
+    padding:52px 20px 60px;
+  }
+
+  /* ── Brand ── */
+  .brand{
+    display:flex; align-items:center; gap:12px; margin-bottom:10px;
+  }
+  .brand-bolt{
+    width:46px; height:46px; border-radius:12px;
+    background:var(--green); color:#0a0a0a;
+    display:flex; align-items:center; justify-content:center;
+    font-size:26px; font-weight:900; flex-shrink:0;
+    box-shadow:0 0 28px rgba(83,252,24,0.45);
+  }
+  .brand-text h1{
+    font-size:26px; letter-spacing:1.5px; line-height:1;
+    text-transform:uppercase;
+  }
+  .brand-text h1 span{ color:var(--green); }
+  .brand-text p{
+    font-family:Arial,sans-serif; font-weight:400;
+    font-size:11px; letter-spacing:2px; color:var(--sub);
+    text-transform:uppercase; margin-top:3px;
+  }
+
+  /* ── Live indicator ── */
+  .live-badge{
+    display:inline-flex; align-items:center; gap:7px;
+    background:rgba(255,59,59,0.12); border:1px solid rgba(255,59,59,0.35);
+    color:var(--red); border-radius:20px; padding:6px 14px;
+    font-family:Arial,sans-serif; font-size:12px; font-weight:700;
+    letter-spacing:1.5px; text-transform:uppercase; margin:18px 0 32px;
+  }
+  .live-dot{
+    width:7px; height:7px; border-radius:50%; background:var(--red);
+    animation:blink 1.2s infinite;
+  }
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.2;} }
+
+  /* ── Tagline ── */
+  .tagline{
+    font-size:22px; text-align:center; line-height:1.3; margin-bottom:8px;
+    max-width:500px;
+    text-shadow:0 0 30px rgba(83,252,24,0.2);
+  }
+  .tagline span{ color:var(--green); }
+  .sub{
+    font-family:Arial,sans-serif; font-weight:400; color:var(--sub);
+    font-size:14px; text-align:center; margin-bottom:44px; max-width:380px;
+    line-height:1.6;
+  }
+
+  /* ── Cards ── */
+  .cards{
+    display:flex; flex-direction:column; gap:14px;
+    width:100%; max-width:480px;
+  }
+
+  .card{
+    display:flex; align-items:center; gap:18px;
+    background:var(--panel); border:1px solid var(--line);
+    border-radius:16px; padding:22px 20px;
+    text-decoration:none; color:var(--text);
+    transition:border-color .2s ease, box-shadow .2s ease, transform .15s ease;
+    position:relative; overflow:hidden;
+  }
+  .card::before{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(135deg, rgba(83,252,24,0.04), transparent 60%);
+    opacity:0; transition:opacity .2s ease;
+  }
+  .card:hover{ border-color:var(--green); box-shadow:0 0 24px rgba(83,252,24,0.15); transform:translateY(-2px); }
+  .card:hover::before{ opacity:1; }
+  .card:active{ transform:scale(0.98); }
+
+  .card-icon{
+    width:56px; height:56px; border-radius:14px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:26px; background:rgba(83,252,24,0.08);
+    border:1px solid rgba(83,252,24,0.18);
+  }
+  .card.call .card-icon{
+    background:rgba(255,59,59,0.08);
+    border-color:rgba(255,59,59,0.18);
+  }
+  .card.dash .card-icon{
+    background:rgba(255,255,255,0.05);
+    border-color:rgba(255,255,255,0.1);
+  }
+
+  .card-body{ flex:1; }
+  .card-title{
+    font-size:17px; font-weight:900; letter-spacing:.3px; margin-bottom:4px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .card-desc{
+    font-family:Arial,sans-serif; font-weight:400;
+    font-size:13px; color:var(--sub); line-height:1.5;
+  }
+
+  .card-arrow{
+    color:var(--sub); font-size:20px; flex-shrink:0;
+    transition:color .2s ease, transform .2s ease;
+  }
+  .card:hover .card-arrow{ color:var(--green); transform:translateX(3px); }
+
+  .badge-new{
+    font-size:9px; font-weight:700; letter-spacing:1px;
+    background:var(--green); color:#0a0a0a;
+    padding:2px 7px; border-radius:6px; text-transform:uppercase;
+  }
+
+  /* ── Divider ── */
+  .divider{
+    display:flex; align-items:center; gap:12px;
+    width:100%; max-width:480px; margin:6px 0;
+    color:#333; font-family:Arial,sans-serif; font-size:11px;
+    letter-spacing:1.5px; text-transform:uppercase;
+  }
+  .divider::before,.divider::after{
+    content:''; flex:1; height:1px; background:#222;
+  }
+
+  /* ── Footer ── */
+  .footer{
+    margin-top:48px; text-align:center;
+    font-family:Arial,sans-serif; font-size:11px;
+    color:#3a3a3a; letter-spacing:.5px; line-height:1.8;
+  }
+  .footer a{ color:#555; text-decoration:none; }
+  .footer a:hover{ color:var(--green); }
+
+  @media(max-width:400px){
+    .tagline{ font-size:19px; }
+    .card{ padding:18px 16px; }
+    .card-icon{ width:48px; height:48px; font-size:22px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Brand -->
+  <div class="brand">
+    <div class="brand-bolt">⚡</div>
+    <div class="brand-text">
+      <h1>LIVE <span>CALLER</span> STUDIO</h1>
+      <p>Professional Broadcast Call-In System</p>
+    </div>
+  </div>
+
+  <!-- Live badge -->
+  <div class="live-badge">
+    <span class="live-dot"></span>
+    On Air — Where Your Audience Joins the Show
+  </div>
+
+  <!-- Tagline -->
+  <h2 class="tagline">Your Voice,<br><span>Live on Air.</span></h2>
+  <p class="sub">Record a message, request a song, send a shoutout, or call in live — all from your phone or computer.</p>
+
+  <!-- Cards -->
+  <div class="cards">
+
+    <!-- Voice Message -->
+    <a class="card" href="voicemessage.html">
+      <div class="card-icon">🎤</div>
+      <div class="card-body">
+        <div class="card-title">Send a Voice Message</div>
+        <div class="card-desc">Record a message, song request, shoutout, birthday or dedication. No app required.</div>
+      </div>
+      <div class="card-arrow">›</div>
+    </a>
+
+    <div class="divider">or</div>
+
+    <!-- Live Call -->
+    <a class="card call" href="call.html">
+      <div class="card-icon">📞</div>
+      <div class="card-body">
+        <div class="card-title">Call In Live <span class="badge-new">Live</span></div>
+        <div class="card-desc">Connect directly with the producer for a chance to go live on air.</div>
+      </div>
+      <div class="card-arrow">›</div>
+    </a>
+
+    <div class="divider">producer</div>
+
+    <!-- Dashboard -->
+    <a class="card dash" href="dashboard.html">
+      <div class="card-icon">🎛️</div>
+      <div class="card-body">
+        <div class="card-title">Producer Dashboard</div>
+        <div class="card-desc">Manage the live queue, approve messages, screen calls, and send to air. Sign-in required.</div>
+      </div>
+      <div class="card-arrow">›</div>
+    </a>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div>© Live Caller Studio · DZTV Network</div>
+    <div style="margin-top:4px;">
+      <a href="voicemessage.html">Voice Message</a> &nbsp;·&nbsp;
+      <a href="call.html">Live Call</a> &nbsp;·&nbsp;
+      <a href="dashboard.html">Dashboard</a>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
