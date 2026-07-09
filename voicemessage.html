@@ -633,7 +633,7 @@ function buildReviewFields(){
   const fields = typeFieldTemplates[selectedType] || [];
   typeSpecificFields.innerHTML = fields.map(f => `
     <div class="field">
-      <label>${f.num}. ${f.label} <span class="optional-tag">${f.tag}</span></label>
+      <label>${f.label}${f.tag ? ` <span class="optional-tag">${f.tag}</span>` : ''}</label>
       <input type="text" id="${f.id}" maxlength="${f.max}" placeholder="${f.placeholder}">
     </div>
   `).join('');
