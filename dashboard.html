@@ -266,9 +266,40 @@
   .hist-time{font-size:11px; color:#5a5a5a;}
   .hist-play{
     padding:6px 12px; border-radius:6px; border:1px solid var(--green); background:transparent;
-    color:var(--green); font-size:11px; font-weight:700; cursor:pointer;
+    color:var(--green); font-size:11px; font-weight:700; cursor:pointer; text-decoration:none;
+    display:inline-block; transition:background .15s, color .15s;
   }
   .hist-play:hover{background:var(--green); color:#0a0a0a;}
+  .hist-delete{
+    padding:6px 10px; border-radius:6px; border:1px solid var(--red); background:transparent;
+    color:var(--red); font-size:11px; cursor:pointer; transition:background .15s, color .15s;
+  }
+  .hist-delete:hover{background:var(--red); color:#fff;}
+
+  /* ── Recordings Section ── */
+  .rec-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px; display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap;
+    margin-bottom:10px;
+  }
+  .rec-icon{ font-size:24px; padding-top:2px; }
+  .rec-body{ flex:1; min-width:160px; }
+  .rec-name{ font-weight:800; font-size:14px; margin-bottom:3px; }
+  .rec-meta{ font-size:12px; color:var(--sub); font-family:Arial,sans-serif; }
+  .rec-actions{ width:100%; display:flex; flex-direction:column; gap:8px; }
+  .rec-audio{ width:100%; height:36px; margin-top:4px; filter:invert(1) hue-rotate(70deg); }
+  .rec-btns{ display:flex; gap:8px; }
+  .rbtn{
+    padding:8px 14px; border-radius:7px; font-size:12px; font-weight:700;
+    cursor:pointer; text-decoration:none; display:inline-block;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--text);
+    transition:filter .15s, border-color .15s;
+  }
+  .rbtn:hover{ filter:brightness(1.3); }
+  .rbtn-save{ border-color:var(--green); color:var(--green); }
+  .rbtn-save:hover{ background:var(--green); color:#0a0a0a; }
+  .rbtn-del{ border-color:var(--red); color:var(--red); }
+  .rbtn-del:hover{ background:var(--red); color:#fff; }
   .cbtn-end:hover{background:var(--red); color:#fff;}
 
   .calls-section-title{font-size:11px; color:var(--sub); text-transform:uppercase;
@@ -568,6 +599,16 @@
       <div>No call history yet. Calls appear here after they end.</div>
     </div>
     <div class="queue" id="histList"></div>
+
+    <!-- Recordings Section -->
+    <div id="recordingsSection" style="margin-top:32px;">
+      <div class="section-title" style="margin-bottom:14px;">🎙️ Recorded Calls</div>
+      <div class="empty" id="recordingsEmpty" style="display:none;">
+        <div class="ic">🎙️</div>
+        <div>No recordings yet. Start recording calls using the Record button.</div>
+      </div>
+      <div id="recordingsList"></div>
+    </div>
   </div>
 </main>
 
@@ -1452,7 +1493,20 @@ function startCallsListener(){
   );
 }
 
-// Calls tab action delegation
+// ── Call History & Recordings delete actions ──
+document.addEventListener('click', async(e)=>{
+  const btn = e.target.closest('[data-action="delete-history"],[data-action="delete-recording"]');
+  if(!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+  if(!id) return;
+  if(!confirm('Delete this record permanently?')) return;
+  try{
+    await deleteDoc(doc(db, 'callHistory', id));
+  }catch(err){ alert('Could not delete: ' + err.message); }
+});
+
+// ── Calls tab action delegation ──
 document.addEventListener('click', async(e)=>{
   const btn = e.target.closest('[data-action="answer"],[data-action="reject"]');
   if(!btn) return;
@@ -1500,8 +1554,8 @@ function startCallHistoryListener(){
       histEmpty.style.display = 'none';
 
       histList.innerHTML = calls.map(c=>`
-        <div class="hist-card">
-          <div class="hist-icon">📞</div>
+        <div class="hist-card" data-histid="${c.id}">
+          <div class="hist-icon">${c.recordingUrl ? '🔴' : '📞'}</div>
           <div class="hist-body">
             <div class="hist-name">${escapeHtml(c.callerName || 'Unknown')}</div>
             <div class="hist-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${c.status || ''}</div>
@@ -1509,9 +1563,43 @@ function startCallHistoryListener(){
           <div class="hist-right">
             <div class="hist-dur">${formatDur(c.duration || 0)}</div>
             <div class="hist-time">${timeAgo(c.createdAt)}</div>
-            ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" target="_blank" rel="noopener">▶ Play Recording</a>` : ''}
+            <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+              ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" target="_blank" rel="noopener">▶ Play</a>` : ''}
+              ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}
+              <button class="hist-delete" data-action="delete-history" data-id="${c.id}" title="Delete">🗑</button>
+            </div>
           </div>
         </div>`).join('');
+
+      // ── Recordings section ──
+      const recorded = calls.filter(c => c.recordingUrl);
+      const recSection = document.getElementById('recordingsSection');
+      const recList    = document.getElementById('recordingsList');
+      const recEmpty   = document.getElementById('recordingsEmpty');
+
+      if(recSection){
+        if(recorded.length === 0){
+          recEmpty.style.display = 'block';
+          recList.innerHTML = '';
+        } else {
+          recEmpty.style.display = 'none';
+          recList.innerHTML = recorded.map(c=>`
+            <div class="rec-card" data-recid="${c.id}">
+              <div class="rec-icon">🎙️</div>
+              <div class="rec-body">
+                <div class="rec-name">${escapeHtml(c.callerName || 'Unknown')}</div>
+                <div class="rec-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${formatDur(c.duration || 0)} · ${timeAgo(c.createdAt)}</div>
+              </div>
+              <div class="rec-actions">
+                <audio class="rec-audio" src="${c.recordingUrl}" controls preload="none"></audio>
+                <div class="rec-btns">
+                  <a class="rbtn rbtn-save" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>
+                  <button class="rbtn rbtn-del" data-action="delete-recording" data-id="${c.id}">🗑 Delete</button>
+                </div>
+              </div>
+            </div>`).join('');
+        }
+      }
     }
   );
 }
