@@ -333,62 +333,19 @@
     height:40px;
   }
 
-  /* two column layout: left fields / right type grid */
-  .review-cols{
-    display:grid;grid-template-columns:1fr 1fr;
-    gap:14px;margin-bottom:18px;
-    align-items:start;
-  }
-  .review-left{}
-
-  .field{margin-bottom:10px;}
+  /* stacked fields — name, city, then whatever the selected type needs */
+  .field{margin-bottom:18px;}
   .field label{
     display:block;font-family:Arial,sans-serif;font-size:11px;
-    color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;
+    color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;
   }
   .field input{
     width:100%;background:#0a0a0a;
-    border:1.5px solid #1e1e1e;border-radius:8px;
-    padding:11px 12px 11px 34px;
-    color:var(--tx);font-family:Arial,sans-serif;font-size:13.5px;
-    position:relative;
+    border:1.5px solid #1e1e1e;border-radius:10px;
+    padding:14px;
+    color:var(--tx);font-family:Arial,sans-serif;font-size:14px;
   }
   .field input:focus{outline:none;border-color:rgba(83,252,24,0.4);}
-  .field-wrap{position:relative;}
-  .field-wrap .field-icon{
-    position:absolute;left:11px;top:50%;transform:translateY(-50%);
-    font-size:14px;pointer-events:none;
-  }
-
-  /* dynamic type-specific fields below cols */
-  #typeSpecificFields .field input{padding-left:12px;}
-
-  /* message type mini-grid on right */
-  .review-right-label{
-    font-family:Arial,sans-serif;font-size:11px;font-weight:700;
-    color:#555;text-transform:uppercase;letter-spacing:1px;
-    margin-bottom:8px;
-  }
-  .type-mini-grid{
-    display:grid;grid-template-columns:1fr 1fr;gap:7px;
-  }
-  .type-mini-card{
-    background:#0a0a0a;border:1.5px solid #1e1e1e;
-    border-radius:10px;padding:10px 6px 8px;
-    text-align:center;cursor:pointer;
-    transition:border-color .15s,background .15s;
-    display:flex;flex-direction:column;align-items:center;gap:4px;
-  }
-  .type-mini-card:hover{border-color:#333;}
-  .type-mini-card.selected{
-    border-color:var(--g);background:#0d1a0d;
-  }
-  .type-mini-card-icon{font-size:18px;}
-  .type-mini-card-name{
-    font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-    color:#555;text-transform:uppercase;letter-spacing:.3px;
-  }
-  .type-mini-card.selected .type-mini-card-name{color:var(--g);}
 
   /* action buttons */
   .action-btn{
@@ -454,9 +411,6 @@
   }
   .site-footer span{color:var(--g);font-size:13px;}
 
-  @media(max-width:480px){
-    .review-cols{grid-template-columns:1fr;}
-  }
   @media(max-width:360px){
     .mic-wrap{width:190px;height:190px;}
     .mic-btn{width:120px;height:120px;}
@@ -572,38 +526,15 @@
 
       <audio id="playback" controls></audio>
 
-      <div class="review-cols">
-        <!-- Left: name + city + type-specific -->
-        <div class="review-left">
-          <div class="field">
-            <label>Name</label>
-            <div class="field-wrap">
-              <span class="field-icon">👤</span>
-              <input type="text" id="fName" maxlength="40">
-            </div>
-          </div>
-          <div class="field">
-            <label>City &amp; State</label>
-            <div class="field-wrap">
-              <span class="field-icon">📍</span>
-              <input type="text" id="fCity" maxlength="60">
-            </div>
-          </div>
-          <div id="typeSpecificFields"></div>
-        </div>
-
-        <!-- Right: message type mini-grid -->
-        <div class="review-right">
-          <div class="review-right-label">Message Type</div>
-          <div class="type-mini-grid" id="typeMiniGrid">
-            <div class="type-mini-card selected" data-minitype="general"><div class="type-mini-card-icon">🎙️</div><div class="type-mini-card-name">General</div></div>
-            <div class="type-mini-card" data-minitype="song"><div class="type-mini-card-icon">🎵</div><div class="type-mini-card-name">Song</div></div>
-            <div class="type-mini-card" data-minitype="shoutout"><div class="type-mini-card-icon">📢</div><div class="type-mini-card-name">Shout-Out</div></div>
-            <div class="type-mini-card" data-minitype="birthday"><div class="type-mini-card-icon">🎂</div><div class="type-mini-card-name">Birthday</div></div>
-            <div class="type-mini-card" data-minitype="dedication"><div class="type-mini-card-icon">💌</div><div class="type-mini-card-name">Dedication</div></div>
-          </div>
-        </div>
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="fName" maxlength="40">
       </div>
+      <div class="field">
+        <label>City &amp; State</label>
+        <input type="text" id="fCity" maxlength="60">
+      </div>
+      <div id="typeSpecificFields"></div>
 
       <button class="action-btn btn-send" id="sendBtn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
@@ -769,8 +700,9 @@ function onRecordingStop(){
   if(audioBlob.size===0){ showError("No audio captured. Please try recording again."); resetToTypeScreen(); return; }
   const url = URL.createObjectURL(audioBlob);
   playback.src = url;
+  document.getElementById('fName').value = '';
+  document.getElementById('fCity').value = '';
   buildReviewFields();
-  syncMiniTypeGrid();
   recordView.style.display = 'none';
   reviewPanel.classList.add('show');
 }
@@ -852,21 +784,6 @@ nextBtnEl.addEventListener('click',()=>{
   recordView.style.display='flex';
   selectedTypeBadge.textContent = typeLabels[selectedType]||'🎙️ General Message';
 });
-
-// Mini type grid in review panel - mirrors main selection
-const miniCards = document.querySelectorAll('.type-mini-card');
-miniCards.forEach(card=>{
-  card.addEventListener('click',()=>{
-    miniCards.forEach(c=>c.classList.remove('selected'));
-    card.classList.add('selected');
-    selectedType = card.dataset.minitype;
-    buildReviewFields();
-  });
-});
-
-function syncMiniTypeGrid(){
-  miniCards.forEach(c=>c.classList.toggle('selected', c.dataset.minitype===selectedType));
-}
 
 rerecordBtn.addEventListener('click',()=>{ audioBlob=null; resetToTypeScreen(); });
 
