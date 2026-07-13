@@ -3,431 +3,641 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0a0a0a">
+<meta name="theme-color" content="#53FC18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Live Caller">
 <meta name="description" content="Leave a voice message for the show. Song requests, shoutouts, birthdays and more.">
 <link rel="manifest" href="manifest.json">
-<!-- PWA icons — uses the green bolt emoji rendered as SVG data URIs, no image file needed -->
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="icon" type="image/png" href="icon-192.png">
 <title>Live Caller — Leave a Voice Message</title>
 <style>
   :root{
-    --green:#53FC18;
-    --green-dim:#3bbf0f;
-    --black:#0a0a0a;
-    --panel:#131313;
-    --panel-2:#1b1b1b;
-    --line:#2a2a2a;
+    --g:#53FC18;
+    --g-dim:#3adb00;
+    --bk:#000;
+    --panel:#0e0e0e;
+    --panel2:#141414;
+    --line:#1e1e1e;
     --red:#ff3b3b;
-    --text:#f2f2f2;
-    --sub:#9a9a9a;
+    --tx:#fff;
+    --sub:#888;
   }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    background:
-      radial-gradient(circle at 50% -10%, rgba(83,252,24,0.10), transparent 55%),
-      var(--black);
-    color:var(--text);
-    font-family:'Arial Black','Helvetica Neue',Arial,sans-serif;
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{
     min-height:100vh;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    padding:40px 16px;
-  }
-  .bolt{
-    position:fixed;
-    opacity:.07;
-    color:var(--green);
-    font-size:140px;
-    z-index:0;
-    pointer-events:none;
-    user-select:none;
-  }
-  .bolt.b1{top:-20px; left:-30px; transform:rotate(-12deg);}
-  .bolt.b2{bottom:-40px; right:-30px; transform:rotate(8deg);}
-
-  .wrap{position:relative; z-index:1; width:100%; max-width:440px; display:flex; flex-direction:column; align-items:center;}
-
-  .brand{
-    display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:28px;
-  }
-  .brand-bolt{color:var(--green); font-size:22px; line-height:1;}
-  .brand-name{
-    font-size:18px; letter-spacing:2px; font-weight:900; text-transform:uppercase;
-  }
-  .brand-name span{color:var(--green);}
-  .product-tagline{
-    font-family:Arial,Helvetica,sans-serif; font-weight:400; color:var(--sub);
-    font-size:11px; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:26px; text-align:center;
+    background:var(--bk);
+    color:var(--tx);
+    font-family:'Arial Black','Helvetica Neue',Arial,sans-serif;
+    overflow-x:hidden;
   }
 
-  .hotline-title{
-    font-size:28px; text-align:center; line-height:1.15; margin:0 0 6px;
-    text-shadow:0 0 18px rgba(83,252,24,0.35);
+  /* ── Lightning bolt decorations ── */
+  .bolt-wrap{
+    position:fixed;top:0;left:0;right:0;bottom:0;
+    pointer-events:none;z-index:0;overflow:hidden;
   }
-  .hotline-sub{
-    font-family:Arial,Helvetica,sans-serif; font-weight:400; color:var(--sub);
-    text-align:center; font-size:14.5px; max-width:380px; margin:0 0 36px; line-height:1.7;
-    letter-spacing:.1px;
+  .bolt-tl,.bolt-tr{
+    position:absolute;top:-20px;
+    font-size:120px;line-height:1;
+    color:var(--g);opacity:.18;
+    filter:drop-shadow(0 0 20px rgba(83,252,24,0.6));
+    animation:boltpulse 3s ease-in-out infinite;
   }
-  .hotline-sub strong{color:var(--green); font-weight:700;}
+  .bolt-tl{left:-20px;transform:rotate(-15deg);}
+  .bolt-tr{right:-20px;transform:rotate(15deg);animation-delay:1.5s;}
+  @keyframes boltpulse{0%,100%{opacity:.18;}50%{opacity:.28;}}
 
+  /* ── Ambient glow ── */
+  .ambient{
+    position:fixed;top:0;left:0;right:0;height:50vh;
+    pointer-events:none;z-index:0;
+    background:radial-gradient(ellipse 80% 60% at 50% 0%, rgba(83,252,24,0.12) 0%, transparent 70%);
+  }
+
+  /* ── Page layout ── */
+  .page{
+    position:relative;z-index:1;
+    min-height:100vh;
+    display:flex;flex-direction:column;align-items:center;
+    padding:0 20px 50px;
+  }
+
+  /* ── Header ── */
+  .site-header{
+    width:100%;max-width:500px;
+    text-align:center;
+    padding:28px 0 0;
+    margin-bottom:6px;
+  }
+  .site-brand{
+    font-size:13px;letter-spacing:3px;font-weight:900;
+    text-transform:uppercase;color:#555;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    margin-bottom:4px;
+  }
+  .site-brand span{color:var(--g);}
+
+  /* ── Type selection screen ── */
+  #typeScreen{
+    width:100%;max-width:500px;
+    display:flex;flex-direction:column;align-items:center;
+  }
+
+  .type-hero{text-align:center;margin-bottom:32px;padding-top:16px;}
+  .type-hero h1{
+    font-size:clamp(28px,7vw,42px);
+    text-transform:uppercase;
+    letter-spacing:-0.5px;
+    line-height:1.05;
+    margin-bottom:10px;
+    text-shadow:0 0 40px rgba(83,252,24,0.2);
+  }
+  .type-hero .sub-dots{
+    font-family:Arial,sans-serif;font-size:11.5px;
+    color:#555;letter-spacing:2px;text-transform:uppercase;
+    margin-bottom:8px;
+  }
+  .type-hero .tagline{
+    font-family:Arial,sans-serif;font-style:italic;
+    font-size:15px;color:var(--g);font-weight:700;
+    text-shadow:0 0 14px rgba(83,252,24,0.6);
+  }
+
+  /* type cards grid */
+  .type-grid{
+    display:grid;grid-template-columns:1fr 1fr;
+    gap:10px;width:100%;margin-bottom:20px;
+  }
+  .type-card{
+    background:var(--panel);
+    border:1.5px solid var(--line);
+    border-radius:14px;padding:18px 14px 16px;
+    text-align:center;cursor:pointer;
+    transition:border-color .2s,box-shadow .2s,transform .15s;
+    display:flex;flex-direction:column;align-items:center;gap:8px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .type-card:hover{border-color:rgba(83,252,24,0.3);transform:translateY(-2px);}
+  .type-card.selected{
+    border-color:var(--g);
+    box-shadow:0 0 24px rgba(83,252,24,0.18),inset 0 0 20px rgba(83,252,24,0.04);
+    background:#0d1a0d;
+  }
+  .type-card-icon{font-size:26px;line-height:1;}
+  .type-card-name{
+    font-size:13px;font-weight:900;letter-spacing:.3px;
+    text-transform:uppercase;
+  }
+  .type-card.selected .type-card-name{color:var(--g);}
+
+  .next-btn{
+    width:100%;padding:17px;border-radius:12px;border:none;
+    background:var(--g);color:#000;
+    font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:1px;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    box-shadow:0 0 32px rgba(83,252,24,0.35),0 4px 16px rgba(0,0,0,0.5);
+    transition:filter .15s,transform .15s;
+  }
+  .next-btn:hover{filter:brightness(1.1);transform:translateY(-2px);}
+  .next-btn:active{transform:scale(.98);}
+
+  /* ── Record screen ── */
   #recordView{
-    display:flex; flex-direction:column; align-items:center; width:100%;
+    display:none;
+    flex-direction:column;align-items:center;
+    width:100%;max-width:500px;
+  }
+
+  .record-header{text-align:center;margin-bottom:20px;padding-top:10px;}
+  .record-header h1{
+    font-size:clamp(24px,6vw,36px);
+    text-transform:uppercase;letter-spacing:.5px;
+    line-height:1.1;margin-bottom:6px;
+  }
+  .record-header .sub-dots{
+    font-family:Arial,sans-serif;font-size:11px;
+    color:#555;letter-spacing:2px;text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .record-header .tagline{
+    font-family:Arial,sans-serif;font-style:italic;
+    font-size:14px;color:var(--g);font-weight:700;
+    text-shadow:0 0 12px rgba(83,252,24,0.6);
+  }
+
+  /* type badge */
+  .selected-type-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    background:rgba(83,252,24,0.1);border:1px solid rgba(83,252,24,0.25);
+    border-radius:20px;padding:6px 14px;
+    font-family:Arial,sans-serif;font-size:12px;font-weight:700;
+    color:var(--g);letter-spacing:.5px;
+    margin-bottom:24px;
+    text-shadow:0 0 10px rgba(83,252,24,0.4);
+  }
+
+  /* mic stage */
+  .mic-wrap{
+    position:relative;
+    width:220px;height:220px;
+    display:flex;align-items:center;justify-content:center;
+    margin-bottom:16px;
+  }
+
+  /* waveform sides */
+  .waveform-side{
+    position:absolute;top:50%;transform:translateY(-50%);
+    display:flex;align-items:flex-end;gap:2px;height:70px;
+    pointer-events:none;
+  }
+  .waveform-side.left{right:calc(50% + 120px);}
+  .waveform-side.right{left:calc(50% + 120px);}
+  .waveform-side span{
+    width:3px;background:var(--g);border-radius:2px;
+    opacity:.5;
+    transition:height .1s ease;
+  }
+  .waveform-side.left span{transform-origin:bottom;}
+  .recording .waveform-side span{opacity:1;}
+
+  /* outer glow rings */
+  .ring-outer,.ring-mid{
+    position:absolute;border-radius:50%;border:1.5px solid rgba(83,252,24,0.15);
+  }
+  .ring-outer{width:200px;height:200px;}
+  .ring-mid{width:170px;height:170px;border-color:rgba(83,252,24,0.25);}
+
+  .recording .ring-outer{
+    animation:ringpulse 1.6s ease-out infinite;
+    border-color:rgba(83,252,24,0.4);
+  }
+  .recording .ring-mid{
+    animation:ringpulse 1.6s ease-out infinite .4s;
+    border-color:rgba(83,252,24,0.5);
+  }
+  @keyframes ringpulse{
+    0%{transform:scale(.9);opacity:.8;}
+    100%{transform:scale(1.15);opacity:0;}
+  }
+
+  /* mic button */
+  .mic-btn{
+    position:relative;z-index:2;
+    width:140px;height:140px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #1c2a1c, #050505);
+    border:3px solid var(--g);
+    box-shadow:
+      0 0 0 8px rgba(83,252,24,0.08),
+      0 0 40px rgba(83,252,24,0.35),
+      inset 0 0 30px rgba(0,0,0,0.7);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    transition:transform .15s,box-shadow .15s;
+    color:var(--g);
+  }
+  .mic-btn:hover{transform:scale(1.04);}
+  .mic-btn:active{transform:scale(.97);}
+  .mic-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .recording .mic-btn{
+    border-color:#fff;
+    box-shadow:0 0 0 8px rgba(255,255,255,0.06),0 0 40px rgba(255,255,255,0.2),inset 0 0 30px rgba(0,0,0,0.7);
+    color:#fff;
+    animation:micglow 1s ease-in-out infinite alternate;
+  }
+  @keyframes micglow{
+    from{box-shadow:0 0 0 8px rgba(83,252,24,0.1),0 0 40px rgba(83,252,24,0.3);}
+    to{box-shadow:0 0 0 14px rgba(83,252,24,0.05),0 0 60px rgba(83,252,24,0.5);}
+  }
+
+  /* mic SVG icon */
+  .mic-svg{width:56px;height:56px;filter:drop-shadow(0 0 8px rgba(83,252,24,0.8));}
+
+  /* tap to record button pill */
+  .tap-label{
+    display:inline-flex;align-items:center;gap:8px;
+    background:#0a0a0a;border:1.5px solid var(--g);
+    border-radius:25px;padding:10px 22px;
+    font-size:12px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:var(--g);
+    margin-bottom:16px;cursor:pointer;
+    box-shadow:0 0 18px rgba(83,252,24,0.2);
+    transition:box-shadow .2s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .tap-label:hover{box-shadow:0 0 28px rgba(83,252,24,0.4);}
+  .recording .tap-label{border-color:#fff;color:#fff;box-shadow:0 0 18px rgba(255,255,255,0.15);}
+
+  /* countdown */
+  .countdown{
+    font-size:52px;font-weight:900;
+    font-variant-numeric:tabular-nums;letter-spacing:-1px;
+    line-height:1;margin-bottom:6px;
+    text-shadow:0 0 30px rgba(255,255,255,0.15);
+  }
+  .countdown.warn{color:var(--red);text-shadow:0 0 20px rgba(255,59,59,0.5);}
+
+  /* mini viz bars below countdown */
+  .viz{
+    display:flex;align-items:flex-end;justify-content:center;gap:3px;
+    height:30px;margin-bottom:6px;width:200px;
+  }
+  .viz span{
+    width:5px;background:var(--g);border-radius:3px;height:6px;
+    opacity:.4;transition:height .08s ease,opacity .08s ease;
+  }
+  .recording .viz span{opacity:1;}
+
+  .max-label{
+    font-family:Arial,sans-serif;font-size:10.5px;color:#444;
+    letter-spacing:2px;text-transform:uppercase;margin-bottom:28px;
   }
 
   .tap-zone{
-    display:flex; flex-direction:column; align-items:center; width:100%;
-    cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;
+    cursor:pointer;width:100%;
   }
 
-  /* Mic button */
-  .mic-stage{
-    position:relative; width:200px; height:200px; display:flex; align-items:center; justify-content:center;
-    margin-bottom:6px;
+  /* ── Review panel ── */
+  .review-panel{
+    display:none;width:100%;max-width:500px;
+    margin-top:8px;
   }
-  .ring{
-    position:absolute; border-radius:50%; border:2px solid var(--green);
-    opacity:0; pointer-events:none;
-  }
-  .recording .ring{animation:pulse 1.8s ease-out infinite;}
-  .ring:nth-child(2){animation-delay:.6s !important;}
-  .ring:nth-child(3){animation-delay:1.2s !important;}
-  @keyframes pulse{
-    0%{width:130px; height:130px; opacity:.6;}
-    100%{width:220px; height:220px; opacity:0;}
-  }
-  .mic-btn{
-    position:relative; z-index:2;
-    width:130px; height:130px; border-radius:50%;
-    background:linear-gradient(160deg, var(--panel-2), #0e0e0e);
-    border:3px solid var(--green);
-    box-shadow:0 0 30px rgba(83,252,24,0.25), inset 0 0 20px rgba(0,0,0,0.6);
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer; transition:transform .15s ease, box-shadow .15s ease;
-    color:var(--green);
-  }
-  .mic-btn:active{transform:scale(0.95);}
-  .mic-btn:disabled{opacity:.4; cursor:not-allowed;}
-  .recording .mic-btn{
-    border-color:var(--red); color:var(--red);
-    box-shadow:0 0 36px rgba(255,59,59,0.35), inset 0 0 20px rgba(0,0,0,0.6);
-  }
-  .mic-btn svg{width:52px; height:52px;}
+  .review-panel.show{display:block;}
 
-  .countdown{
-    font-size:42px; font-weight:900; letter-spacing:1px; min-height:50px;
-    color:var(--text); margin-bottom:4px; font-variant-numeric:tabular-nums;
-  }
-  .countdown.warn{color:var(--red);}
-  .status-text{
-    display:none;
+  .review-box{
+    background:var(--panel);
+    border:1.5px solid #1a1a1a;
+    border-radius:18px;
+    padding:22px 18px;
+    overflow:hidden;
   }
 
-  /* Waveform-ish bar visualizer */
-  .viz{
-    display:flex; align-items:flex-end; justify-content:center; gap:3px; height:36px; margin-bottom:8px;
+  .review-title{
+    display:flex;align-items:center;gap:10px;
+    font-size:13px;font-weight:900;letter-spacing:2px;
+    text-transform:uppercase;color:var(--g);
+    margin-bottom:16px;
+    text-shadow:0 0 12px rgba(83,252,24,0.4);
   }
-  .viz span{
-    width:4px; background:var(--green); border-radius:2px; height:6px;
-    transition:height .1s ease;
+  .review-title-icon{
+    width:28px;height:28px;border-radius:7px;
+    background:rgba(83,252,24,0.1);border:1px solid rgba(83,252,24,0.25);
+    display:flex;align-items:center;justify-content:center;font-size:13px;
   }
 
-  /* Playback panel */
-  .panel{
-    width:100%; background:var(--panel); border:1px solid var(--line); border-radius:14px;
-    padding:20px; margin-top:8px; display:none;
+  audio{
+    width:100%;margin-bottom:18px;
+    border-radius:8px;
+    filter:invert(1) hue-rotate(70deg);
+    height:40px;
   }
-  .panel.show{display:block;}
-  .panel h3{
-    margin:0 0 14px; font-size:14px; letter-spacing:1.5px; color:var(--green);
-    text-transform:uppercase;
-  }
-  audio{width:100%; margin-bottom:14px; filter:invert(1) hue-rotate(70deg);}
-  .btn-row{display:flex; gap:10px; margin-bottom:4px;}
-  .btn{
-    flex:1; padding:13px 10px; border-radius:8px; border:none; cursor:pointer;
-    font-family:Arial,Helvetica,sans-serif; font-weight:700; font-size:13px; letter-spacing:.5px;
-    text-transform:uppercase; transition:filter .15s ease, transform .1s ease;
-  }
-  .btn:active{transform:scale(0.97);}
-  .btn-primary{background:var(--green); color:#0a0a0a;}
-  .btn-primary:hover{filter:brightness(1.1);}
-  .btn-ghost{background:transparent; color:var(--sub); border:1px solid var(--line);}
-  .btn-ghost:hover{color:var(--text); border-color:var(--green);}
-  .btn:disabled{opacity:.4; cursor:not-allowed;}
 
-  .field{margin-bottom:12px;}
+  /* two column layout: left fields / right type grid */
+  .review-cols{
+    display:grid;grid-template-columns:1fr 1fr;
+    gap:14px;margin-bottom:18px;
+    align-items:start;
+  }
+  .review-left{}
+
+  .field{margin-bottom:10px;}
   .field label{
-    display:block; font-family:Arial,Helvetica,sans-serif; font-size:11px; color:var(--sub);
-    text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;
+    display:block;font-family:Arial,sans-serif;font-size:11px;
+    color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;
   }
-  .field input, .field select, .field textarea{
-    width:100%; background:var(--black); border:1px solid var(--line); border-radius:8px;
-    padding:11px 12px; color:var(--text); font-family:Arial,Helvetica,sans-serif; font-size:14px;
-    box-sizing:border-box;
+  .field input{
+    width:100%;background:#0a0a0a;
+    border:1.5px solid #1e1e1e;border-radius:8px;
+    padding:11px 12px 11px 34px;
+    color:var(--tx);font-family:Arial,sans-serif;font-size:13.5px;
+    position:relative;
   }
-  .field input:focus, .field select:focus, .field textarea:focus{outline:none; border-color:var(--green);}
-  .field select{appearance:none; cursor:pointer;}
-  .field textarea{resize:none; line-height:1.5;}
-  .optional-tag{color:#5a5a5a; font-weight:400; text-transform:none; letter-spacing:0;}
-
-  .type-pills{
-    display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px;
-  }
-  .type-pill{
-    padding:8px 14px; border-radius:20px; border:1px solid var(--line);
-    background:var(--black); color:var(--sub); font-size:12.5px; font-weight:700;
-    cursor:pointer; transition:all .15s ease; white-space:nowrap;
-  }
-  .type-pill:hover{border-color:var(--green); color:var(--text);}
-  .type-pill.active{background:var(--green); color:#0a0a0a; border-color:var(--green);}
-
-  .type-fields{display:none;}
-  .type-fields.show{display:block;}
-
-  /* Confirmation */
-  .confirm{
-    display:none; text-align:center; padding:40px 10px;
-  }
-  .confirm.show{display:block;}
-  .confirm .check{
-    width:74px; height:74px; border-radius:50%; border:3px solid var(--green);
-    display:flex; align-items:center; justify-content:center; margin:0 auto 20px;
-    color:var(--green);
-  }
-  .confirm h2{font-size:22px; margin:0 0 10px;}
-  .confirm p{font-family:Arial,Helvetica,sans-serif; color:var(--sub); font-size:14px; line-height:1.6; max-width:300px; margin:0 auto 24px;}
-
-  .footnote{
-    margin-top:30px; font-family:Arial,Helvetica,sans-serif; color:#6b6b6b; font-size:12.5px;
-    text-align:center; letter-spacing:.2px; line-height:1.5; max-width:300px;
+  .field input:focus{outline:none;border-color:rgba(83,252,24,0.4);}
+  .field-wrap{position:relative;}
+  .field-wrap .field-icon{
+    position:absolute;left:11px;top:50%;transform:translateY(-50%);
+    font-size:14px;pointer-events:none;
   }
 
+  /* dynamic type-specific fields below cols */
+  #typeSpecificFields .field input{padding-left:12px;}
+
+  /* message type mini-grid on right */
+  .review-right-label{
+    font-family:Arial,sans-serif;font-size:11px;font-weight:700;
+    color:#555;text-transform:uppercase;letter-spacing:1px;
+    margin-bottom:8px;
+  }
+  .type-mini-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:7px;
+  }
+  .type-mini-card{
+    background:#0a0a0a;border:1.5px solid #1e1e1e;
+    border-radius:10px;padding:10px 6px 8px;
+    text-align:center;cursor:pointer;
+    transition:border-color .15s,background .15s;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+  }
+  .type-mini-card:hover{border-color:#333;}
+  .type-mini-card.selected{
+    border-color:var(--g);background:#0d1a0d;
+  }
+  .type-mini-card-icon{font-size:18px;}
+  .type-mini-card-name{
+    font-family:Arial,sans-serif;font-size:10px;font-weight:700;
+    color:#555;text-transform:uppercase;letter-spacing:.3px;
+  }
+  .type-mini-card.selected .type-mini-card-name{color:var(--g);}
+
+  /* action buttons */
+  .action-btn{
+    width:100%;padding:16px;border-radius:11px;border:none;
+    font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;
+    transition:filter .15s,transform .12s;margin-bottom:10px;
+  }
+  .action-btn:active{transform:scale(.98);}
+  .btn-send{
+    background:var(--g);color:#000;
+    box-shadow:0 0 28px rgba(83,252,24,0.3),0 4px 14px rgba(0,0,0,0.5);
+  }
+  .btn-send:hover{filter:brightness(1.08);}
+  .btn-send:disabled{opacity:.45;cursor:not-allowed;}
+  .btn-rerecord{
+    background:transparent;color:var(--tx);
+    border:1.5px solid #1e1e1e;
+  }
+  .btn-rerecord:hover{border-color:#333;}
+
+  /* error */
   .error-banner{
-    display:none; background:rgba(255,59,59,0.12); border:1px solid var(--red); color:#ff8a8a;
-    font-family:Arial,Helvetica,sans-serif; font-size:13px; padding:12px 14px; border-radius:8px;
-    margin-bottom:18px; width:100%; line-height:1.4;
+    display:none;background:rgba(255,59,59,0.1);border:1px solid var(--red);
+    color:#ff8a8a;font-family:Arial,sans-serif;font-size:12.5px;
+    padding:12px 14px;border-radius:10px;margin-bottom:14px;line-height:1.4;
   }
   .error-banner.show{display:block;}
 
-  @media (max-width:480px){
-    .wrap{padding:0 4px;}
-    .hotline-title{font-size:24px;}
-    .hotline-sub{font-size:13.5px; max-width:320px; line-height:1.6;}
-    .mic-stage{width:180px; height:180px;}
-    .mic-btn{width:120px; height:120px;}
-    .mic-btn svg{width:46px; height:46px;}
-    .countdown{font-size:36px;}
+  /* ── Confirm screen ── */
+  #confirmView{
+    display:none;text-align:center;
+    width:100%;max-width:500px;margin-top:10px;
+  }
+  #confirmView.show{display:block;}
+
+  .confirm-box{
+    background:var(--panel);border:1.5px solid rgba(83,252,24,0.2);
+    border-radius:18px;padding:28px 20px;
+    display:flex;align-items:center;gap:16px;
+    text-align:left;
+  }
+  .confirm-check{
+    width:50px;height:50px;border-radius:50%;flex-shrink:0;
+    border:2.5px solid var(--g);background:rgba(83,252,24,0.08);
+    display:flex;align-items:center;justify-content:center;color:var(--g);font-size:22px;
+    box-shadow:0 0 20px rgba(83,252,24,0.3);
+  }
+  .confirm-text h3{
+    font-size:16px;color:var(--g);margin-bottom:4px;
+    text-shadow:0 0 12px rgba(83,252,24,0.4);
+  }
+  .confirm-text p{
+    font-family:Arial,sans-serif;font-size:13px;color:#666;line-height:1.4;
   }
 
-  @media (max-width:380px){
-    .mic-stage{width:160px; height:160px; margin-bottom:16px;}
-    .mic-btn{width:104px; height:104px;}
-    .mic-btn svg{width:40px; height:40px;}
-    .hotline-title{font-size:21px;}
-    .countdown{font-size:32px;}
-    .btn-row{flex-direction:column;}
+  /* ── Footer ── */
+  .site-footer{
+    margin-top:36px;
+    font-family:Arial,sans-serif;font-size:10.5px;
+    color:#2a2a2a;letter-spacing:2px;text-transform:uppercase;
+    display:flex;align-items:center;gap:7px;
   }
+  .site-footer span{color:var(--g);font-size:13px;}
 
-  @media (max-height:680px){
-    body{padding:20px 16px;}
-    .hotline-sub{margin-bottom:22px;}
-    .mic-stage{margin-bottom:14px;}
+  @media(max-width:480px){
+    .review-cols{grid-template-columns:1fr;}
   }
-
-  /* ── Type Selection Screen ── */
-  #typeScreen{ width:100%; }
-  #typeScreen h1{ font-size:22px; text-align:center; margin:0 0 6px; line-height:1.3; }
-  #typeScreen p{ font-family:Arial,sans-serif; color:var(--sub); font-size:13px; text-align:center; margin:0 0 22px; }
-
-  .type-grid{
-    display:flex; flex-direction:column; gap:10px; width:100%;
-  }
-  .type-card{
-    display:flex; align-items:center; gap:14px;
-    background:var(--panel); border:2px solid var(--line); border-radius:12px;
-    padding:14px 16px; cursor:pointer; text-align:left;
-    transition:border-color .15s ease, background .15s ease;
-    width:100%;
-  }
-  .type-card:hover{ border-color:var(--green); background:var(--panel-2); }
-  .type-card.selected{ border-color:var(--green); background:rgba(83,252,24,0.06); }
-  .type-card-icon{ font-size:26px; line-height:1; flex-shrink:0; }
-  .type-card-text{ flex:1; }
-  .type-card-title{ font-size:15px; font-weight:900; color:var(--text); margin-bottom:2px; }
-  .type-card-desc{ font-family:Arial,sans-serif; font-size:12px; color:var(--sub); }
-  .type-card-check{
-    width:20px; height:20px; border-radius:50%; border:2px solid var(--line);
-    flex-shrink:0; display:flex; align-items:center; justify-content:center;
-    color:var(--green); font-size:11px; transition:all .15s ease;
-  }
-  .type-card.selected .type-card-check{
-    background:var(--green); border-color:var(--green); color:#0a0a0a;
-  }
-  .next-btn{
-    width:100%; padding:14px; border-radius:10px; border:none;
-    background:var(--green); color:#0a0a0a; font-weight:900;
-    font-size:14px; text-transform:uppercase; letter-spacing:.5px;
-    cursor:pointer; margin-top:14px; transition:filter .15s ease;
-  }
-  .next-btn:hover{ filter:brightness(1.1); }
-  .next-btn:disabled{ opacity:.4; cursor:not-allowed; }
-  .type-back{
-    background:transparent; border:none; color:var(--sub);
-    font-family:Arial,sans-serif; font-size:13px; cursor:pointer;
-    margin-top:10px; padding:6px 0; text-decoration:underline;
-  }
-  .type-back:hover{ color:var(--text); }
-  .selected-type-badge{
-    display:inline-flex; align-items:center; gap:6px;
-    background:rgba(83,252,24,0.12); border:1px solid rgba(83,252,24,0.3);
-    color:var(--green); font-size:12px; font-weight:700; letter-spacing:.5px;
-    padding:5px 12px; border-radius:20px; margin-bottom:16px;
+  @media(max-width:360px){
+    .mic-wrap{width:190px;height:190px;}
+    .mic-btn{width:120px;height:120px;}
+    .countdown{font-size:44px;}
   }
 </style>
 </head>
 <body>
 
-<div class="bolt b1">⚡</div>
-<div class="bolt b2">⚡</div>
+<div class="bolt-wrap">
+  <div class="bolt-tl">⚡</div>
+  <div class="bolt-tr">⚡</div>
+</div>
+<div class="ambient"></div>
 
-<div class="wrap">
-  <div class="brand">
-    <span class="brand-bolt">⚡</span>
-    <span class="brand-name">LIVE <span>CALLER</span>
+<div class="page">
+
+  <!-- Site Header -->
+  <div class="site-header">
+    <div class="site-brand">
+      <span>⚡</span>
+      LIVE <span>CALLER</span>
+    </div>
   </div>
-  <div class="product-tagline">Where Your Audience Joins the Show</div>
 
-  <!-- STEP 1: Choose message type -->
+  <!-- ── STEP 1: TYPE SELECTION ── -->
   <div id="typeScreen">
-    <h1 class="hotline-title">What Are You Sending In?</h1>
-    <p class="hotline-sub">Choose Your Message Type<br>Then Record Your Voice Message.</p>
+    <div class="type-hero">
+      <h1>LEAVE A VOICE<br>MESSAGE</h1>
+      <p class="sub-dots">SONG REQUESTS • SHOUTOUTS • BIRTHDAYS • DEDICATIONS</p>
+      <p class="tagline">We might play it live!</p>
+    </div>
 
     <div class="type-grid">
       <div class="type-card selected" data-type="general">
         <div class="type-card-icon">🎙️</div>
-        <div class="type-card-text">
-          <div class="type-card-title">General Message</div>
-          <div class="type-card-desc">Shoutout, Comment, or Anything On Your Mind</div>
-        </div>
-        <div class="type-card-check">✓</div>
+        <div class="type-card-name">General</div>
       </div>
       <div class="type-card" data-type="song">
         <div class="type-card-icon">🎵</div>
-        <div class="type-card-text">
-          <div class="type-card-title">Song Request</div>
-          <div class="type-card-desc">Request A Track To Be Played Live On Air</div>
-        </div>
-        <div class="type-card-check">✓</div>
+        <div class="type-card-name">Song Request</div>
       </div>
       <div class="type-card" data-type="shoutout">
         <div class="type-card-icon">📢</div>
-        <div class="type-card-text">
-          <div class="type-card-title">Shout Out</div>
-          <div class="type-card-desc">Give Someone A Special Shoutout On Air</div>
-        </div>
-        <div class="type-card-check">✓</div>
+        <div class="type-card-name">Shout-Out</div>
       </div>
       <div class="type-card" data-type="birthday">
         <div class="type-card-icon">🎂</div>
-        <div class="type-card-text">
-          <div class="type-card-title">Birthday Message</div>
-          <div class="type-card-desc">Happy Birthday Dedication For Someone Special</div>
-        </div>
-        <div class="type-card-check">✓</div>
+        <div class="type-card-name">Birthday</div>
       </div>
       <div class="type-card" data-type="dedication">
         <div class="type-card-icon">💌</div>
-        <div class="type-card-text">
-          <div class="type-card-title">Dedication</div>
-          <div class="type-card-desc">Dedicate A Song Or Message To Someone</div>
-        </div>
-        <div class="type-card-check">✓</div>
+        <div class="type-card-name">Dedication</div>
       </div>
     </div>
 
-    <button class="next-btn" id="nextBtn">Next — Record Message →</button>
+    <button class="next-btn" id="nextBtn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      Next — Record Message
+    </button>
   </div>
 
-  <!-- STEP 2: Record -->
-  <div id="recordView" style="display:none;">
-    <div class="selected-type-badge" id="selectedTypeBadge">🎙️ General Message</div>
-    <h1 class="hotline-title">Tap Screen To<br>Leave a Voice Message</h1>
+  <!-- ── STEP 2: RECORD ── -->
+  <div id="recordView">
+
+    <div class="record-header">
+      <h1>LEAVE A VOICE<br>MESSAGE</h1>
+      <p class="sub-dots">SONG REQUESTS • SHOUTOUTS • BIRTHDAYS • DEDICATIONS</p>
+      <p class="tagline">We might play it live!</p>
+    </div>
+
+    <div id="selectedTypeBadge" class="selected-type-badge">🎙️ General Message</div>
 
     <div class="error-banner" id="errorBanner"></div>
 
     <div class="tap-zone" id="tapZone">
-      <div class="mic-stage" id="micStage">
-        <div class="ring"></div>
-        <div class="ring"></div>
-        <div class="ring"></div>
+      <!-- waveform sides -->
+      <div class="waveform-side left" id="vizLeft"></div>
+      <div class="waveform-side right" id="vizRight"></div>
+
+      <div class="mic-wrap" id="micStage">
+        <div class="ring-outer"></div>
+        <div class="ring-mid"></div>
         <button class="mic-btn" id="micBtn" aria-label="Start recording" tabindex="-1">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="micIcon">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-            <line x1="12" y1="19" x2="12" y2="23"/>
-            <line x1="8" y1="23" x2="16" y2="23"/>
+          <svg class="mic-svg" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="9" y="2" width="6" height="11" rx="3"/>
+            <path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+            <line x1="12" y1="19" x2="12" y2="22" stroke="currentColor" stroke-width="1.5"/>
+            <line x1="9" y1="22" x2="15" y2="22" stroke="currentColor" stroke-width="1.5"/>
           </svg>
         </button>
       </div>
+
+      <div class="tap-label" id="tapLabel">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg>
+        <span id="tapLabelText">TAP TO RECORD</span>
+      </div>
+
       <div class="countdown" id="countdown">0:30</div>
-      <div class="status-text" id="statusText">Tap The Screen To Record</div>
+
       <div class="viz" id="viz"></div>
-    </div>
-    <button class="type-back" id="backToTypeBtn">← Change Message Type</button>
-  </div>
-
-  <!-- STEP 3: Review & Details -->
-  <div class="panel" id="reviewPanel">
-    <h3>Review Your Message</h3>
-    <audio id="playback" controls></audio>
-
-    <!-- Always visible -->
-    <div class="field">
-      <label>Display Name <span class="optional-tag">(Your Name)</span></label>
-      <input type="text" id="fName" maxlength="40" placeholder="What should we call you?">
-    </div>
-    <div class="field">
-      <label>City &amp; State <span class="optional-tag">(Where you're calling from)</span></label>
-      <input type="text" id="fCity" maxlength="60" placeholder="e.g. Your City, Your State">
-    </div>
-
-    <!-- Type-specific fields injected here -->
-    <div id="typeSpecificFields"></div>
-
-    <div class="btn-row">
-      <button class="btn btn-ghost" id="rerecordBtn">Re-record</button>
-      <button class="btn btn-primary" id="sendBtn">Send Message</button>
+      <p class="max-label">30 SECONDS MAX</p>
     </div>
   </div>
 
-  <div class="confirm" id="confirmView">
-    <div class="check">
-      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <polyline points="20 6 9 17 4 12"/>
-      </svg>
+  <!-- ── STEP 3: REVIEW ── -->
+  <div class="review-panel" id="reviewPanel">
+    <div class="review-box">
+      <div class="review-title">
+        <div class="review-title-icon">🎙</div>
+        REVIEW YOUR MESSAGE
+      </div>
+
+      <audio id="playback" controls></audio>
+
+      <div class="review-cols">
+        <!-- Left: name + city + type-specific -->
+        <div class="review-left">
+          <div class="field">
+            <label>Name (optional)</label>
+            <div class="field-wrap">
+              <span class="field-icon">👤</span>
+              <input type="text" id="fName" maxlength="40" placeholder="Your name">
+            </div>
+          </div>
+          <div class="field">
+            <label>City &amp; State (optional)</label>
+            <div class="field-wrap">
+              <span class="field-icon">📍</span>
+              <input type="text" id="fCity" maxlength="60" placeholder="Dallas, TX">
+            </div>
+          </div>
+          <div id="typeSpecificFields"></div>
+        </div>
+
+        <!-- Right: message type mini-grid -->
+        <div class="review-right">
+          <div class="review-right-label">Message Type</div>
+          <div class="type-mini-grid" id="typeMiniGrid">
+            <div class="type-mini-card selected" data-minitype="general"><div class="type-mini-card-icon">🎙️</div><div class="type-mini-card-name">General</div></div>
+            <div class="type-mini-card" data-minitype="song"><div class="type-mini-card-icon">🎵</div><div class="type-mini-card-name">Song</div></div>
+            <div class="type-mini-card" data-minitype="shoutout"><div class="type-mini-card-icon">📢</div><div class="type-mini-card-name">Shout-Out</div></div>
+            <div class="type-mini-card" data-minitype="birthday"><div class="type-mini-card-icon">🎂</div><div class="type-mini-card-name">Birthday</div></div>
+            <div class="type-mini-card" data-minitype="dedication"><div class="type-mini-card-icon">💌</div><div class="type-mini-card-name">Dedication</div></div>
+          </div>
+        </div>
+      </div>
+
+      <button class="action-btn btn-send" id="sendBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+        SEND MESSAGE
+      </button>
+      <button class="action-btn btn-rerecord" id="rerecordBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.41"/></svg>
+        RECORD AGAIN
+      </button>
     </div>
-    <h2>Message Sent</h2>
-    <p>Your Message Is In The Queue. Keep Listening — It Might Play Live.</p>
-    <button class="btn btn-primary" id="newMsgBtn" style="max-width:220px;">Send Another</button>
   </div>
 
-  <div class="footnote">By Submitting, You Agree Your Message May Be Broadcast On-Air or On Stream.</div>
+  <!-- ── CONFIRM ── -->
+  <div id="confirmView">
+    <div class="confirm-box">
+      <div class="confirm-check">✓</div>
+      <div class="confirm-text">
+        <h3>Message Sent!</h3>
+        <p>Thank you! Your message has been received. We might play it live!</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="site-footer">
+    <span>⚡</span> POWERED BY LIVE CALLER
+  </div>
+
 </div>
 
-<!-- Firebase SDKs -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-// ====== STEP 1: PASTE YOUR FIREBASE CONFIG HERE ======
 const firebaseConfig = {
   apiKey: "AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc",
   authDomain: "djdeeze-hotline.firebaseapp.com",
@@ -436,110 +646,101 @@ const firebaseConfig = {
   messagingSenderId: "663942225296",
   appId: "1:663942225296:web:c6117cf6c23656b9842715"
 };
-// =======================================================
 
-// ====== STEP 2: PASTE YOUR CLOUDINARY CLOUD NAME + UNSIGNED UPLOAD PRESET ======
-// Audio files are stored in Cloudinary (free, no credit card) instead of Firebase Storage.
-// Firestore (the message queue/database) still runs on Firebase as normal.
 const CLOUDINARY_CLOUD_NAME = "vz1v6nzp";
 const CLOUDINARY_UPLOAD_PRESET = "djdeeze_hotline";
-// =================================================================================
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const MAX_SECONDS = 30;
 
-const micBtn = document.getElementById('micBtn');
-const tapZone = document.getElementById('tapZone');
-const micStage = document.getElementById('micStage');
+const micBtn      = document.getElementById('micBtn');
+const tapZone     = document.getElementById('tapZone');
+const micStage    = document.getElementById('micStage');
 const countdownEl = document.getElementById('countdown');
-const statusText = document.getElementById('statusText');
-const vizEl = document.getElementById('viz');
-const recordView = document.getElementById('recordView');
+const tapLabelText= document.getElementById('tapLabelText');
+const vizEl       = document.getElementById('viz');
+const recordView  = document.getElementById('recordView');
 const reviewPanel = document.getElementById('reviewPanel');
-const playback = document.getElementById('playback');
+const playback    = document.getElementById('playback');
 const rerecordBtn = document.getElementById('rerecordBtn');
-const sendBtn = document.getElementById('sendBtn');
+const sendBtn     = document.getElementById('sendBtn');
 const confirmView = document.getElementById('confirmView');
-const newMsgBtn = document.getElementById('newMsgBtn');
 const errorBanner = document.getElementById('errorBanner');
 
 let mediaRecorder, audioChunks = [], audioBlob = null, timerInterval = null, secondsLeft = MAX_SECONDS;
 let audioCtx, analyser, vizRAF, stream;
 
-// build viz bars
-for(let i=0;i<28;i++){
+// build mini viz bars
+for(let i=0;i<22;i++){
   const s = document.createElement('span');
   vizEl.appendChild(s);
 }
 const vizBars = vizEl.querySelectorAll('span');
 
-function showError(msg){
-  errorBanner.textContent = msg;
-  errorBanner.classList.add('show');
+// build side waveform bars
+const vizLeft  = document.getElementById('vizLeft');
+const vizRight = document.getElementById('vizRight');
+for(let i=0;i<18;i++){
+  vizLeft.insertBefore(document.createElement('span'),vizLeft.firstChild);
+  vizRight.appendChild(document.createElement('span'));
 }
-function clearError(){
-  errorBanner.classList.remove('show');
-}
+const leftBars  = vizLeft.querySelectorAll('span');
+const rightBars = vizRight.querySelectorAll('span');
+
+function showError(msg){ errorBanner.textContent = msg; errorBanner.classList.add('show'); }
+function clearError(){ errorBanner.classList.remove('show'); }
 
 async function startRecording(){
   clearError();
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    showError("Your Browser Doesn't Support Microphone Recording. Try Chrome, Safari, or Firefox.");
-    return;
+  if(!navigator.mediaDevices?.getUserMedia){
+    showError("Your browser doesn't support mic recording. Try Chrome, Safari, or Firefox."); return;
   }
-  try{
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  }catch(err){
-    showError("Microphone Access Was Blocked. Please Allow Mic Permissions and Try Again.");
-    return;
-  }
+  try{ stream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true } }); }
+  catch(err){ showError("Microphone access blocked. Please allow mic permissions and try again."); return; }
 
   const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' :
-                    MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
-  mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+                   MediaRecorder.isTypeSupported('audio/mp4')  ? 'audio/mp4' : '';
+  mediaRecorder = mimeType ? new MediaRecorder(stream,{mimeType}) : new MediaRecorder(stream);
   audioChunks = [];
-
-  mediaRecorder.ondataavailable = e => { if(e.data.size > 0) audioChunks.push(e.data); };
+  mediaRecorder.ondataavailable = e => { if(e.data.size>0) audioChunks.push(e.data); };
   mediaRecorder.onstop = onRecordingStop;
   mediaRecorder.start();
 
-  // visualizer
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const source = audioCtx.createMediaStreamSource(stream);
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  const src = audioCtx.createMediaStreamSource(stream);
   analyser = audioCtx.createAnalyser();
   analyser.fftSize = 64;
-  source.connect(analyser);
+  src.connect(analyser);
   drawViz();
 
   micStage.classList.add('recording');
+  tapZone.classList.add('recording');
+  tapLabelText.textContent = 'TAP TO STOP';
   micBtn.setAttribute('aria-label','Stop recording');
-  statusText.textContent = 'Recording… Tap To Stop';
   secondsLeft = MAX_SECONDS;
   updateCountdown();
-  timerInterval = setInterval(()=>{
-    secondsLeft--;
-    updateCountdown();
-    if(secondsLeft <= 0) stopRecording();
-  }, 1000);
+  timerInterval = setInterval(()=>{ secondsLeft--; updateCountdown(); if(secondsLeft<=0) stopRecording(); },1000);
 }
 
 function updateCountdown(){
   const m = Math.floor(secondsLeft/60);
-  const s = secondsLeft % 60;
+  const s = secondsLeft%60;
   countdownEl.textContent = `${m}:${s.toString().padStart(2,'0')}`;
-  countdownEl.classList.toggle('warn', secondsLeft <= 5);
+  countdownEl.classList.toggle('warn', secondsLeft<=5);
 }
 
 function drawViz(){
   const data = new Uint8Array(analyser.frequencyBinCount);
   function loop(){
     analyser.getByteFrequencyData(data);
-    vizBars.forEach((bar, i)=>{
-      const v = data[i % data.length] || 0;
-      bar.style.height = Math.max(6, (v/255)*36) + 'px';
-    });
+    // mini bars
+    vizBars.forEach((b,i)=>{ const v=data[i%data.length]||0; b.style.height=Math.max(6,(v/255)*30)+'px'; });
+    // side bars - mirror effect
+    const total = leftBars.length;
+    leftBars.forEach((b,i)=>{ const v=data[((total-i)%data.length)]||0; const h=Math.max(4,(v/255)*65); b.style.height=h+'px'; });
+    rightBars.forEach((b,i)=>{ const v=data[(i%data.length)]||0; const h=Math.max(4,(v/255)*65); b.style.height=h+'px'; });
     vizRAF = requestAnimationFrame(loop);
   }
   loop();
@@ -547,211 +748,175 @@ function drawViz(){
 
 function stopVizAndStream(){
   if(vizRAF) cancelAnimationFrame(vizRAF);
-  vizBars.forEach(b=> b.style.height = '6px');
+  vizBars.forEach(b=>b.style.height='6px');
+  leftBars.forEach(b=>b.style.height='4px');
+  rightBars.forEach(b=>b.style.height='4px');
   if(audioCtx) audioCtx.close();
   if(stream) stream.getTracks().forEach(t=>t.stop());
 }
 
 function stopRecording(){
   clearInterval(timerInterval);
-  if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  if(mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop();
   micStage.classList.remove('recording');
-  statusText.textContent = 'Processing…';
+  tapZone.classList.remove('recording');
+  tapLabelText.textContent = 'PROCESSING…';
 }
 
 function onRecordingStop(){
   stopVizAndStream();
-  audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-  if(audioBlob.size === 0){
-    showError("We Didn't Catch Any Audio. Please Try Recording Again.");
-    resetToRecordView();
-    return;
-  }
+  audioBlob = new Blob(audioChunks,{type: mediaRecorder.mimeType||'audio/webm'});
+  if(audioBlob.size===0){ showError("No audio captured. Please try recording again."); resetToTypeScreen(); return; }
   const url = URL.createObjectURL(audioBlob);
   playback.src = url;
-  buildReviewFields(); // inject type-specific fields before showing panel
+  buildReviewFields();
+  syncMiniTypeGrid();
   recordView.style.display = 'none';
   reviewPanel.classList.add('show');
 }
 
-function resetToRecordView(){
-  // Go back to type selection screen so user can pick a new type
+function resetToTypeScreen(){
   recordView.style.display = 'none';
   reviewPanel.classList.remove('show');
   confirmView.classList.remove('show');
   typeScreen.style.display = 'block';
-  // Reset type selection to default
-  typeCards.forEach(c => c.classList.remove('selected'));
+  typeCards.forEach(c=>c.classList.remove('selected'));
   document.querySelector('.type-card[data-type="general"]').classList.add('selected');
   selectedType = 'general';
-  // Reset recording state
-  statusText.textContent = 'Tap The Screen To Record';
+  tapLabelText.textContent = 'TAP TO RECORD';
   secondsLeft = MAX_SECONDS;
   updateCountdown();
   micBtn.disabled = false;
   sendBtn.disabled = false;
-  sendBtn.textContent = 'Send Message';
+  sendBtn.textContent = 'SEND MESSAGE';
 }
 
-// Also fix recordView display to flex (not block) since it uses flexbox layout
-// This is handled by setting display:flex in nextBtn click handler above
-
-tapZone.addEventListener('click', ()=>{
+tapZone.addEventListener('click',()=>{
   if(micBtn.disabled) return;
-  if(micStage.classList.contains('recording')){
-    stopRecording();
-  } else {
-    startRecording();
-  }
+  if(micStage.classList.contains('recording')) stopRecording();
+  else startRecording();
 });
 
-// ── Dynamic review form based on selected message type ──
+// ── Dynamic review fields ──
 const typeSpecificFields = document.getElementById('typeSpecificFields');
-
 const typeFieldTemplates = {
   general: [],
   song: [
-    { id:'fArtist', label:'Artist Name', tag:'(optional)', placeholder:'Artist name', max:80 },
-    { id:'fTrack',  label:'Song Title',  tag:'(optional)', placeholder:'Song title',  max:80 }
+    {id:'fArtist',label:'Artist Name',tag:'(optional)',placeholder:'Artist name',max:80},
+    {id:'fTrack', label:'Song Title', tag:'(optional)',placeholder:'Song title', max:80}
   ],
   shoutout: [
-    { id:'fShoutoutName', label:'Who are you shouting out?', tag:'(name, club, business…)', placeholder:'Enter name', max:80 }
+    {id:'fShoutoutName',label:'Who are you shouting out?',tag:'',placeholder:'Name, club, business…',max:80}
   ],
   birthday: [
-    { id:'fBirthdayName', label:"Who's the birthday for?", tag:'(their name)', placeholder:'Enter name', max:80 },
-    { id:'fArtist',       label:'Artist Name',              tag:'(optional)', placeholder:'Artist name', max:80 },
-    { id:'fTrack',        label:'Song Title',               tag:'(optional)', placeholder:'Song title',  max:80 }
+    {id:'fBirthdayName',label:"Who's the birthday for?",tag:'',placeholder:'Their name',max:80},
+    {id:'fArtist',      label:'Artist Name',             tag:'(optional)',placeholder:'Artist name',max:80},
+    {id:'fTrack',       label:'Song Title',              tag:'(optional)',placeholder:'Song title', max:80}
   ],
   dedication: [
-    { id:'fDedicationTo', label:'Who is this dedicated to?', tag:'(their name)', placeholder:'Enter name',   max:80 },
-    { id:'fArtist',       label:'Artist Name',               tag:'(optional)', placeholder:'Artist name', max:80 },
-    { id:'fTrack',        label:'Song Title',                tag:'(optional)', placeholder:'Song title',  max:80 }
+    {id:'fDedicationTo',label:'Who is this dedicated to?',tag:'',placeholder:'Their name',max:80},
+    {id:'fArtist',      label:'Artist Name',              tag:'(optional)',placeholder:'Artist name',max:80},
+    {id:'fTrack',       label:'Song Title',               tag:'(optional)',placeholder:'Song title', max:80}
   ]
 };
 
 function buildReviewFields(){
-  const fields = typeFieldTemplates[selectedType] || [];
-  typeSpecificFields.innerHTML = fields.map(f => `
+  const fields = typeFieldTemplates[selectedType]||[];
+  typeSpecificFields.innerHTML = fields.map(f=>`
     <div class="field">
-      <label>${f.label}${f.tag ? ` <span class="optional-tag">${f.tag}</span>` : ''}</label>
+      <label>${f.label}${f.tag?` <span style="color:#444;font-weight:400">${f.tag}</span>`:''}</label>
       <input type="text" id="${f.id}" maxlength="${f.max}" placeholder="${f.placeholder}">
-    </div>
-  `).join('');
+    </div>`).join('');
 }
 
-function getFieldVal(id){ const el = document.getElementById(id); return el ? el.value.trim() || null : null; }
+function getFieldVal(id){ const el=document.getElementById(id); return el?el.value.trim()||null:null; }
+
+// ── Type selection logic ──
 let selectedType = 'general';
-const typeScreen        = document.getElementById('typeScreen');
-const nextBtnEl         = document.getElementById('nextBtn');
+const typeScreen = document.getElementById('typeScreen');
+const nextBtnEl  = document.getElementById('nextBtn');
 const selectedTypeBadge = document.getElementById('selectedTypeBadge');
-const typeCards         = document.querySelectorAll('.type-card');
+const typeCards  = document.querySelectorAll('.type-card');
 
 const typeLabels = {
-  general:    '🎙️ General Message',
-  song:       '🎵 Song Request',
-  shoutout:   '📢 Shout-Out',
-  birthday:   '🎂 Birthday Message',
-  dedication: '💌 Dedication'
+  general:'🎙️ General Message', song:'🎵 Song Request',
+  shoutout:'📢 Shout-Out', birthday:'🎂 Birthday', dedication:'💌 Dedication'
 };
 
-typeCards.forEach(card =>{
-  card.addEventListener('click', ()=>{
-    typeCards.forEach(c => c.classList.remove('selected'));
+typeCards.forEach(card=>{
+  card.addEventListener('click',()=>{
+    typeCards.forEach(c=>c.classList.remove('selected'));
     card.classList.add('selected');
     selectedType = card.dataset.type;
   });
 });
 
-nextBtnEl.addEventListener('click', ()=>{
-  typeScreen.style.display = 'none';
-  recordView.style.display = 'flex';
-  selectedTypeBadge.textContent = typeLabels[selectedType] || '🎙️ General Message';
+nextBtnEl.addEventListener('click',()=>{
+  typeScreen.style.display='none';
+  recordView.style.display='flex';
+  selectedTypeBadge.textContent = typeLabels[selectedType]||'🎙️ General Message';
 });
 
-rerecordBtn.addEventListener('click', ()=>{
-  audioBlob = null;
-  resetToRecordView();
+// Mini type grid in review panel - mirrors main selection
+const miniCards = document.querySelectorAll('.type-mini-card');
+miniCards.forEach(card=>{
+  card.addEventListener('click',()=>{
+    miniCards.forEach(c=>c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedType = card.dataset.minitype;
+    buildReviewFields();
+  });
 });
 
-sendBtn.addEventListener('click', async ()=>{
-  if(!audioBlob){ return; }
-  sendBtn.disabled = true;
-  sendBtn.textContent = 'Sending…';
+function syncMiniTypeGrid(){
+  miniCards.forEach(c=>c.classList.toggle('selected', c.dataset.minitype===selectedType));
+}
+
+rerecordBtn.addEventListener('click',()=>{ audioBlob=null; resetToTypeScreen(); });
+
+sendBtn.addEventListener('click', async()=>{
+  if(!audioBlob) return;
+  sendBtn.disabled=true;
+  sendBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg> SENDING…';
   clearError();
-
   try{
-    const formData = new FormData();
-    formData.append('file', audioBlob);
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-    formData.append('resource_type', 'video'); // Cloudinary treats audio as 'video' resource type
-
-    const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`, {
-      method: 'POST',
-      body: formData
-    });
-
-    if(!uploadRes.ok){
-      const errBody = await uploadRes.text();
-      throw new Error('Upload failed: ' + errBody);
-    }
-    const uploadData = await uploadRes.json();
-    const audioUrl = uploadData.secure_url;
-
-    await addDoc(collection(db, 'hotlineMessages'), {
-      name: document.getElementById('fName').value.trim() || null,
-      city: document.getElementById('fCity').value.trim() || null,
+    const fd = new FormData();
+    fd.append('file',audioBlob);
+    fd.append('upload_preset',CLOUDINARY_UPLOAD_PRESET);
+    fd.append('resource_type','video');
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`,{method:'POST',body:fd});
+    if(!res.ok) throw new Error('Upload failed: '+await res.text());
+    const data = await res.json();
+    await addDoc(collection(db,'hotlineMessages'),{
+      name: document.getElementById('fName').value.trim()||null,
+      city: document.getElementById('fCity').value.trim()||null,
       messageType: selectedType,
       songArtist: getFieldVal('fArtist'),
       songTrack: getFieldVal('fTrack'),
       shoutoutName: getFieldVal('fShoutoutName'),
       birthdayName: getFieldVal('fBirthdayName'),
       dedicationTo: getFieldVal('fDedicationTo'),
-      audioUrl,
-      cloudinaryPublicId: uploadData.public_id || null,
-      status: 'pending',
+      audioUrl: data.secure_url,
+      cloudinaryPublicId: data.public_id||null,
+      status:'pending',
       createdAt: serverTimestamp()
     });
-
     reviewPanel.classList.remove('show');
     confirmView.classList.add('show');
-
-    // Auto-close the browser tab 3 seconds after successful send
     setTimeout(()=>{
       window.close();
-      // window.close() only works if the tab was opened by script.
-      // As a fallback for PWA / direct navigation, redirect to a blank thank-you screen.
-      document.body.innerHTML = `
-        <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;
-          justify-content:center;background:#0a0a0a;color:#f2f2f2;font-family:Arial,sans-serif;
-          text-align:center;padding:40px 20px;gap:18px;">
-          <div style="font-size:52px;">✅</div>
-          <div style="font-size:22px;font-weight:900;">Message Sent!</div>
-          <div style="font-size:14px;color:#888;">Your Message Is In The Queue.<br>You Can Close This Window.</div>
-        </div>`;
-    }, 3000);
+      document.body.innerHTML=`<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;color:#fff;font-family:Arial,sans-serif;text-align:center;padding:40px 20px;gap:18px;"><div style="font-size:48px;">✅</div><div style="font-size:22px;font-weight:900;color:#53FC18;">Message Sent!</div><div style="font-size:14px;color:#555;">Your message is in the queue. We might play it live!</div></div>`;
+    },3000);
   }catch(err){
     console.error(err);
-    showError("Something Went Wrong Sending Your Message. Check Your Connection and Try Again.");
-    sendBtn.disabled = false;
-    sendBtn.textContent = 'Send Message';
+    showError("Something went wrong. Check your connection and try again.");
+    sendBtn.disabled=false;
+    sendBtn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg> SEND MESSAGE';
   }
 });
 
-newMsgBtn.addEventListener('click', ()=>{
-  document.getElementById('fName').value = '';
-  document.getElementById('fCity').value = '';
-  typeSpecificFields.innerHTML = ''; // clear dynamic fields
-  audioBlob = null;
-  resetToRecordView();
-});
-
 updateCountdown();
-
-// PWA service worker registration
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
-}
-
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
 </html>
