@@ -576,17 +576,17 @@
         <!-- Left: name + city + type-specific -->
         <div class="review-left">
           <div class="field">
-            <label>Name (optional)</label>
+            <label>Name</label>
             <div class="field-wrap">
               <span class="field-icon">👤</span>
-              <input type="text" id="fName" maxlength="40" placeholder="Your name">
+              <input type="text" id="fName" maxlength="40">
             </div>
           </div>
           <div class="field">
-            <label>City &amp; State (optional)</label>
+            <label>City &amp; State</label>
             <div class="field-wrap">
               <span class="field-icon">📍</span>
-              <input type="text" id="fCity" maxlength="60" placeholder="Dallas, TX">
+              <input type="text" id="fCity" maxlength="60">
             </div>
           </div>
           <div id="typeSpecificFields"></div>
@@ -802,21 +802,17 @@ const typeSpecificFields = document.getElementById('typeSpecificFields');
 const typeFieldTemplates = {
   general: [],
   song: [
-    {id:'fArtist',label:'Artist Name',tag:'(optional)',placeholder:'Artist name',max:80},
-    {id:'fTrack', label:'Song Title', tag:'(optional)',placeholder:'Song title', max:80}
+    {id:'fArtist',label:'Artist Name',max:80},
+    {id:'fTrack', label:'Song Title', max:80}
   ],
   shoutout: [
-    {id:'fShoutoutName',label:'Who are you shouting out?',tag:'',placeholder:'Name, club, business…',max:80}
+    {id:'fShoutoutName',label:'Who are you shouting out?',max:80}
   ],
   birthday: [
-    {id:'fBirthdayName',label:"Who's the birthday for?",tag:'',placeholder:'Their name',max:80},
-    {id:'fArtist',      label:'Artist Name',             tag:'(optional)',placeholder:'Artist name',max:80},
-    {id:'fTrack',       label:'Song Title',              tag:'(optional)',placeholder:'Song title', max:80}
+    {id:'fBirthdayName',label:"Who's the birthday for?",max:80}
   ],
   dedication: [
-    {id:'fDedicationTo',label:'Who is this dedicated to?',tag:'',placeholder:'Their name',max:80},
-    {id:'fArtist',      label:'Artist Name',              tag:'(optional)',placeholder:'Artist name',max:80},
-    {id:'fTrack',       label:'Song Title',               tag:'(optional)',placeholder:'Song title', max:80}
+    {id:'fDedicationTo',label:'Who is this dedicated to?',max:80}
   ]
 };
 
@@ -824,8 +820,8 @@ function buildReviewFields(){
   const fields = typeFieldTemplates[selectedType]||[];
   typeSpecificFields.innerHTML = fields.map(f=>`
     <div class="field">
-      <label>${f.label}${f.tag?` <span style="color:#444;font-weight:400">${f.tag}</span>`:''}</label>
-      <input type="text" id="${f.id}" maxlength="${f.max}" placeholder="${f.placeholder}">
+      <label>${f.label}</label>
+      <input type="text" id="${f.id}" maxlength="${f.max}">
     </div>`).join('');
 }
 

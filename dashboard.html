@@ -847,12 +847,10 @@ function typeDetail(m){
     return `<div class="card-song">Shout-out to: ${escapeHtml(m.shoutoutName)}</div>`;
   }
   if(t === 'birthday' && m.birthdayName){
-    const song = m.birthdaySong ? ` · ${m.birthdaySong}` : '';
-    return `<div class="card-song">🎂 ${escapeHtml(m.birthdayName)}${escapeHtml(song)}</div>`;
+    return `<div class="card-song">🎂 ${escapeHtml(m.birthdayName)}</div>`;
   }
   if(t === 'dedication' && m.dedicationTo){
-    const song = m.dedicationSong ? ` · ${m.dedicationSong}` : '';
-    return `<div class="card-song">💌 For: ${escapeHtml(m.dedicationTo)}${escapeHtml(song)}</div>`;
+    return `<div class="card-song">💌 For: ${escapeHtml(m.dedicationTo)}</div>`;
   }
   return '';
 }
