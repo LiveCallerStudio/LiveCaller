@@ -322,7 +322,8 @@ const STUN = {
   iceCandidatePoolSize: 10
 };
 
-let pc = null;
+let pc = null;          // "air" connection — straight to overlay.html once live
+let screenPc = null;    // screening connection — lets the producer preview before air
 let localStream = null;
 let callDocRef = null;
 let micMuted = false;
@@ -395,18 +396,26 @@ async function joinCall(){
   joinBtn.disabled = true;
   joinBtn.textContent = 'Connecting…';
 
+  // "Air" connection — goes straight to overlay.html once the producer sends this call live.
   pc = new RTCPeerConnection(STUN);
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
   const pendingCandidates = [];
   let remoteDescSet = false;
-
   const offer = await pc.createOffer();
+
+  // "Screening" connection — lets the producer preview video/audio in the dashboard
+  // before deciding to send this guest on air. Fully separate signaling from the air connection.
+  screenPc = new RTCPeerConnection(STUN);
+  localStream.getTracks().forEach(track => screenPc.addTrack(track, localStream));
+  const screenPendingCandidates = [];
+  let screenRemoteDescSet = false;
+  const screenOffer = await screenPc.createOffer();
 
   callDocRef = await addDoc(collection(db, 'videoCalls'), {
     callerName: name,
     callerCity: callerCityInput.value.trim() || null,
     offer: { type: offer.type, sdp: offer.sdp },
+    screenOffer: { type: screenOffer.type, sdp: screenOffer.sdp },
     status: 'waiting',
     createdAt: serverTimestamp()
   });
@@ -416,8 +425,14 @@ async function joinCall(){
       addDoc(collection(db, 'videoCalls', callDocRef.id, 'callerCandidates'), e.candidate.toJSON()).catch(()=>{});
     }
   };
+  screenPc.onicecandidate = (e) => {
+    if(e.candidate){
+      addDoc(collection(db, 'videoCalls', callDocRef.id, 'screenCallerCandidates'), e.candidate.toJSON()).catch(()=>{});
+    }
+  };
 
   await pc.setLocalDescription(offer);
+  await screenPc.setLocalDescription(screenOffer);
 
   onSnapshot(callDocRef, async (snap) => {
     const data = snap.data();
@@ -430,6 +445,15 @@ async function joinCall(){
         for(const c of pendingCandidates){ await pc.addIceCandidate(c).catch(()=>{}); }
         pendingCandidates.length = 0;
       }catch(e){ console.error('setRemoteDescription failed:', e); }
+    }
+
+    if(data.screenAnswer && screenPc && !screenPc.currentRemoteDescription){
+      try{
+        await screenPc.setRemoteDescription(new RTCSessionDescription(data.screenAnswer));
+        screenRemoteDescSet = true;
+        for(const c of screenPendingCandidates){ await screenPc.addIceCandidate(c).catch(()=>{}); }
+        screenPendingCandidates.length = 0;
+      }catch(e){ console.error('screen setRemoteDescription failed:', e); }
     }
 
     if(data.status === 'waiting'){
@@ -457,6 +481,16 @@ async function joinCall(){
     });
   });
 
+  onSnapshot(collection(db, 'videoCalls', callDocRef.id, 'screenDashboardCandidates'), (snap) => {
+    snap.docChanges().forEach(async (change) => {
+      if(change.type === 'added' && screenPc){
+        const candidate = new RTCIceCandidate(change.doc.data());
+        if(screenRemoteDescSet){ await screenPc.addIceCandidate(candidate).catch(()=>{}); }
+        else{ screenPendingCandidates.push(candidate); }
+      }
+    });
+  });
+
   setupScreen.style.display = 'none';
   callScreen.style.display = 'flex';
   setStatus('waiting', "You're in the green room — waiting for the host to bring you on air.");
@@ -480,6 +514,7 @@ function endOfCallScreen(title, sub){
 function cleanup(updateFirestore){
   if(localStream) localStream.getTracks().forEach(t => t.stop());
   if(pc){ pc.close(); pc = null; }
+  if(screenPc){ screenPc.close(); screenPc = null; }
   if(updateFirestore && callDocRef){ updateDoc(callDocRef, { status:'ended' }).catch(()=>{}); }
 }
 
