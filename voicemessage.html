@@ -151,6 +151,19 @@
   }
   #formScreen #typeSpecificFields{width:100%;}
 
+  .back-btn{
+    align-self:flex-start;
+    display:flex;align-items:center;gap:6px;
+    background:transparent;border:none;color:#666;
+    font-family:Arial,sans-serif;font-size:12.5px;font-weight:700;
+    letter-spacing:.5px;text-transform:uppercase;
+    cursor:pointer;padding:8px 0 4px;margin-bottom:2px;
+    transition:color .15s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .back-btn:hover{color:var(--g);}
+  .back-btn svg{flex-shrink:0;}
+
   /* ── Record screen ── */
   #recordView{
     display:none;
@@ -478,6 +491,11 @@
   <!-- ── STEP 2: DETAILS FORM ── -->
   <div id="formScreen">
 
+    <button class="back-btn" id="formBackBtn" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Back
+    </button>
+
     <div class="record-header">
       <h1>LEAVE A VOICE<br>MESSAGE</h1>
       <p class="sub-dots">SONG REQUESTS • SHOUTOUTS • BIRTHDAYS • DEDICATIONS</p>
@@ -764,6 +782,7 @@ let selectedType = 'general';
 const typeScreen = document.getElementById('typeScreen');
 const nextBtnEl  = document.getElementById('nextBtn');
 const formNextBtn = document.getElementById('formNextBtn');
+const formBackBtn = document.getElementById('formBackBtn');
 const formTypeBadge = document.getElementById('formTypeBadge');
 const selectedTypeBadge = document.getElementById('selectedTypeBadge');
 const typeCards  = document.querySelectorAll('.type-card');
@@ -787,6 +806,12 @@ nextBtnEl.addEventListener('click',()=>{
   formScreen.style.display='flex';
   formTypeBadge.textContent = typeLabels[selectedType]||'🎙️ General Message';
   buildReviewFields();
+});
+
+// STEP 2 → STEP 1: change message type
+formBackBtn.addEventListener('click',()=>{
+  formScreen.style.display='none';
+  typeScreen.style.display='block';
 });
 
 // STEP 2 → STEP 3: details collected, now record the message
