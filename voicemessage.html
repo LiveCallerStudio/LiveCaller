@@ -316,12 +316,23 @@
   .review-panel.show{display:block;}
 
   .review-box{
+    position:relative;
     background:var(--panel);
     border:1.5px solid #1a1a1a;
     border-radius:18px;
     padding:22px 18px;
     overflow:hidden;
   }
+
+  .close-btn{
+    position:absolute;top:16px;right:16px;
+    width:32px;height:32px;border-radius:50%;
+    background:transparent;border:1.5px solid #1e1e1e;color:#666;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:border-color .15s ease,color .15s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .close-btn:hover{border-color:var(--red);color:var(--red);}
 
   .review-title{
     display:flex;align-items:center;gap:10px;
@@ -565,6 +576,10 @@
   <!-- ── STEP 4: REVIEW ── -->
   <div class="review-panel" id="reviewPanel">
     <div class="review-box">
+      <button class="close-btn" id="closeBtn" aria-label="Close and discard recording" type="button">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
       <div class="review-title">
         <div class="review-title-icon">🎙</div>
         REVIEW YOUR MESSAGE
@@ -634,6 +649,7 @@ const recordView  = document.getElementById('recordView');
 const reviewPanel = document.getElementById('reviewPanel');
 const playback    = document.getElementById('playback');
 const rerecordBtn = document.getElementById('rerecordBtn');
+const closeBtn    = document.getElementById('closeBtn');
 const sendBtn     = document.getElementById('sendBtn');
 const confirmView = document.getElementById('confirmView');
 const errorBanner = document.getElementById('errorBanner');
@@ -827,6 +843,36 @@ rerecordBtn.addEventListener('click',()=>{
   reviewPanel.classList.remove('show');
   recordView.style.display = 'flex';
   resetRecordingUI();
+});
+
+// STEP 4 "Close": discard the recording. Try to close the tab/app; if the browser
+// won't allow that (most won't, unless this page was opened via script), fall back
+// to resetting the whole flow back to the very beginning.
+closeBtn.addEventListener('click',()=>{
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  audioBlob = null;
+  playback.pause();
+  playback.src = '';
+
+  window.close();
+
+  setTimeout(()=>{
+    reviewPanel.classList.remove('show');
+    recordView.style.display = 'none';
+    formScreen.style.display = 'none';
+    typeScreen.style.display = 'block';
+
+    typeCards.forEach(c=>c.classList.remove('selected'));
+    document.querySelector('.type-card[data-type="general"]').classList.add('selected');
+    selectedType = 'general';
+
+    document.getElementById('fName').value = '';
+    document.getElementById('fCity').value = '';
+    typeSpecificFields.innerHTML = '';
+
+    clearError();
+    resetRecordingUI();
+  }, 250);
 });
 
 sendBtn.addEventListener('click', async()=>{
