@@ -788,7 +788,17 @@ linesToggleBtn.addEventListener('click', async()=>{
   try{
     await setDoc(linesSettingsRef, { open: !linesOpen, updatedAt: Date.now() }, { merge:true });
   }catch(err){
-    alert('Could not update phone lines status: ' + err.message);
+    if(err.code === 'permission-denied'){
+      alert(
+        "Can't update phone lines — Firestore is blocking it.\n\n" +
+        "This isn't a bug in the dashboard — it means the security rule for the " +
+        "\"hotlineSettings\" collection hasn't been added yet.\n\n" +
+        "Fix: Firebase Console → Firestore Database → Rules, add the hotlineSettings " +
+        "rule block from SETUP.md, then click Publish."
+      );
+    } else {
+      alert('Could not update phone lines status: ' + err.message);
+    }
   }
   linesToggleBtn.disabled = false;
 });
