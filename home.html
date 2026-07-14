@@ -184,6 +184,23 @@
     font-size:20px;font-weight:900;letter-spacing:-.2px;
     margin-bottom:9px;line-height:1.15;
   }
+
+  .lines-status{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:6px 12px;border-radius:20px;
+    font-family:Arial,sans-serif;font-size:10.5px;font-weight:700;
+    letter-spacing:.8px;text-transform:uppercase;
+    margin-bottom:14px;
+    border:1px solid var(--line2);color:#666;
+    background:rgba(255,255,255,0.03);
+  }
+  .lines-status.open{border-color:rgba(83,252,24,0.3);color:var(--g);background:rgba(83,252,24,0.08);}
+  .lines-status.open .lines-status-dot{background:var(--g);animation:blink 1.4s infinite;}
+  .lines-status.closed{border-color:var(--line2);color:#777;}
+  .lines-status.closed .lines-status-dot{background:#555;}
+  .lines-status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.25;}}
+
   .card-desc{
     font-family:Arial,sans-serif;font-weight:400;
     font-size:14px;color:#666;line-height:1.65;
@@ -281,6 +298,10 @@
         <div class="card-arrow">↗</div>
       </div>
       <div class="card-title">Call In Live</div>
+      <div class="lines-status closed" id="linesStatus">
+        <span class="lines-status-dot"></span>
+        <span id="linesStatusText">Checking phone lines…</span>
+      </div>
       <div class="card-desc">Connect directly with the producer for a chance to go live on air. Two-way audio, real-time screening, and full producer controls.</div>
       <div class="card-tags">
         <span class="tag r">Live</span>
@@ -306,6 +327,38 @@
 </div>
 <script>
   if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey:            "AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc",
+    authDomain:        "djdeeze-hotline.firebaseapp.com",
+    projectId:         "djdeeze-hotline",
+    storageBucket:     "djdeeze-hotline.firebasestorage.app",
+    messagingSenderId: "663942225296",
+    appId:             "1:663942225296:web:c6117cf6c23656b9842715"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  const linesStatus = document.getElementById('linesStatus');
+  const linesStatusText = document.getElementById('linesStatusText');
+
+  // Missing doc / missing field defaults to OPEN so the badge doesn't wrongly
+  // say "closed" before a producer has ever touched the toggle.
+  onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
+    const d = snap.data();
+    const open = d ? d.open !== false : true;
+    linesStatus.classList.toggle('open', open);
+    linesStatus.classList.toggle('closed', !open);
+    linesStatusText.textContent = open ? 'Phone Lines Open' : 'Phone Lines Closed';
+  }, ()=>{
+    linesStatusText.textContent = 'Phone Lines Open';
+    linesStatus.classList.add('open');
+  });
 </script>
 </body>
 </html>

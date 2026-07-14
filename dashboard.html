@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LC Dashboard">
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest-dashboard.json">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152.png">
@@ -70,6 +70,20 @@
   .brand small{display:block; color:var(--sub); font-size:11px; letter-spacing:1px;}
 
   .header-right{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
+
+  .lines-toggle{
+    display:flex;align-items:center;gap:8px;
+    padding:8px 14px;border-radius:20px;border:1.5px solid;
+    font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+    cursor:pointer;transition:filter .15s ease,background .15s ease;
+    background:transparent;font-family:Arial,Helvetica,sans-serif;
+  }
+  .lines-toggle:hover{filter:brightness(1.3);}
+  .lines-toggle.open{border-color:var(--green);color:var(--green);background:rgba(83,252,24,0.08);}
+  .lines-toggle.open .lines-dot{background:var(--green);animation:blink 1.4s infinite;}
+  .lines-toggle.closed{border-color:var(--sub);color:var(--sub);background:rgba(255,255,255,0.03);}
+  .lines-toggle.closed .lines-dot{background:var(--sub);}
+  .lines-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
   .counter{
     background:var(--panel-2); border:1px solid var(--green); color:var(--green);
     padding:7px 14px; border-radius:20px; font-size:13px; font-weight:700; letter-spacing:.5px;
@@ -175,6 +189,14 @@
     cursor:pointer; letter-spacing:.3px; transition:color .15s ease, border-color .15s ease;
   }
   .signout-btn:hover{color:var(--red); border-color:var(--red);}
+
+  .home-btn{
+    display:inline-flex; align-items:center; gap:6px;
+    background:transparent; border:1px solid var(--line); color:var(--sub);
+    padding:8px 14px; border-radius:8px; font-size:12px; font-weight:700;
+    text-decoration:none; letter-spacing:.3px; transition:color .15s ease, border-color .15s ease;
+  }
+  .home-btn:hover{color:var(--green); border-color:var(--green);}
 
   /* ── Live Call Cards ── */
   .call-card{
@@ -507,6 +529,10 @@
     </div>
   </div>
   <div class="header-right">
+    <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Toggle whether phone lines are accepting live calls">
+      <span class="lines-dot"></span>
+      <span id="linesToggleText">Lines Open</span>
+    </button>
     <div class="call-counter" id="callCounter">📞 <span id="callCountNum">0</span> Incoming</div>
     <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
     <div class="counter"><span class="dot"></span><span id="queueCount">0 waiting</span></div>
@@ -516,6 +542,10 @@
       <option value="all">All messages</option>
       <option value="approved">Approved only</option>
     </select>
+    <a class="home-btn" href="home.html">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Home
+    </a>
     <button class="signout-btn" id="signOutBtn">Sign Out</button>
   </div>
 </header>
@@ -712,6 +742,7 @@ onAuthStateChanged(auth, (user)=>{
     startQueueListener();
     startCallsListener();
     startCallHistoryListener();
+    startLinesToggleListener();
   } else {
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
@@ -727,6 +758,40 @@ signOutBtn.addEventListener('click', ()=>{
 // Instead, the dashboard writes "now playing" state to this Firestore doc,
 // and overlay.html listens to it live. This works no matter where each page runs.
 const liveStateRef = doc(db, 'hotlineLive', 'nowPlaying');
+
+// ── Phone lines open/closed ──
+// Controls whether call.html will let listeners call in, and whether home.html
+// shows "Lines Open" or "Lines Closed". Missing doc / missing field defaults to OPEN
+// so nothing breaks before this has ever been toggled.
+const linesSettingsRef = doc(db, 'hotlineSettings', 'callLines');
+const linesToggleBtn = document.getElementById('linesToggleBtn');
+const linesToggleText = document.getElementById('linesToggleText');
+let linesOpen = true;
+
+function renderLinesToggle(){
+  linesToggleBtn.classList.toggle('open', linesOpen);
+  linesToggleBtn.classList.toggle('closed', !linesOpen);
+  linesToggleText.textContent = linesOpen ? 'Lines Open' : 'Lines Closed';
+}
+
+function startLinesToggleListener(){
+  onSnapshot(linesSettingsRef, (snap)=>{
+    const d = snap.data();
+    linesOpen = d ? d.open !== false : true;
+    renderLinesToggle();
+  }, ()=>{ /* if rules ever block this, just leave the last known state visible */ });
+}
+
+linesToggleBtn.addEventListener('click', async()=>{
+  if(linesOpen && !confirm('Close phone lines? Listeners won\'t be able to call in until you reopen them.')) return;
+  linesToggleBtn.disabled = true;
+  try{
+    await setDoc(linesSettingsRef, { open: !linesOpen, updatedAt: Date.now() }, { merge:true });
+  }catch(err){
+    alert('Could not update phone lines status: ' + err.message);
+  }
+  linesToggleBtn.disabled = false;
+});
 
 let allMessages = [];
 let knownIds = new Set();

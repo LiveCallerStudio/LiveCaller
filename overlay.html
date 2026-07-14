@@ -92,9 +92,32 @@
   @keyframes blink{0%,100%{opacity:1;}50%{opacity:.2;}}
   .qnum{font-size:20px;font-weight:900;color:var(--green);}
   .qlbl{font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif;font-weight:700;}
+
+  /* Phone lines status (matches the queue badge's design language) */
+  .linesbadge{
+    position:fixed;top:40px;left:40px;
+    display:flex;align-items:center;gap:10px;
+    background:rgba(10,10,10,.88);border:1px solid rgba(83,252,24,.4);
+    border-radius:12px;padding:10px 16px;
+    opacity:0;transform:scale(.85);
+    transition:opacity .3s ease,transform .3s ease,border-color .3s ease;
+    z-index:10;
+  }
+  .linesbadge.show{opacity:1;transform:scale(1);}
+  .linesbadge.closed{border-color:rgba(255,255,255,.15);}
+  .linesdot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:blink 1.4s infinite;}
+  .linesbadge.closed .linesdot{background:#666;animation:none;}
+  .lineslbl{font-size:13px;font-weight:900;color:var(--green);text-transform:uppercase;letter-spacing:1px;}
+  .linesbadge.closed .lineslbl{color:#888;}
 </style>
 </head>
 <body>
+
+<!-- Phone Lines Status -->
+<div class="linesbadge" id="linesbadge">
+  <div class="linesdot"></div>
+  <div class="lineslbl" id="linesbadgeLabel">Lines Open</div>
+</div>
 
 <!-- Lower Third -->
 <div class="lt" id="lt">
@@ -165,6 +188,8 @@ const notif   = document.getElementById('notif');
 const ncountEl= document.getElementById('ncount');
 const qbadge  = document.getElementById('qbadge');
 const qnumEl  = document.getElementById('qnum');
+const linesbadge = document.getElementById('linesbadge');
+const linesbadgeLabel = document.getElementById('linesbadgeLabel');
 const audio   = document.getElementById('audio');
 
 let lastUrl = null;
@@ -244,6 +269,15 @@ onSnapshot(
     prevCount = count;
   }
 );
+
+// ── Phone lines open/closed — set by the producer in the dashboard ──
+onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap) => {
+  const d = snap.data();
+  const open = d ? d.open !== false : true;
+  linesbadge.classList.toggle('closed', !open);
+  linesbadgeLabel.textContent = open ? 'Lines Open' : 'Lines Closed';
+  linesbadge.classList.add('show');
+});
 </script>
 </body>
 </html>

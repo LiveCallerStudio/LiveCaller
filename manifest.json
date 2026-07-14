@@ -1,7 +1,7 @@
 {
   "name": "Live Caller Studio",
   "short_name": "Live Caller",
-  "description": "Leave a voice message for the show — song requests, shoutouts, birthdays, and more.",
+  "description": "Choose how to connect — leave a voice message or call in live.",
   "start_url": "https://livecallerstudio.github.io/LiveCaller/home.html",
   "scope": "https://livecallerstudio.github.io/LiveCaller/",
   "display": "standalone",
@@ -9,30 +9,12 @@
   "background_color": "#0a0a0a",
   "theme_color": "#53FC18",
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
   "categories": ["entertainment", "music"],
   "shortcuts": [
-    {
-      "name": "Leave a Voice Message",
-      "url": "https://livecallerstudio.github.io/LiveCaller/voicemessage.html",
-      "description": "Tap to leave a voice message"
-    },
-    {
-      "name": "Call In Live",
-      "url": "https://livecallerstudio.github.io/LiveCaller/call.html",
-      "description": "Tap to call in live"
-    }
+    { "name": "Leave a Voice Message", "url": "https://livecallerstudio.github.io/LiveCaller/voicemessage.html", "description": "Tap to leave a voice message" },
+    { "name": "Call In Live", "url": "https://livecallerstudio.github.io/LiveCaller/call.html", "description": "Tap to call in live" }
   ]
 }

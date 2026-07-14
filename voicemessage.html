@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Live Caller">
 <meta name="description" content="Leave a voice message for the show. Song requests, shoutouts, birthdays and more.">
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest-voicemessage.json">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152.png">
@@ -162,6 +162,7 @@
     font-family:Arial,sans-serif;font-size:12.5px;font-weight:700;
     letter-spacing:.5px;text-transform:uppercase;
     cursor:pointer;padding:8px 0 4px;margin-bottom:2px;
+    text-decoration:none;
     transition:color .15s ease;
     -webkit-tap-highlight-color:transparent;
   }
@@ -468,6 +469,11 @@
 
   <!-- ── STEP 1: TYPE SELECTION ── -->
   <div id="typeScreen">
+    <a class="back-btn" href="home.html">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Home
+    </a>
+
     <div class="type-hero">
       <h1>LEAVE A VOICE<br>MESSAGE</h1>
       <p class="sub-dots">SONG REQUESTS • SHOUTOUTS • BIRTHDAYS • DEDICATIONS</p>

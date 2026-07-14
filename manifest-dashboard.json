@@ -1,0 +1,16 @@
+{
+  "name": "Live Caller — Producer Dashboard",
+  "short_name": "LC Dashboard",
+  "description": "Producer dashboard for managing the queue and live calls.",
+  "start_url": "https://livecallerstudio.github.io/LiveCaller/dashboard.html",
+  "scope": "https://livecallerstudio.github.io/LiveCaller/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#53FC18",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["business"]
+}

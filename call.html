@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Live Call In">
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest-call.json">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152.png">
@@ -81,6 +81,20 @@
   .site-brand span{color:var(--green);}
 
   .wrap{ position:relative; z-index:1; width:100%; max-width:500px; display:flex; flex-direction:column; align-items:center; }
+
+  .back-btn{
+    align-self:flex-start;
+    display:flex;align-items:center;gap:6px;
+    background:transparent;border:none;color:#666;
+    font-family:Arial,sans-serif;font-size:12.5px;font-weight:700;
+    letter-spacing:.5px;text-transform:uppercase;
+    cursor:pointer;padding:8px 0 4px;margin-bottom:2px;
+    text-decoration:none;
+    transition:color .15s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .back-btn:hover{color:var(--green);}
+  .back-btn svg{flex-shrink:0;}
 
   /* Setup screen */
   #setupScreen{ width:100%; display:flex; flex-direction:column; align-items:center; }
@@ -189,6 +203,14 @@
   }
   .error-banner.show{ display:block; }
 
+  .lines-closed-banner{
+    display:none;background:rgba(255,255,255,0.03);border:1.5px solid #262626;color:#999;
+    font-family:Arial,sans-serif;font-size:13px;text-align:center;line-height:1.5;
+    padding:18px 16px;border-radius:12px;margin-bottom:18px;width:100%;
+  }
+  .lines-closed-banner.show{display:block;}
+  .lines-closed-banner strong{display:block;color:#ccc;font-weight:700;margin-bottom:4px;font-size:14px;}
+
   /* ── Footer ── */
   .site-footer{
     margin-top:36px;
@@ -226,10 +248,20 @@
 
     <!-- Setup Screen -->
     <div id="setupScreen">
+      <a class="back-btn" href="home.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Home
+      </a>
+
       <div class="setup-hero">
         <h1>CALL IN<br>LIVE</h1>
         <p class="sub-dots">TWO-WAY AUDIO • SCREENED • ON AIR</p>
         <p class="tagline">Talk directly with the producer!</p>
+      </div>
+
+      <div class="lines-closed-banner" id="linesClosedBanner">
+        <strong>📞 Phone Lines Are Closed</strong>
+        Call-ins aren't being accepted right now — check back soon!
       </div>
 
       <div class="error-banner" id="errorBanner"></div>
@@ -413,6 +445,9 @@ const muteBtn          = document.getElementById('muteBtn');
 const endBtn           = document.getElementById('endBtn');
 const remoteAudio      = document.getElementById('remoteAudio');
 const errorBanner      = document.getElementById('errorBanner');
+const linesClosedBanner= document.getElementById('linesClosedBanner');
+
+let linesOpen = true; // defaults open until the settings doc says otherwise
 
 function showError(msg){ errorBanner.textContent = msg; errorBanner.classList.add('show'); }
 function clearError(){ errorBanner.classList.remove('show'); }
@@ -438,6 +473,7 @@ function stopTimer(){ clearInterval(timerInterval); }
 
 async function startCall(){
   clearError();
+  if(!linesOpen){ showError("Phone lines are currently closed — please check back soon."); return; }
   const name = callerNameInput.value.trim();
   if(!name){ showError('Please enter your name before calling in.'); return; }
 
@@ -621,6 +657,17 @@ callBtn.addEventListener('click', startCall);
 callerNameInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') startCall(); });
 
 window.addEventListener('beforeunload', ()=>{ stopOutgoingRing(); stopHoldMusicCaller(); cleanup(true); });
+
+// ── Phone lines open/closed ── set by the producer in the dashboard.
+// Missing doc / missing field defaults to OPEN so this never blocks calls
+// before a producer has ever touched the toggle.
+onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
+  const d = snap.data();
+  linesOpen = d ? d.open !== false : true;
+  linesClosedBanner.classList.toggle('show', !linesOpen);
+  callBtn.disabled = !linesOpen;
+  callBtn.style.opacity = linesOpen ? '' : '.4';
+}, ()=>{ /* if this ever errors, leave calls enabled rather than block listeners */ });
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
