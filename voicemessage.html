@@ -143,6 +143,14 @@
   .next-btn:hover{filter:brightness(1.1);transform:translateY(-2px);}
   .next-btn:active{transform:scale(.98);}
 
+  /* ── Details form screen ── */
+  #formScreen{
+    display:none;
+    flex-direction:column;align-items:center;
+    width:100%;max-width:500px;
+  }
+  #formScreen #typeSpecificFields{width:100%;}
+
   /* ── Record screen ── */
   #recordView{
     display:none;
@@ -277,17 +285,6 @@
   }
   .countdown.warn{color:var(--red);text-shadow:0 0 20px rgba(255,59,59,0.5);}
 
-  /* mini viz bars below countdown */
-  .viz{
-    display:flex;align-items:flex-end;justify-content:center;gap:3px;
-    height:30px;margin-bottom:6px;width:200px;
-  }
-  .viz span{
-    width:5px;background:var(--g);border-radius:3px;height:6px;
-    opacity:.4;transition:height .08s ease,opacity .08s ease;
-  }
-  .recording .viz span{opacity:1;}
-
   .max-label{
     font-family:Arial,sans-serif;font-size:10.5px;color:#444;
     letter-spacing:2px;text-transform:uppercase;margin-bottom:28px;
@@ -334,7 +331,7 @@
   }
 
   /* stacked fields — name, city, then whatever the selected type needs */
-  .field{margin-bottom:18px;}
+  .field{margin-bottom:18px;width:100%;}
   .field label{
     display:block;font-family:Arial,sans-serif;font-size:11px;
     color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;
@@ -353,6 +350,11 @@
     font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;
     cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;
     transition:filter .15s,transform .12s;margin-bottom:10px;
+  }
+
+  .disclaimer{
+    font-family:Arial,sans-serif;font-size:12.5px;color:#666;
+    text-align:center;line-height:1.5;margin:4px 0 18px;
   }
   .action-btn:active{transform:scale(.98);}
   .btn-send{
@@ -469,11 +471,38 @@
 
     <button class="next-btn" id="nextBtn">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      Next — Your Details
+    </button>
+  </div>
+
+  <!-- ── STEP 2: DETAILS FORM ── -->
+  <div id="formScreen">
+
+    <div class="record-header">
+      <h1>LEAVE A VOICE<br>MESSAGE</h1>
+      <p class="sub-dots">SONG REQUESTS • SHOUTOUTS • BIRTHDAYS • DEDICATIONS</p>
+      <p class="tagline">We might play it live!</p>
+    </div>
+
+    <div id="formTypeBadge" class="selected-type-badge">🎙️ General Message</div>
+
+    <div class="field">
+      <label>Name</label>
+      <input type="text" id="fName" maxlength="40">
+    </div>
+    <div class="field">
+      <label>City &amp; State</label>
+      <input type="text" id="fCity" maxlength="60">
+    </div>
+    <div id="typeSpecificFields"></div>
+
+    <button class="next-btn" id="formNextBtn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
       Next — Record Message
     </button>
   </div>
 
-  <!-- ── STEP 2: RECORD ── -->
+  <!-- ── STEP 3: RECORD ── -->
   <div id="recordView">
 
     <div class="record-header">
@@ -511,12 +540,11 @@
 
       <div class="countdown" id="countdown">0:30</div>
 
-      <div class="viz" id="viz"></div>
       <p class="max-label">30 SECONDS MAX</p>
     </div>
   </div>
 
-  <!-- ── STEP 3: REVIEW ── -->
+  <!-- ── STEP 4: REVIEW ── -->
   <div class="review-panel" id="reviewPanel">
     <div class="review-box">
       <div class="review-title">
@@ -526,15 +554,7 @@
 
       <audio id="playback" controls></audio>
 
-      <div class="field">
-        <label>Name</label>
-        <input type="text" id="fName" maxlength="40">
-      </div>
-      <div class="field">
-        <label>City &amp; State</label>
-        <input type="text" id="fCity" maxlength="60">
-      </div>
-      <div id="typeSpecificFields"></div>
+      <p class="disclaimer">By submitting, you agree your message may be broadcast on-air or on stream.</p>
 
       <button class="action-btn btn-send" id="sendBtn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
@@ -591,7 +611,7 @@ const tapZone     = document.getElementById('tapZone');
 const micStage    = document.getElementById('micStage');
 const countdownEl = document.getElementById('countdown');
 const tapLabelText= document.getElementById('tapLabelText');
-const vizEl       = document.getElementById('viz');
+const formScreen  = document.getElementById('formScreen');
 const recordView  = document.getElementById('recordView');
 const reviewPanel = document.getElementById('reviewPanel');
 const playback    = document.getElementById('playback');
@@ -602,13 +622,6 @@ const errorBanner = document.getElementById('errorBanner');
 
 let mediaRecorder, audioChunks = [], audioBlob = null, timerInterval = null, secondsLeft = MAX_SECONDS;
 let audioCtx, analyser, vizRAF, stream;
-
-// build mini viz bars
-for(let i=0;i<22;i++){
-  const s = document.createElement('span');
-  vizEl.appendChild(s);
-}
-const vizBars = vizEl.querySelectorAll('span');
 
 // build side waveform bars
 const vizLeft  = document.getElementById('vizLeft');
@@ -666,8 +679,6 @@ function drawViz(){
   const data = new Uint8Array(analyser.frequencyBinCount);
   function loop(){
     analyser.getByteFrequencyData(data);
-    // mini bars
-    vizBars.forEach((b,i)=>{ const v=data[i%data.length]||0; b.style.height=Math.max(6,(v/255)*30)+'px'; });
     // side bars - mirror effect
     const total = leftBars.length;
     leftBars.forEach((b,i)=>{ const v=data[((total-i)%data.length)]||0; const h=Math.max(4,(v/255)*65); b.style.height=h+'px'; });
@@ -679,7 +690,6 @@ function drawViz(){
 
 function stopVizAndStream(){
   if(vizRAF) cancelAnimationFrame(vizRAF);
-  vizBars.forEach(b=>b.style.height='6px');
   leftBars.forEach(b=>b.style.height='4px');
   rightBars.forEach(b=>b.style.height='4px');
   if(audioCtx) audioCtx.close();
@@ -697,30 +707,20 @@ function stopRecording(){
 function onRecordingStop(){
   stopVizAndStream();
   audioBlob = new Blob(audioChunks,{type: mediaRecorder.mimeType||'audio/webm'});
-  if(audioBlob.size===0){ showError("No audio captured. Please try recording again."); resetToTypeScreen(); return; }
+  if(audioBlob.size===0){ showError("No audio captured. Please try recording again."); resetRecordingUI(); return; }
   const url = URL.createObjectURL(audioBlob);
   playback.src = url;
-  document.getElementById('fName').value = '';
-  document.getElementById('fCity').value = '';
-  buildReviewFields();
   recordView.style.display = 'none';
   reviewPanel.classList.add('show');
 }
 
-function resetToTypeScreen(){
-  recordView.style.display = 'none';
-  reviewPanel.classList.remove('show');
-  confirmView.classList.remove('show');
-  typeScreen.style.display = 'block';
-  typeCards.forEach(c=>c.classList.remove('selected'));
-  document.querySelector('.type-card[data-type="general"]').classList.add('selected');
-  selectedType = 'general';
+function resetRecordingUI(){
   tapLabelText.textContent = 'TAP TO RECORD';
   secondsLeft = MAX_SECONDS;
   updateCountdown();
   micBtn.disabled = false;
   sendBtn.disabled = false;
-  sendBtn.textContent = 'SEND MESSAGE';
+  sendBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg> SEND MESSAGE';
 }
 
 tapZone.addEventListener('click',()=>{
@@ -763,6 +763,8 @@ function getFieldVal(id){ const el=document.getElementById(id); return el?el.val
 let selectedType = 'general';
 const typeScreen = document.getElementById('typeScreen');
 const nextBtnEl  = document.getElementById('nextBtn');
+const formNextBtn = document.getElementById('formNextBtn');
+const formTypeBadge = document.getElementById('formTypeBadge');
 const selectedTypeBadge = document.getElementById('selectedTypeBadge');
 const typeCards  = document.querySelectorAll('.type-card');
 
@@ -779,13 +781,28 @@ typeCards.forEach(card=>{
   });
 });
 
+// STEP 1 → STEP 2: type chosen, now collect name/city/type-specific details
 nextBtnEl.addEventListener('click',()=>{
   typeScreen.style.display='none';
+  formScreen.style.display='flex';
+  formTypeBadge.textContent = typeLabels[selectedType]||'🎙️ General Message';
+  buildReviewFields();
+});
+
+// STEP 2 → STEP 3: details collected, now record the message
+formNextBtn.addEventListener('click',()=>{
+  formScreen.style.display='none';
   recordView.style.display='flex';
   selectedTypeBadge.textContent = typeLabels[selectedType]||'🎙️ General Message';
 });
 
-rerecordBtn.addEventListener('click',()=>{ audioBlob=null; resetToTypeScreen(); });
+// STEP 4 "Record Again": keep the details already entered, just re-record the audio
+rerecordBtn.addEventListener('click',()=>{
+  audioBlob = null;
+  reviewPanel.classList.remove('show');
+  recordView.style.display = 'flex';
+  resetRecordingUI();
+});
 
 sendBtn.addEventListener('click', async()=>{
   if(!audioBlob) return;
