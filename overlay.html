@@ -77,9 +77,10 @@
   .ncount{font-size:22px;font-weight:900;color:#fff;}
   .nsub{font-size:12px;color:#888;font-family:Arial,sans-serif;}
 
-  /* Queue counter */
+  /* Queue counter — stacked under the lines badge (top-left) so it never
+     collides with the video guest box, which owns the bottom-right corner */
   .qbadge{
-    position:fixed;bottom:50px;right:40px;
+    position:fixed;top:104px;left:40px;
     display:flex;align-items:center;gap:10px;
     background:rgba(10,10,10,.88);border:1px solid rgba(83,252,24,.4);
     border-radius:12px;padding:10px 16px;
@@ -109,9 +110,46 @@
   .linesbadge.closed .linesdot{background:#666;animation:none;}
   .lineslbl{font-size:13px;font-weight:900;color:var(--green);text-transform:uppercase;letter-spacing:1px;}
   .linesbadge.closed .lineslbl{color:#888;}
+
+  /* Video Guest box — the guest's camera connects directly here, no producer relay */
+  .guestbox{
+    position:fixed;bottom:60px;right:60px;
+    width:480px;height:360px;
+    border-radius:20px;overflow:hidden;
+    border:3px solid var(--green);
+    box-shadow:0 0 50px rgba(83,252,24,.4),0 10px 40px rgba(0,0,0,.6);
+    background:#050505;
+    opacity:0;transform:scale(.92) translateY(20px);
+    transition:opacity .5s ease,transform .5s cubic-bezier(.2,.9,.25,1);
+    z-index:9;
+  }
+  .guestbox.show{opacity:1;transform:scale(1) translateY(0);}
+  .guestbox video{width:100%;height:100%;object-fit:cover;}
+  .guestbox-label{
+    position:absolute;left:16px;bottom:16px;
+    display:flex;align-items:center;gap:8px;
+    background:rgba(10,10,10,.8);border:1px solid rgba(83,252,24,.5);
+    border-radius:20px;padding:7px 16px;
+    font-size:15px;font-weight:900;color:#fff;
+    text-shadow:0 0 10px rgba(0,0,0,.8);
+  }
+  .guestbox-label .dot{width:8px;height:8px;border-radius:50%;background:var(--red);animation:blink 1s infinite;flex-shrink:0;}
+  .guestbox-tag{
+    position:absolute;top:16px;left:16px;
+    background:var(--red);color:#fff;font-size:11px;font-weight:900;
+    letter-spacing:1.5px;text-transform:uppercase;
+    padding:5px 12px;border-radius:6px;
+  }
 </style>
 </head>
 <body>
+
+<!-- Video Guest — WebRTC connects straight from the guest's browser to this page -->
+<div class="guestbox" id="guestbox">
+  <video id="guestVideo" autoplay playsinline></video>
+  <div class="guestbox-tag">🔴 On Air</div>
+  <div class="guestbox-label"><span class="dot"></span><span id="guestName">Guest</span></div>
+</div>
 
 <!-- Phone Lines Status -->
 <div class="linesbadge" id="linesbadge">
@@ -165,7 +203,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
-  getFirestore, doc, collection, query, orderBy, onSnapshot
+  getFirestore, doc, collection, query, orderBy, onSnapshot, addDoc, setDoc
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // No auth needed — hotlineLive and hotlineMessages are public-read in Firestore rules
@@ -190,6 +228,9 @@ const qbadge  = document.getElementById('qbadge');
 const qnumEl  = document.getElementById('qnum');
 const linesbadge = document.getElementById('linesbadge');
 const linesbadgeLabel = document.getElementById('linesbadgeLabel');
+const guestbox = document.getElementById('guestbox');
+const guestVideo = document.getElementById('guestVideo');
+const guestName = document.getElementById('guestName');
 const audio   = document.getElementById('audio');
 
 let lastUrl = null;
@@ -278,6 +319,94 @@ onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap) => {
   linesbadgeLabel.textContent = open ? 'Lines Open' : 'Lines Closed';
   linesbadge.classList.add('show');
 });
+
+// ═══════════════════════════════════════════════════════
+//  VIDEO GUEST — WebRTC straight from the guest's browser to THIS overlay page.
+//  The producer's dashboard only flips the Firestore status to 'live'/'ended' —
+//  it never joins the call itself, so the guest's camera/mic reach air with
+//  zero producer relay in the media path.
+// ═══════════════════════════════════════════════════════
+const videoIceConfig = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+  ],
+  iceCandidatePoolSize: 10
+};
+
+let guestPc = null;
+let connectedCallId = null;
+let guestCandidateUnsub = null;
+
+function teardownGuest(){
+  if(guestCandidateUnsub){ guestCandidateUnsub(); guestCandidateUnsub = null; }
+  if(guestPc){ guestPc.close(); guestPc = null; }
+  guestVideo.srcObject = null;
+  guestbox.classList.remove('show');
+  connectedCallId = null;
+}
+
+async function connectToGuest(callId, data){
+  connectedCallId = callId;
+  guestName.textContent = data.callerName || 'Guest';
+
+  guestPc = new RTCPeerConnection(videoIceConfig);
+
+  guestPc.ontrack = (event) => {
+    if(event.streams && event.streams[0]){
+      guestVideo.srcObject = event.streams[0];
+      guestVideo.play().catch(()=>{});
+      guestbox.classList.add('show');
+    }
+  };
+
+  const callDocRef = doc(db, 'videoCalls', callId);
+
+  guestPc.onicecandidate = (event) => {
+    if(event.candidate){
+      addDoc(collection(db, 'videoCalls', callId, 'overlayCandidates'), event.candidate.toJSON()).catch(()=>{});
+    }
+  };
+
+  await guestPc.setRemoteDescription(new RTCSessionDescription(data.offer));
+  const answer = await guestPc.createAnswer();
+  await guestPc.setLocalDescription(answer);
+
+  await setDoc(callDocRef, { answer: { type: answer.type, sdp: answer.sdp } }, { merge: true });
+
+  guestCandidateUnsub = onSnapshot(
+    collection(db, 'videoCalls', callId, 'callerCandidates'),
+    (snap) => {
+      snap.docChanges().forEach(async(change) => {
+        if(change.type === 'added' && guestPc){
+          await guestPc.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(()=>{});
+        }
+      });
+    }
+  );
+}
+
+// Watch for whichever video call the producer has set to 'live'
+onSnapshot(
+  query(collection(db, 'videoCalls'), orderBy('createdAt', 'desc')),
+  (snap) => {
+    const liveCall = snap.docs.map(d => ({ id: d.id, ...d.data() })).find(c => c.status === 'live');
+
+    if(!liveCall){
+      if(connectedCallId) teardownGuest();
+      return;
+    }
+
+    if(liveCall.id === connectedCallId) return; // already connected to this one
+
+    // A different (or first) call just went live — tear down any previous connection first
+    teardownGuest();
+    if(liveCall.offer) connectToGuest(liveCall.id, liveCall);
+  }
+);
 </script>
 </body>
 </html>

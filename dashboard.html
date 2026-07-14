@@ -556,6 +556,7 @@
 <nav class="tab-nav">
   <button class="tab-btn active" data-tab="queue">📥 Queue</button>
   <button class="tab-btn" data-tab="calls">📞 Calls</button>
+  <button class="tab-btn" data-tab="video">🎥 Video Guests</button>
   <button class="tab-btn" data-tab="history">📋 History</button>
   <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
 </nav>
@@ -606,6 +607,43 @@
 
     <!-- Hidden audio element — producer hears caller here, OBS captures via Browser Source -->
     <audio id="callerAudio" autoplay style="display:none;"></audio>
+  </div>
+
+  <!-- VIDEO GUESTS TAB -->
+  <div class="tab-content" id="tab-video" style="display:none;">
+
+    <div style="margin-bottom:18px;">
+      <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video guests can join">
+        <span class="lines-dot"></span>
+        <span id="videoToggleText">Video Guests Open</span>
+      </button>
+    </div>
+
+    <!-- On-air guest panel — shown when a guest is live -->
+    <div class="active-call-panel" id="activeVideoPanel" style="display:none;">
+      <div class="active-call-header">
+        <div class="active-call-info">
+          <div class="active-call-badge">🎥 VIDEO GUEST — LIVE</div>
+          <div class="active-call-name" id="activeVideoName">—</div>
+          <div class="active-call-city" id="activeVideoCity"></div>
+        </div>
+        <div class="active-call-timer" id="activeVideoTimer">0:00</div>
+      </div>
+      <div class="active-call-status on-air">🔴 On air — connected directly to the overlay, no relay needed</div>
+      <div class="active-call-controls">
+        <button class="cbtn cbtn-end" id="videoEndBtn">📵 End Segment</button>
+      </div>
+    </div>
+
+    <!-- Incoming video guest requests -->
+    <div class="calls-section-title" id="incomingVideoTitle" style="display:none;">
+      Waiting to Join
+    </div>
+    <div class="empty" id="videoEmpty">
+      <div class="ic">🎥</div>
+      <div>No video guests waiting right now.</div>
+    </div>
+    <div class="queue" id="videoQueue"></div>
   </div>
 
   <!-- ANALYTICS TAB -->
@@ -743,6 +781,8 @@ onAuthStateChanged(auth, (user)=>{
     startCallsListener();
     startCallHistoryListener();
     startLinesToggleListener();
+    startVideoToggleListener();
+    startVideoCallsListener();
   } else {
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
@@ -801,6 +841,44 @@ linesToggleBtn.addEventListener('click', async()=>{
     }
   }
   linesToggleBtn.disabled = false;
+});
+
+// ── Video guests open/closed ── separate toggle, same settings doc, different field
+const videoToggleBtn = document.getElementById('videoToggleBtn');
+const videoToggleText = document.getElementById('videoToggleText');
+let videoOpen = true;
+
+function renderVideoToggle(){
+  videoToggleBtn.classList.toggle('open', videoOpen);
+  videoToggleBtn.classList.toggle('closed', !videoOpen);
+  videoToggleText.textContent = videoOpen ? 'Video Guests Open' : 'Video Guests Closed';
+}
+
+function startVideoToggleListener(){
+  onSnapshot(linesSettingsRef, (snap)=>{
+    const d = snap.data();
+    videoOpen = d ? d.videoOpen !== false : true;
+    renderVideoToggle();
+  }, ()=>{ /* leave last known state visible if this ever errors */ });
+}
+
+videoToggleBtn.addEventListener('click', async()=>{
+  if(videoOpen && !confirm('Close video guests? Nobody new will be able to join until you reopen it.')) return;
+  videoToggleBtn.disabled = true;
+  try{
+    await setDoc(linesSettingsRef, { videoOpen: !videoOpen, updatedAt: Date.now() }, { merge:true });
+  }catch(err){
+    if(err.code === 'permission-denied'){
+      alert(
+        "Can't update video guests status — Firestore is blocking it.\n\n" +
+        "Add the hotlineSettings rule from SETUP.md in Firebase Console → " +
+        "Firestore Database → Rules, then click Publish."
+      );
+    } else {
+      alert('Could not update video guests status: ' + err.message);
+    }
+  }
+  videoToggleBtn.disabled = false;
 });
 
 let allMessages = [];
@@ -1606,6 +1684,112 @@ function startCallsListener(){
     }
   );
 }
+
+// ═══════════════════════════════════════════════════════
+//  VIDEO GUESTS — the dashboard only ever touches Firestore status here.
+//  It never opens a WebRTC connection itself; the guest's camera/mic connect
+//  straight to overlay.html once a call is marked 'live'.
+// ═══════════════════════════════════════════════════════
+const activeVideoPanel = document.getElementById('activeVideoPanel');
+const activeVideoName  = document.getElementById('activeVideoName');
+const activeVideoCity  = document.getElementById('activeVideoCity');
+const activeVideoTimer = document.getElementById('activeVideoTimer');
+const incomingVideoTitle = document.getElementById('incomingVideoTitle');
+const videoEmpty = document.getElementById('videoEmpty');
+const videoQueue = document.getElementById('videoQueue');
+const videoEndBtn = document.getElementById('videoEndBtn');
+
+let videoTimerInterval = null;
+let currentLiveVideoId = null;
+
+function startVideoTimer(sinceMs){
+  clearInterval(videoTimerInterval);
+  function tick(){
+    const secs = Math.max(0, Math.floor((Date.now() - sinceMs) / 1000));
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    activeVideoTimer.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  }
+  tick();
+  videoTimerInterval = setInterval(tick, 1000);
+}
+
+function startVideoCallsListener(){
+  onSnapshot(
+    query(collection(db, 'videoCalls'), orderBy('createdAt', 'desc')),
+    (snap)=>{
+      const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
+      const waiting = calls.filter(c => c.status === 'waiting');
+      const live = calls.find(c => c.status === 'live');
+
+      // Live guest panel
+      if(live){
+        activeVideoPanel.style.display = 'block';
+        activeVideoName.textContent = live.callerName || 'Guest';
+        activeVideoCity.textContent = live.callerCity || '';
+        if(live.id !== currentLiveVideoId){
+          currentLiveVideoId = live.id;
+          startVideoTimer(live.liveSince || Date.now());
+        }
+      } else {
+        activeVideoPanel.style.display = 'none';
+        clearInterval(videoTimerInterval);
+        currentLiveVideoId = null;
+      }
+
+      // Waiting queue
+      if(waiting.length === 0){
+        videoEmpty.style.display = 'block';
+        videoQueue.innerHTML = '';
+        incomingVideoTitle.style.display = 'none';
+        return;
+      }
+      videoEmpty.style.display = 'none';
+      incomingVideoTitle.style.display = 'block';
+
+      videoQueue.innerHTML = waiting.map(c=>`
+        <div class="call-card" data-id="${c.id}">
+          <div class="call-ring-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+            </svg>
+          </div>
+          <div class="call-card-body">
+            <div class="call-card-name">${escapeHtml(c.callerName || 'Guest')}</div>
+            <div class="call-card-city">${c.callerCity ? escapeHtml(c.callerCity) : ''}</div>
+            <div class="call-card-time">${timeAgo(c.createdAt)}</div>
+          </div>
+          <div class="call-card-actions">
+            <button class="ibtn ibtn-answer" data-action="video-air" data-id="${c.id}">🔴 Send On Air</button>
+            <button class="ibtn ibtn-reject" data-action="video-reject" data-id="${c.id}">✕ Reject</button>
+          </div>
+        </div>`).join('');
+    }
+  );
+}
+
+videoEndBtn.addEventListener('click', async()=>{
+  if(!currentLiveVideoId) return;
+  await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
+});
+
+document.addEventListener('click', async(e)=>{
+  const btn = e.target.closest('[data-action="video-air"],[data-action="video-reject"]');
+  if(!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+
+  if(action === 'video-air'){
+    // Only one guest on air at a time — end any other live call first
+    if(currentLiveVideoId && currentLiveVideoId !== id){
+      await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
+    }
+    await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince: Date.now() }).catch(()=>{});
+  }
+  if(action === 'video-reject'){
+    await updateDoc(doc(db, 'videoCalls', id), { status: 'rejected' }).catch(()=>{});
+  }
+});
 
 // ── Call History & Recordings delete actions ──
 document.addEventListener('click', async(e)=>{

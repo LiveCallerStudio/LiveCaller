@@ -289,6 +289,19 @@
       <div class="card-desc">Connect directly with the producer for a chance to go live on air.</div>
     </a>
 
+    <a class="card" href="videocall.html">
+      <div class="card-head">
+        <div class="card-icon">🎥</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="card-title">Join as Video Guest</div>
+      <div class="lines-status closed" id="videoStatus">
+        <span class="lines-status-dot"></span>
+        <span id="videoStatusText">Checking video guests…</span>
+      </div>
+      <div class="card-desc">Bring your camera and mic straight into the live stream.</div>
+    </a>
+
   </div>
 
   <!-- Footer -->
@@ -296,6 +309,7 @@
     <div class="footer-links">
       <a href="voicemessage.html">Voice Message</a>
       <a href="call.html">Call In Live</a>
+      <a href="videocall.html">Video Guest</a>
     </div>
     <div class="site-footer">
       <span>⚡</span> POWERED BY LIVE CALLER
@@ -324,18 +338,27 @@
 
   const linesStatus = document.getElementById('linesStatus');
   const linesStatusText = document.getElementById('linesStatusText');
+  const videoStatus = document.getElementById('videoStatus');
+  const videoStatusText = document.getElementById('videoStatusText');
 
-  // Missing doc / missing field defaults to OPEN so the badge doesn't wrongly
-  // say "closed" before a producer has ever touched the toggle.
+  // Missing doc / missing field defaults to OPEN so the badges don't wrongly
+  // say "closed" before a producer has ever touched either toggle.
   onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
     const d = snap.data();
     const open = d ? d.open !== false : true;
     linesStatus.classList.toggle('open', open);
     linesStatus.classList.toggle('closed', !open);
     linesStatusText.textContent = open ? 'Phone Lines Open' : 'Phone Lines Closed';
+
+    const videoOpen = d ? d.videoOpen !== false : true;
+    videoStatus.classList.toggle('open', videoOpen);
+    videoStatus.classList.toggle('closed', !videoOpen);
+    videoStatusText.textContent = videoOpen ? 'Video Guests Open' : 'Video Guests Closed';
   }, ()=>{
     linesStatusText.textContent = 'Phone Lines Open';
     linesStatus.classList.add('open');
+    videoStatusText.textContent = 'Video Guests Open';
+    videoStatus.classList.add('open');
   });
 </script>
 </body>

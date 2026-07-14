@@ -2,16 +2,18 @@
 // Caches the listener page shell so it loads instantly and works offline.
 // Firebase/Cloudinary calls always go to the network — we never cache live data.
 
-const CACHE_NAME = 'lcs-v4';
+const CACHE_NAME = 'lcs-v5';
 const SHELL = [
   '/LiveCaller/index.html',
   '/LiveCaller/home.html',
   '/LiveCaller/voicemessage.html',
   '/LiveCaller/call.html',
+  '/LiveCaller/videocall.html',
   '/LiveCaller/dashboard.html',
   '/LiveCaller/manifest.json',
   '/LiveCaller/manifest-voicemessage.json',
   '/LiveCaller/manifest-call.json',
+  '/LiveCaller/manifest-videocall.json',
   '/LiveCaller/manifest-dashboard.json',
   '/LiveCaller/favicon-32.png',
   '/LiveCaller/apple-touch-icon.png',
