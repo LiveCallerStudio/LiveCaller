@@ -2,9 +2,10 @@
 // Caches the listener page shell so it loads instantly and works offline.
 // Firebase/Cloudinary calls always go to the network — we never cache live data.
 
-const CACHE_NAME = 'lcs-v2';
+const CACHE_NAME = 'lcs-v3';
 const SHELL = [
   '/LiveCaller/index.html',
+  '/LiveCaller/home.html',
   '/LiveCaller/voicemessage.html',
   '/LiveCaller/call.html',
   '/LiveCaller/manifest.json',
@@ -66,8 +67,8 @@ self.addEventListener('fetch', (event) => {
         return response;
       });
     }).catch(() => {
-      // Offline fallback — return cached index.html if available
-      return caches.match('/LiveCaller/index.html');
+      // Offline fallback — return cached home.html if available
+      return caches.match('/LiveCaller/home.html');
     })
   );
 });

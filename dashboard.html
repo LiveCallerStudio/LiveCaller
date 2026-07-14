@@ -30,7 +30,32 @@
     margin:0; background:var(--black); color:var(--text);
     font-family:Arial,Helvetica,sans-serif;
     min-height:100vh;
+    overflow-x:hidden;
   }
+
+  /* ── Lightning bolt decorations (matches voicemessage.html / call.html) ── */
+  .bolt-wrap{
+    position:fixed;top:0;left:0;right:0;bottom:0;
+    pointer-events:none;z-index:0;overflow:hidden;
+  }
+  .bolt-tl,.bolt-tr{
+    position:absolute;top:-20px;
+    font-size:120px;line-height:1;
+    color:var(--green);opacity:.09;
+    filter:drop-shadow(0 0 20px rgba(83,252,24,0.5));
+    animation:boltpulse 3s ease-in-out infinite;
+  }
+  .bolt-tl{left:-20px;transform:rotate(-15deg);}
+  .bolt-tr{right:-20px;transform:rotate(15deg);animation-delay:1.5s;}
+  @keyframes boltpulse{0%,100%{opacity:.09;}50%{opacity:.16;}}
+
+  .ambient{
+    position:fixed;top:0;left:0;right:0;height:40vh;
+    pointer-events:none;z-index:0;
+    background:radial-gradient(ellipse 80% 60% at 50% 0%, rgba(83,252,24,0.08) 0%, transparent 70%);
+  }
+
+  #dashboardApp{position:relative;z-index:1;}
   header{
     display:flex; align-items:center; justify-content:space-between;
     padding:18px 26px; border-bottom:1px solid var(--line);
@@ -454,6 +479,12 @@
 </head>
 <body>
 
+<div class="bolt-wrap">
+  <div class="bolt-tl">⚡</div>
+  <div class="bolt-tr">⚡</div>
+</div>
+<div class="ambient"></div>
+
 <div class="login-screen" id="loginScreen">
   <div class="login-box">
     <div class="login-brand">⚡ LIVE CALLER STUDIO</div>
@@ -636,7 +667,7 @@ import {
   doc, updateDoc, deleteDoc, setDoc, addDoc, getDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-// ====== STEP 1: PASTE YOUR FIREBASE CONFIG HERE (same as index.html) ======
+// ====== STEP 1: PASTE YOUR FIREBASE CONFIG HERE (same as home.html) ======
 const firebaseConfig = {
   apiKey: "AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc",
   authDomain: "djdeeze-hotline.firebaseapp.com",

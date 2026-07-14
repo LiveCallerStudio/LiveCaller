@@ -2,7 +2,7 @@
   "name": "Live Caller Studio",
   "short_name": "Live Caller",
   "description": "Leave a voice message for the show — song requests, shoutouts, birthdays, and more.",
-  "start_url": "https://livecallerstudio.github.io/LiveCaller/index.html",
+  "start_url": "https://livecallerstudio.github.io/LiveCaller/home.html",
   "scope": "https://livecallerstudio.github.io/LiveCaller/",
   "display": "standalone",
   "orientation": "portrait",

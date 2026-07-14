@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#53FC18">
+<meta name="description" content="Live Caller Studio — Professional broadcast call-in system for creators and live streamers.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Live Caller">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152.png">
+<link rel="apple-touch-icon" sizes="167x167" href="apple-touch-icon-167.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<title>Live Caller Studio</title>
+<style>
+  :root{
+    --g:#53FC18;
+    --g2:#3dd410;
+    --bk:#0a0a0a;
+    --p:#111;
+    --line:#1e1e1e;
+    --line2:#2a2a2a;
+    --red:#ff3b3b;
+    --tx:#f0f0f0;
+    --sub:#666;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{
+    min-height:100vh;
+    background:var(--bk);
+    color:var(--tx);
+    font-family:'Arial Black','Helvetica Neue',Arial,sans-serif;
+    overflow-x:hidden;
+  }
+
+  /* ── Lightning bolt decorations (matches voicemessage.html / call.html) ── */
+  .bolt-wrap{
+    position:fixed;top:0;left:0;right:0;bottom:0;
+    pointer-events:none;z-index:0;overflow:hidden;
+  }
+  .bolt-tl,.bolt-tr{
+    position:absolute;top:-20px;
+    font-size:120px;line-height:1;
+    color:var(--g);opacity:.18;
+    filter:drop-shadow(0 0 20px rgba(83,252,24,0.6));
+    animation:boltpulse 3s ease-in-out infinite;
+  }
+  .bolt-tl{left:-20px;transform:rotate(-15deg);}
+  .bolt-tr{right:-20px;transform:rotate(15deg);animation-delay:1.5s;}
+  @keyframes boltpulse{0%,100%{opacity:.18;}50%{opacity:.28;}}
+
+  /* ── Ambient glow ── */
+  .ambient{
+    position:fixed;top:0;left:0;right:0;height:50vh;
+    pointer-events:none;z-index:0;
+    background:radial-gradient(ellipse 80% 60% at 50% 0%, rgba(83,252,24,0.12) 0%, transparent 70%);
+  }
+
+  .page{
+    position:relative;z-index:1;
+    min-height:100vh;
+    display:flex;flex-direction:column;align-items:center;
+    padding:0 20px 56px;
+  }
+
+  /* ── Site header (matches voicemessage.html / call.html) ── */
+  .site-header{
+    width:100%;max-width:560px;
+    text-align:center;
+    padding:28px 0 0;
+    margin-bottom:6px;
+  }
+  .site-brand{
+    font-size:13px;letter-spacing:3px;font-weight:900;
+    text-transform:uppercase;color:#555;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    margin-bottom:4px;
+  }
+  .site-brand span{color:var(--g);}
+
+  /* ── Hero (matches voicemessage.html / call.html) ── */
+  .hero{
+    width:100%;max-width:560px;
+    text-align:center;
+    margin-bottom:44px;padding-top:16px;
+  }
+  .hero h1{
+    font-size:clamp(32px,8vw,56px);
+    text-transform:uppercase;
+    letter-spacing:-0.5px;
+    line-height:1.05;
+    margin-bottom:14px;
+    text-shadow:0 0 40px rgba(83,252,24,0.2);
+  }
+  .hero .sub-dots{
+    font-family:Arial,sans-serif;font-size:11.5px;
+    color:#555;letter-spacing:2px;text-transform:uppercase;
+    margin-bottom:14px;
+  }
+  .hero .tagline{
+    font-family:Arial,sans-serif;font-style:italic;font-weight:400;
+    font-size:15px;color:#777;line-height:1.6;
+    max-width:440px;margin:0 auto;
+  }
+  .hero .tagline b{color:var(--g);font-style:normal;font-weight:700;}
+
+  /* ── Section label ── */
+  .section-label{
+    font-family:Arial,sans-serif;font-size:10.5px;font-weight:700;
+    letter-spacing:2.5px;text-transform:uppercase;color:#3a3a3a;
+    margin-bottom:18px;text-align:center;
+  }
+
+  /* ── Cards ── */
+  .cards{
+    width:100%;max-width:560px;
+    display:flex;flex-direction:column;
+    gap:14px;
+  }
+
+  .card{
+    position:relative;overflow:hidden;
+    background:var(--p);
+    border:1px solid var(--line);
+    border-radius:22px;
+    padding:28px 24px 24px;
+    text-decoration:none;color:var(--tx);
+    display:flex;flex-direction:column;
+    transition:border-color .22s ease, box-shadow .22s ease, transform .18s ease;
+  }
+  .card::before{
+    content:'';
+    position:absolute;top:0;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(83,252,24,0),transparent);
+    transition:background .3s ease;
+  }
+  .card:hover{
+    border-color:rgba(83,252,24,0.3);
+    box-shadow:0 12px 48px rgba(83,252,24,0.07), 0 2px 8px rgba(0,0,0,0.4);
+    transform:translateY(-3px);
+  }
+  .card:hover::before{
+    background:linear-gradient(90deg,transparent,rgba(83,252,24,0.5),transparent);
+  }
+  .card.red:hover{
+    border-color:rgba(255,59,59,0.3);
+    box-shadow:0 12px 48px rgba(255,59,59,0.07), 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .card.red::before{background:none;}
+  .card.red:hover::before{
+    background:linear-gradient(90deg,transparent,rgba(255,59,59,0.45),transparent);
+  }
+  .card:active{transform:translateY(-1px);}
+
+  .card-head{
+    display:flex;align-items:flex-start;justify-content:space-between;
+    margin-bottom:20px;
+  }
+  .card-icon{
+    width:54px;height:54px;border-radius:15px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:26px;flex-shrink:0;
+    background:rgba(83,252,24,0.08);
+    border:1px solid rgba(83,252,24,0.16);
+  }
+  .card.red .card-icon{
+    background:rgba(255,59,59,0.08);
+    border-color:rgba(255,59,59,0.16);
+  }
+  .card-arrow{
+    width:34px;height:34px;border-radius:50%;
+    border:1px solid var(--line2);
+    display:flex;align-items:center;justify-content:center;
+    color:#3a3a3a;font-size:17px;flex-shrink:0;
+    transition:border-color .2s,color .2s,transform .2s;
+  }
+  .card:hover .card-arrow{border-color:var(--g);color:var(--g);transform:translate(2px,-2px);}
+  .card.red:hover .card-arrow{border-color:var(--red);color:var(--red);}
+
+  .card-title{
+    font-size:20px;font-weight:900;letter-spacing:-.2px;
+    margin-bottom:9px;line-height:1.15;
+  }
+  .card-desc{
+    font-family:Arial,sans-serif;font-weight:400;
+    font-size:14px;color:#666;line-height:1.65;
+    margin-bottom:20px;
+  }
+  .card-tags{display:flex;flex-wrap:wrap;gap:7px;}
+  .tag{
+    font-family:Arial,sans-serif;font-size:10.5px;font-weight:700;
+    letter-spacing:.8px;text-transform:uppercase;
+    padding:5px 11px;border-radius:7px;
+    background:rgba(255,255,255,0.04);
+    border:1px solid var(--line2);
+    color:#444;
+  }
+  .tag.g{background:rgba(83,252,24,0.08);border-color:rgba(83,252,24,0.18);color:var(--g);}
+  .tag.r{background:rgba(255,59,59,0.08);border-color:rgba(255,59,59,0.18);color:var(--red);}
+
+  /* ── Footer ── */
+  .footer{
+    margin-top:52px;
+    display:flex;flex-direction:column;align-items:center;
+    gap:14px;
+    width:100%;max-width:560px;
+  }
+  .footer-links{
+    display:flex;gap:24px;flex-wrap:wrap;justify-content:center;
+  }
+  .footer-links a{
+    font-family:Arial,sans-serif;font-size:12.5px;color:#444;
+    text-decoration:none;letter-spacing:.2px;
+    transition:color .15s;
+  }
+  .footer-links a:hover{color:var(--g);}
+  .site-footer{
+    font-family:Arial,sans-serif;font-size:10.5px;
+    color:#2a2a2a;letter-spacing:2px;text-transform:uppercase;
+    display:flex;align-items:center;gap:7px;
+  }
+  .site-footer span{color:var(--g);font-size:13px;}
+
+  @media(max-width:400px){
+    .hero{margin-bottom:32px;}
+    .card{padding:22px 18px 20px;}
+    .card-title{font-size:18px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="bolt-wrap">
+  <div class="bolt-tl">⚡</div>
+  <div class="bolt-tr">⚡</div>
+</div>
+<div class="ambient"></div>
+
+<div class="page">
+
+  <!-- Site Header -->
+  <div class="site-header">
+    <div class="site-brand">
+      <span>⚡</span>
+      LIVE <span>CALLER</span>
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1>YOUR AUDIENCE<br>JOINS THE SHOW</h1>
+    <p class="sub-dots">VOICE MESSAGES • SONG REQUESTS • LIVE CALL-INS</p>
+    <p class="tagline">Built for streamers, radio hosts, and live creators — right from any phone or browser.</p>
+  </section>
+
+  <!-- Cards -->
+  <p class="section-label">Choose how you want to connect</p>
+
+  <div class="cards">
+
+    <a class="card" href="voicemessage.html">
+      <div class="card-head">
+        <div class="card-icon">🎤</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="card-title">Send a Voice Message</div>
+      <div class="card-desc">Record a message in seconds. Song requests, shoutouts, birthday messages, and dedications — no app, no download, no sign up.</div>
+      <div class="card-tags">
+        <span class="tag">Song Requests</span>
+        <span class="tag">Shoutouts</span>
+        <span class="tag">Birthdays</span>
+      </div>
+    </a>
+
+    <a class="card red" href="call.html">
+      <div class="card-head">
+        <div class="card-icon">📞</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="card-title">Call In Live</div>
+      <div class="card-desc">Connect directly with the producer for a chance to go live on air. Two-way audio, real-time screening, and full producer controls.</div>
+      <div class="card-tags">
+        <span class="tag r">Live</span>
+        <span class="tag">Two-Way Audio</span>
+        <span class="tag">Screened</span>
+        <span class="tag">On Air</span>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="voicemessage.html">Voice Message</a>
+      <a href="call.html">Call In Live</a>
+    </div>
+    <div class="site-footer">
+      <span>⚡</span> POWERED BY LIVE CALLER
+    </div>
+  </footer>
+
+</div>
+<script>
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>

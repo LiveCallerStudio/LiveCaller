@@ -538,6 +538,11 @@
   <!-- ── STEP 3: RECORD ── -->
   <div id="recordView">
 
+    <button class="back-btn" id="recordBackBtn" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Back
+    </button>
+
     <div class="record-header">
       <h1>LEAVE A VOICE<br>MESSAGE</h1>
       <p class="sub-dots">SONG REQUESTS • SHOUTOUTS • BIRTHDAYS • DEDICATIONS</p>
@@ -650,6 +655,7 @@ const countdownEl = document.getElementById('countdown');
 const tapLabelText= document.getElementById('tapLabelText');
 const formScreen  = document.getElementById('formScreen');
 const recordView  = document.getElementById('recordView');
+const recordBackBtn = document.getElementById('recordBackBtn');
 const reviewPanel = document.getElementById('reviewPanel');
 const playback    = document.getElementById('playback');
 const rerecordBtn = document.getElementById('rerecordBtn');
@@ -839,6 +845,25 @@ formNextBtn.addEventListener('click',()=>{
   formScreen.style.display='none';
   recordView.style.display='flex';
   selectedTypeBadge.textContent = typeLabels[selectedType]||'🎙️ General Message';
+});
+
+// STEP 3 → STEP 2: change details. If a recording is in progress, abort it
+// without triggering the normal "recording finished" flow (which would jump to review).
+recordBackBtn.addEventListener('click',()=>{
+  if(mediaRecorder && mediaRecorder.state !== 'inactive'){
+    mediaRecorder.onstop = null;
+    mediaRecorder.stop();
+  }
+  clearInterval(timerInterval);
+  stopVizAndStream();
+  micStage.classList.remove('recording');
+  tapZone.classList.remove('recording');
+  audioBlob = null;
+  clearError();
+
+  recordView.style.display = 'none';
+  formScreen.style.display = 'flex';
+  resetRecordingUI();
 });
 
 // STEP 4 "Record Again": keep the details already entered, just re-record the audio
