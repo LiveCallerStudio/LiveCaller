@@ -11,56 +11,118 @@
 <style>
   :root{
     --green:#53FC18;
+    --green-dim:#3adb00;
     --red:#ff3b3b;
-    --black:#0a0a0a;
-    --panel:#131313;
-    --panel2:#1b1b1b;
-    --line:#2a2a2a;
-    --text:#f2f2f2;
-    --sub:#9a9a9a;
+    --black:#000;
+    --panel:#0e0e0e;
+    --panel2:#141414;
+    --line:#1e1e1e;
+    --text:#fff;
+    --sub:#888;
   }
-  *{ box-sizing:border-box; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
   html,body{
-    margin:0; padding:0;
-    background:radial-gradient(circle at 50% -10%, rgba(83,252,24,0.10), transparent 55%), var(--black);
+    min-height:100vh;
+    background:var(--black);
     color:var(--text);
     font-family:'Arial Black','Helvetica Neue',Arial,sans-serif;
-    min-height:100vh;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:32px 16px;
+    overflow-x:hidden;
   }
-  .bolt{ position:fixed; opacity:.07; color:var(--green); font-size:140px; z-index:0; pointer-events:none; user-select:none; }
-  .bolt.b1{ top:-20px; left:-30px; transform:rotate(-12deg); }
-  .bolt.b2{ bottom:-40px; right:-30px; transform:rotate(8deg); }
-  .wrap{ position:relative; z-index:1; width:100%; max-width:420px; display:flex; flex-direction:column; align-items:center; }
 
-  .brand{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
-  .brand-bolt{ color:var(--green); font-size:20px; }
-  .brand-name{ font-size:16px; letter-spacing:2px; font-weight:900; text-transform:uppercase; }
-  .brand-name span{ color:var(--green); }
-  .page-type{ color:var(--sub); font-family:Arial,sans-serif; font-size:11px; letter-spacing:2px; text-transform:uppercase; margin-bottom:28px; }
+  /* ── Lightning bolt decorations (matches voicemessage.html) ── */
+  .bolt-wrap{
+    position:fixed;top:0;left:0;right:0;bottom:0;
+    pointer-events:none;z-index:0;overflow:hidden;
+  }
+  .bolt-tl,.bolt-tr{
+    position:absolute;top:-20px;
+    font-size:120px;line-height:1;
+    color:var(--green);opacity:.18;
+    filter:drop-shadow(0 0 20px rgba(83,252,24,0.6));
+    animation:boltpulse 3s ease-in-out infinite;
+  }
+  .bolt-tl{left:-20px;transform:rotate(-15deg);}
+  .bolt-tr{right:-20px;transform:rotate(15deg);animation-delay:1.5s;}
+  @keyframes boltpulse{0%,100%{opacity:.18;}50%{opacity:.28;}}
+
+  /* ── Ambient glow ── */
+  .ambient{
+    position:fixed;top:0;left:0;right:0;height:50vh;
+    pointer-events:none;z-index:0;
+    background:radial-gradient(ellipse 80% 60% at 50% 0%, rgba(83,252,24,0.12) 0%, transparent 70%);
+  }
+
+  .page{
+    position:relative;z-index:1;
+    min-height:100vh;
+    display:flex;flex-direction:column;align-items:center;
+    padding:0 20px 50px;
+  }
+
+  /* ── Site header (matches voicemessage.html) ── */
+  .site-header{
+    width:100%;max-width:500px;
+    text-align:center;
+    padding:28px 0 0;
+    margin-bottom:6px;
+  }
+  .site-brand{
+    font-size:13px;letter-spacing:3px;font-weight:900;
+    text-transform:uppercase;color:#555;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    margin-bottom:4px;
+  }
+  .site-brand span{color:var(--green);}
+
+  .wrap{ position:relative; z-index:1; width:100%; max-width:500px; display:flex; flex-direction:column; align-items:center; }
 
   /* Setup screen */
-  #setupScreen{ width:100%; }
-  #setupScreen h1{ font-size:24px; text-align:center; margin:0 0 6px; line-height:1.2; }
-  #setupScreen p{ font-family:Arial,sans-serif; color:var(--sub); font-size:13px; text-align:center; margin:0 0 28px; }
+  #setupScreen{ width:100%; display:flex; flex-direction:column; align-items:center; }
+  .setup-hero{text-align:center;margin-bottom:28px;padding-top:16px;}
+  .setup-hero h1{
+    font-size:clamp(28px,7vw,42px);
+    text-transform:uppercase;
+    letter-spacing:-0.5px;
+    line-height:1.05;
+    margin-bottom:10px;
+    text-shadow:0 0 40px rgba(83,252,24,0.2);
+  }
+  .setup-hero .sub-dots{
+    font-family:Arial,sans-serif;font-size:11.5px;
+    color:#555;letter-spacing:2px;text-transform:uppercase;
+    margin-bottom:8px;
+  }
+  .setup-hero .tagline{
+    font-family:Arial,sans-serif;font-style:italic;
+    font-size:15px;color:var(--green);font-weight:700;
+    text-shadow:0 0 14px rgba(83,252,24,0.6);
+  }
 
-  .field{ margin-bottom:14px; width:100%; }
-  .field label{ display:block; font-family:Arial,sans-serif; font-size:11px; color:var(--sub); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
-  .field input{ width:100%; background:var(--black); border:1px solid var(--line); border-radius:8px; padding:12px 14px; color:var(--text); font-family:Arial,sans-serif; font-size:14px; }
-  .field input:focus{ outline:none; border-color:var(--green); }
+  .field{ margin-bottom:18px; width:100%; }
+  .field label{ display:block; font-family:Arial,sans-serif; font-size:11px; color:#555; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+  .field input{ width:100%; background:#0a0a0a; border:1.5px solid #1e1e1e; border-radius:10px; padding:14px; color:var(--text); font-family:Arial,sans-serif; font-size:14px; }
+  .field input:focus{ outline:none; border-color:rgba(83,252,24,0.4); }
+
+  .disclaimer{
+    font-family:Arial,sans-serif;font-size:12.5px;color:#666;
+    text-align:center;line-height:1.5;margin:4px 0 18px;
+  }
 
   .call-btn{
-    width:100%; padding:16px; border-radius:12px; border:none;
-    background:var(--green); color:#0a0a0a; font-weight:900;
-    font-size:16px; letter-spacing:.5px; text-transform:uppercase; cursor:pointer;
-    margin-top:8px; transition:filter .15s ease;
+    width:100%;padding:17px;border-radius:12px;border:none;
+    background:var(--green);color:#000;
+    font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:1px;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    box-shadow:0 0 32px rgba(83,252,24,0.35),0 4px 16px rgba(0,0,0,0.5);
+    transition:filter .15s,transform .15s;
   }
-  .call-btn:hover{ filter:brightness(1.1); }
+  .call-btn:hover{ filter:brightness(1.1); transform:translateY(-2px); }
+  .call-btn:active{ transform:scale(.98); }
   .call-btn:disabled{ opacity:.4; cursor:not-allowed; }
 
   /* Call screen */
-  #callScreen{ display:none; width:100%; text-align:center; }
+  #callScreen{ display:none; width:100%; text-align:center; flex-direction:column; align-items:center; }
 
   .call-visual{
     width:140px; height:140px; border-radius:50%; margin:0 auto 20px;
@@ -87,14 +149,16 @@
 
   .call-controls{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; width:100%; }
   .ctrl-btn{
-    flex:1; min-width:100px; padding:14px 10px; border-radius:10px; border:none; cursor:pointer;
-    font-family:Arial,sans-serif; font-weight:700; font-size:13px; text-transform:uppercase;
-    letter-spacing:.5px; transition:filter .15s ease;
+    flex:1; min-width:100px; padding:16px 10px; border-radius:11px; border:none; cursor:pointer;
+    font-family:Arial,sans-serif; font-weight:900; font-size:13px; text-transform:uppercase;
+    letter-spacing:1.5px; transition:filter .15s ease, transform .12s ease;
   }
-  .ctrl-btn:active{ transform:scale(.97); }
-  .ctrl-btn.mute{ background:var(--panel2); color:var(--text); border:1px solid var(--line); }
+  .ctrl-btn:active{ transform:scale(.98); }
+  .ctrl-btn.mute{ background:transparent; color:var(--text); border:1.5px solid #1e1e1e; }
+  .ctrl-btn.mute:hover{ border-color:#333; }
   .ctrl-btn.mute.active{ background:rgba(255,59,59,0.15); border-color:var(--red); color:var(--red); }
-  .ctrl-btn.endcall{ background:var(--red); color:#fff; }
+  .ctrl-btn.endcall{ background:var(--red); color:#fff; box-shadow:0 4px 14px rgba(255,59,59,0.3); }
+  .ctrl-btn.endcall:hover{ filter:brightness(1.08); }
   .ctrl-btn:disabled{ opacity:.4; cursor:not-allowed; }
 
   .status-badge{
@@ -113,64 +177,100 @@
   @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.2;} }
 
   .error-banner{
-    display:none; background:rgba(255,59,59,0.12); border:1px solid var(--red); color:#ff8a8a;
-    font-family:Arial,sans-serif; font-size:13px; padding:12px 14px; border-radius:8px;
-    margin-bottom:18px; width:100%; line-height:1.4;
+    display:none; background:rgba(255,59,59,0.1); border:1px solid var(--red); color:#ff8a8a;
+    font-family:Arial,sans-serif; font-size:12.5px; padding:12px 14px; border-radius:10px;
+    margin-bottom:14px; width:100%; line-height:1.4;
   }
   .error-banner.show{ display:block; }
 
+  /* ── Footer ── */
+  .site-footer{
+    margin-top:36px;
+    font-family:Arial,sans-serif;font-size:10.5px;
+    color:#2a2a2a;letter-spacing:2px;text-transform:uppercase;
+    display:flex;align-items:center;gap:7px;
+  }
+  .site-footer span{color:var(--green);font-size:13px;}
+
   @media(max-width:380px){
-    #setupScreen h1{ font-size:20px; }
     .call-visual{ width:120px; height:120px; }
     .call-timer{ font-size:26px; }
   }
 </style>
 </head>
 <body>
-<div class="bolt b1">⚡</div>
-<div class="bolt b2">⚡</div>
 
-<div class="wrap">
-  <div class="brand">
-    <span class="brand-bolt">⚡</span>
-    <span class="brand-name">LIVE <span>CALLER</span> STUDIO</span>
-  </div>
-  <div class="page-type">Live Call In</div>
+<div class="bolt-wrap">
+  <div class="bolt-tl">⚡</div>
+  <div class="bolt-tr">⚡</div>
+</div>
+<div class="ambient"></div>
 
-  <!-- Setup Screen -->
-  <div id="setupScreen">
-    <h1>Call In Live</h1>
-    <p>Enter your name and tap Call In. You'll be connected to the producer for screening before going on air.</p>
-    <div class="error-banner" id="errorBanner"></div>
-    <div class="field">
-      <label>Your Name</label>
-      <input type="text" id="callerName" maxlength="40" placeholder="What should we call you?" autocomplete="name">
-    </div>
-    <div class="field">
-      <label>City <span style="color:#555;font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
-      <input type="text" id="callerCity" maxlength="40" placeholder="Where are you calling from?">
-    </div>
-    <button class="call-btn" id="callBtn">📞 Call In Live</button>
-  </div>
+<div class="page">
 
-  <!-- Call Screen -->
-  <div id="callScreen">
-    <div class="call-visual" id="callVisual">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-      </svg>
-    </div>
-
-    <div class="status-badge waiting" id="statusBadge"><span class="status-dot"></span><span id="statusText">Waiting</span></div>
-    <div class="call-status" id="callerNameDisplay">—</div>
-    <div class="call-timer" id="callTimer"></div>
-    <div class="call-sub" id="callSub">Waiting for producer to answer…</div>
-
-    <div class="call-controls">
-      <button class="ctrl-btn mute" id="muteBtn">🎤 Mute</button>
-      <button class="ctrl-btn endcall" id="endBtn">End Call</button>
+  <!-- Site Header -->
+  <div class="site-header">
+    <div class="site-brand">
+      <span>⚡</span>
+      LIVE <span>CALLER</span>
     </div>
   </div>
+
+  <div class="wrap">
+
+    <!-- Setup Screen -->
+    <div id="setupScreen">
+      <div class="setup-hero">
+        <h1>CALL IN<br>LIVE</h1>
+        <p class="sub-dots">TWO-WAY AUDIO • SCREENED • ON AIR</p>
+        <p class="tagline">Talk directly with the producer!</p>
+      </div>
+
+      <div class="error-banner" id="errorBanner"></div>
+
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="callerName" maxlength="40" autocomplete="name">
+      </div>
+      <div class="field">
+        <label>City &amp; State</label>
+        <input type="text" id="callerCity" maxlength="40">
+      </div>
+
+      <p class="disclaimer">By calling in, you agree your voice may be broadcast on-air or on stream.</p>
+
+      <button class="call-btn" id="callBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        Call In Live
+      </button>
+    </div>
+
+    <!-- Call Screen -->
+    <div id="callScreen">
+      <div class="call-visual" id="callVisual">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+        </svg>
+      </div>
+
+      <div class="status-badge waiting" id="statusBadge"><span class="status-dot"></span><span id="statusText">Waiting</span></div>
+      <div class="call-status" id="callerNameDisplay">—</div>
+      <div class="call-timer" id="callTimer"></div>
+      <div class="call-sub" id="callSub">Waiting for producer to answer…</div>
+
+      <div class="call-controls">
+        <button class="ctrl-btn mute" id="muteBtn">🎤 Mute</button>
+        <button class="ctrl-btn endcall" id="endBtn">End Call</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="site-footer">
+    <span>⚡</span> POWERED BY LIVE CALLER
+  </div>
+
 </div>
 
 <audio id="remoteAudio" autoplay playsinline style="display:none;"></audio>
@@ -345,7 +445,7 @@ async function startCall(){
   }catch(err){
     showError('Microphone access is required to call in. Please allow microphone access and try again.');
     callBtn.disabled = false;
-    callBtn.textContent = '📞 Call In Live';
+    callBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Call In Live';
     return;
   }
 
@@ -467,7 +567,7 @@ async function startCall(){
 
   // Show call screen and start ringing
   setupScreen.style.display = 'none';
-  callScreen.style.display = 'block';
+  callScreen.style.display = 'flex';
   callerNameDisplay.textContent = name;
   setStatus('waiting', 'Calling Live Caller Studio…');
   startOutgoingRing(); // Start outgoing ring while waiting
