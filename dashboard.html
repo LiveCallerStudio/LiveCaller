@@ -663,6 +663,7 @@
       </div>
       <div class="active-call-status" id="previewStatus">Connecting…</div>
       <div class="active-call-controls">
+        <button class="cbtn cbtn-mute" id="previewMicMuteBtn" style="display:none;">🎙️ Mute My Mic</button>
         <button class="cbtn cbtn-air" id="previewAirBtn">🔴 Send On Air</button>
         <button class="cbtn cbtn-hold" id="previewStopBtn">Stop Preview</button>
         <button class="cbtn cbtn-end" id="previewRejectBtn">✕ Reject</button>
@@ -1830,14 +1831,29 @@ const previewStatus       = document.getElementById('previewStatus');
 const previewAirBtn       = document.getElementById('previewAirBtn');
 const previewStopBtn      = document.getElementById('previewStopBtn');
 const previewRejectBtn    = document.getElementById('previewRejectBtn');
+const previewMicMuteBtn   = document.getElementById('previewMicMuteBtn');
 
 let previewPc = null;
 let previewCallId = null;
 let previewCandidateUnsub = null;
+let previewMicStream = null;   // producer's own mic, so they can talk back to the guest
+let previewMicMuted = false;
+
+function updatePreviewMicBtn(){
+  if(!previewMicStream){
+    previewMicMuteBtn.style.display = 'none';
+    return;
+  }
+  previewMicMuteBtn.style.display = 'inline-flex';
+  previewMicMuteBtn.textContent = previewMicMuted ? '🔇 Unmute My Mic' : '🎙️ Mute My Mic';
+  previewMicMuteBtn.classList.toggle('muted', previewMicMuted);
+}
 
 function stopVideoPreview(){
   if(previewCandidateUnsub){ previewCandidateUnsub(); previewCandidateUnsub = null; }
   if(previewPc){ previewPc.close(); previewPc = null; }
+  if(previewMicStream){ previewMicStream.getTracks().forEach(t => t.stop()); previewMicStream = null; }
+  previewMicMuted = false;
   previewVideo.srcObject = null;
   previewCallId = null;
   videoPreviewPanel.style.display = 'none';
@@ -1861,6 +1877,7 @@ async function startVideoPreview(callId){
   previewVideoStatus.textContent = "Connecting to guest's camera…";
   previewStatus.textContent = 'Connecting…';
   videoPreviewPanel.style.display = 'block';
+  updatePreviewMicBtn();
 
   previewPc = new RTCPeerConnection(iceConfig);
 
@@ -1869,7 +1886,9 @@ async function startVideoPreview(callId){
       previewVideo.srcObject = event.streams[0];
       previewVideo.play().catch(()=>{});
       previewVideoStatus.style.display = 'none';
-      previewStatus.textContent = 'Previewing — not on air yet';
+      previewStatus.textContent = previewMicStream
+        ? 'Previewing — two-way audio, not on air yet'
+        : 'Previewing — not on air yet';
     }
   };
 
@@ -1881,6 +1900,25 @@ async function startVideoPreview(callId){
 
   try{
     await previewPc.setRemoteDescription(new RTCSessionDescription(call.screenOffer));
+
+    // Try to grab the producer's own mic so they can talk back to the guest during
+    // screening. If denied or unavailable, the preview still works — just one-way.
+    try{
+      previewMicStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation:true, noiseSuppression:true }
+      });
+      previewMicStream.getAudioTracks().forEach(track => previewPc.addTrack(track, previewMicStream));
+    }catch(micErr){
+      previewMicStream = null;
+      console.warn('Producer mic unavailable — preview will be one-way (you can see/hear the guest, but they can\'t hear you).', micErr);
+    }
+    updatePreviewMicBtn();
+    if(previewVideo.srcObject){
+      previewStatus.textContent = previewMicStream
+        ? 'Previewing — two-way audio, not on air yet'
+        : 'Previewing — not on air yet';
+    }
+
     const answer = await previewPc.createAnswer();
     await previewPc.setLocalDescription(answer);
     await setDoc(doc(db, 'videoCalls', callId), {
@@ -1903,6 +1941,13 @@ async function startVideoPreview(callId){
     }
   );
 }
+
+previewMicMuteBtn.addEventListener('click', ()=>{
+  if(!previewMicStream) return;
+  previewMicMuted = !previewMicMuted;
+  previewMicStream.getAudioTracks().forEach(t => t.enabled = !previewMicMuted);
+  updatePreviewMicBtn();
+});
 
 previewStopBtn.addEventListener('click', stopVideoPreview);
 

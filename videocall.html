@@ -182,6 +182,13 @@
 
   .call-sub{font-family:Arial,sans-serif;color:var(--sub);font-size:13px;margin-bottom:20px;text-align:center;line-height:1.5;}
 
+  .host-talk-badge{
+    display:flex;align-items:center;justify-content:center;gap:7px;
+    background:rgba(83,252,24,0.08);border:1px solid rgba(83,252,24,0.3);
+    color:var(--green);font-family:Arial,sans-serif;font-size:12.5px;font-weight:700;
+    padding:9px 14px;border-radius:20px;margin-bottom:18px;text-align:center;
+  }
+
   .call-controls{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;width:100%;}
   .ctrl-btn{
     flex:1;min-width:100px;padding:16px 10px;border-radius:11px;border:none;cursor:pointer;
@@ -278,6 +285,7 @@
 
       <div class="status-badge waiting" id="statusBadge"><span class="status-dot"></span><span id="statusText">Waiting</span></div>
       <div class="call-sub" id="callSub">You're in the green room — waiting for the host to bring you on air.</div>
+      <div class="host-talk-badge" id="hostTalkBadge" style="display:none;">🎧 The host can hear you and is talking back</div>
 
       <div class="call-controls">
         <button class="ctrl-btn mute" id="muteBtn">🎤 Mute</button>
@@ -291,6 +299,8 @@
   <div class="site-footer"><span>⚡</span> POWERED BY LIVE CALLER</div>
 
 </div>
+
+<audio id="hostAudio" autoplay playsinline style="display:none;"></audio>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
@@ -348,6 +358,8 @@ const callSub          = document.getElementById('callSub');
 const muteBtn          = document.getElementById('muteBtn');
 const camBtn           = document.getElementById('camBtn');
 const endBtn           = document.getElementById('endBtn');
+const hostAudio        = document.getElementById('hostAudio');
+const hostTalkBadge    = document.getElementById('hostTalkBadge');
 
 function showError(msg){ errorBanner.textContent = msg; errorBanner.classList.add('show'); }
 function clearError(){ errorBanner.classList.remove('show'); }
@@ -405,8 +417,16 @@ async function joinCall(){
 
   // "Screening" connection — lets the producer preview video/audio in the dashboard
   // before deciding to send this guest on air. Fully separate signaling from the air connection.
+  // This connection is two-way for audio: the producer can talk back through it too.
   screenPc = new RTCPeerConnection(STUN);
   localStream.getTracks().forEach(track => screenPc.addTrack(track, localStream));
+  screenPc.ontrack = (event) => {
+    if(event.streams && event.streams[0]){
+      hostAudio.srcObject = event.streams[0];
+      hostAudio.play().catch(()=>{});
+      hostTalkBadge.style.display = 'flex';
+    }
+  };
   const screenPendingCandidates = [];
   let screenRemoteDescSet = false;
   const screenOffer = await screenPc.createOffer();
@@ -515,6 +535,7 @@ function cleanup(updateFirestore){
   if(localStream) localStream.getTracks().forEach(t => t.stop());
   if(pc){ pc.close(); pc = null; }
   if(screenPc){ screenPc.close(); screenPc = null; }
+  hostTalkBadge.style.display = 'none';
   if(updateFirestore && callDocRef){ updateDoc(callDocRef, { status:'ended' }).catch(()=>{}); }
 }
 
