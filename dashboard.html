@@ -1610,13 +1610,17 @@ callOnAirBtn.addEventListener('click', async()=>{
     callOnAirBtn.classList.add('live');
     setCallStatus('ON AIR — Live Call Broadcasting', 'on-air');
     onAirBadge.classList.add('show');
-    // Tell overlay to show live call lower-third (visual only — no audio URL)
+    // Tell overlay to show the live-call lower third AND connect directly to this
+    // caller for audio — that direct connection is what actually gets the caller's
+    // voice onto the broadcast (OBS's Browser Source can only capture overlay.html
+    // itself, not a separate dashboard browser tab).
     await setDoc(liveStateRef, {
       active: true,
       name: activeCallerName.textContent,
       city: activeCallerCity.textContent,
       messageType: 'livecall',
-      audioUrl: null, // no audio URL — OBS captures call audio from dashboard browser source
+      callId: activeCallId,
+      audioUrl: null,
       updatedAt: Date.now()
     });
     await setDoc(activeCallRef, { status: 'live' }, { merge: true });

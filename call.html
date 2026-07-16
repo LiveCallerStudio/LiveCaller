@@ -154,6 +154,7 @@
   .call-visual.ringing{ border-color:var(--green); animation:ringpulse 1.2s ease-in-out infinite; }
   .call-visual.connected{ border-color:var(--green); }
   .call-visual.held{ border-color:#f5a623; box-shadow:0 0 40px rgba(245,166,35,0.3); }
+  .call-visual.live{ border-color:var(--red); box-shadow:0 0 40px rgba(255,59,59,0.4); animation:ringpulse 1.2s ease-in-out infinite; }
   .call-visual.ended{ border-color:var(--red); box-shadow:0 0 40px rgba(255,59,59,0.3); }
   @keyframes ringpulse{
     0%,100%{ box-shadow:0 0 0 0 rgba(83,252,24,0.5), 0 0 40px rgba(83,252,24,0.3); }
@@ -161,6 +162,7 @@
   }
   .call-visual svg{ width:60px; height:60px; color:var(--green); }
   .call-visual.held svg{ color:#f5a623; }
+  .call-visual.live svg{ color:var(--red); }
   .call-visual.ended svg{ color:var(--red); }
 
   .call-status{ font-size:22px; font-weight:900; margin:0 0 6px; }
@@ -190,9 +192,11 @@
   .status-badge.waiting{ background:rgba(83,252,24,0.12); color:var(--green); border:1px solid rgba(83,252,24,0.3); }
   .status-badge.connected{ background:rgba(83,252,24,0.2); color:var(--green); border:1px solid var(--green); }
   .status-badge.held{ background:rgba(245,166,35,0.15); color:#f5a623; border:1px solid rgba(245,166,35,0.4); }
+  .status-badge.live{ background:rgba(255,59,59,0.15); color:var(--red); border:1px solid var(--red); font-weight:900; }
   .status-badge.ended{ background:rgba(255,59,59,0.12); color:var(--red); border:1px solid rgba(255,59,59,0.3); }
   .status-dot{ width:7px; height:7px; border-radius:50%; background:currentColor; animation:blink 1.4s infinite; }
   .status-badge.connected .status-dot{ animation:blink 1.4s infinite; }
+  .status-badge.live .status-dot{ animation:blink .8s infinite; }
   .status-badge.ended .status-dot{ animation:none; }
   @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.2;} }
 
@@ -316,7 +320,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
-  getFirestore, collection, doc, addDoc, updateDoc,
+  getFirestore, collection, doc, addDoc, updateDoc, setDoc,
   onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
@@ -357,7 +361,12 @@ const STUN = {
   iceCandidatePoolSize: 10
 };
 
-let pc = null;
+let pc = null;          // screening connection — to the producer's dashboard
+let airPc = null;       // "air" connection — straight to overlay.html once on air,
+                        // so the broadcast can actually hear this caller
+let airRemoteDescSet = false;
+let airPendingCandidates = [];
+let airCandidateUnsub = null;
 let localStream = null;
 let callDocRef = null;
 let timerInterval = null;
@@ -459,7 +468,7 @@ function formatTimer(s){
 
 function setStatus(state, sub){
   statusBadge.className = 'status-badge ' + state;
-  statusText.textContent = { waiting:'Waiting', connected:'Connected', held:'On Hold', ended:'Call Ended' }[state] || state;
+  statusText.textContent = { waiting:'Waiting', connected:'Connected', held:'On Hold', live:'On Air', ended:'Call Ended' }[state] || state;
   callVisual.className = 'call-visual ' + state;
   callSub.textContent = sub || '';
 }
@@ -470,6 +479,52 @@ function startTimer(){
 }
 
 function stopTimer(){ clearInterval(timerInterval); }
+
+// ── On-air connection to overlay.html ──
+// This is what actually gets the caller's voice onto the broadcast. It's a
+// completely separate connection from the screening one (caller ↔ dashboard) —
+// the producer's own mic is never part of this, only the caller's audio.
+async function startAirConnection(){
+  if(airPc || !callDocRef || !localStream) return; // already connected, or not ready
+
+  airPc = new RTCPeerConnection(STUN);
+  localStream.getTracks().forEach(track => airPc.addTrack(track, localStream));
+  airRemoteDescSet = false;
+  airPendingCandidates = [];
+
+  const airOffer = await airPc.createOffer();
+
+  airPc.onicecandidate = (e) => {
+    if(e.candidate && callDocRef){
+      addDoc(collection(db, 'liveCalls', callDocRef.id, 'airCallerCandidates'), e.candidate.toJSON()).catch(()=>{});
+    }
+  };
+
+  await airPc.setLocalDescription(airOffer);
+  await setDoc(callDocRef, {
+    airOffer: { type: airOffer.type, sdp: airOffer.sdp }
+  }, { merge: true });
+
+  airCandidateUnsub = onSnapshot(
+    collection(db, 'liveCalls', callDocRef.id, 'airOverlayCandidates'),
+    (snap) => {
+      snap.docChanges().forEach(async (change) => {
+        if(change.type === 'added'){
+          const candidate = new RTCIceCandidate(change.doc.data());
+          if(airRemoteDescSet){ await airPc.addIceCandidate(candidate).catch(()=>{}); }
+          else{ airPendingCandidates.push(candidate); }
+        }
+      });
+    }
+  );
+}
+
+function stopAirConnection(){
+  if(airCandidateUnsub){ airCandidateUnsub(); airCandidateUnsub = null; }
+  if(airPc){ airPc.close(); airPc = null; }
+  airRemoteDescSet = false;
+  airPendingCandidates = [];
+}
 
 async function startCall(){
   clearError();
@@ -546,6 +601,18 @@ async function startCall(){
       }catch(e){ console.error('setRemoteDescription failed:', e); }
     }
 
+    // Same idea for the on-air connection to overlay.html, once it exists
+    if(data.airAnswer && airPc && !airPc.currentRemoteDescription){
+      try{
+        await airPc.setRemoteDescription(new RTCSessionDescription(data.airAnswer));
+        airRemoteDescSet = true;
+        for(const c of airPendingCandidates){
+          await airPc.addIceCandidate(c).catch(()=>{});
+        }
+        airPendingCandidates.length = 0;
+      }catch(e){ console.error('air setRemoteDescription failed:', e); }
+    }
+
     if(data.status === 'answered' || data.status === 'live'){
       stopOutgoingRing();
       stopHoldMusicCaller();
@@ -555,7 +622,19 @@ async function startCall(){
       stopOutgoingRing();
       setStatus('held', 'You\'re on hold — producer will be right with you');
       startHoldMusicCaller();
-    } else if(data.status === 'rejected'){
+    }
+
+    // On-air connection to overlay.html — this is what actually gets the caller's
+    // voice onto the broadcast (the producer's own separate connection can't;
+    // OBS's Browser Source only ever captures overlay.html, not the dashboard tab).
+    if(data.status === 'live'){
+      setStatus('live', "You're live! Your voice is going straight to the broadcast.");
+      startAirConnection();
+    } else {
+      stopAirConnection();
+    }
+
+    if(data.status === 'rejected'){
       stopOutgoingRing();
       stopHoldMusicCaller();
       setStatus('ended', 'Call could not be connected right now. Try again soon!');
@@ -618,6 +697,7 @@ async function startCall(){
 function cleanup(updateFirestore = true){
   if(localStream) localStream.getTracks().forEach(t => t.stop());
   if(pc){ pc.close(); pc = null; }
+  stopAirConnection();
   if(updateFirestore && callDocRef){
     updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
   }

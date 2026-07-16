@@ -200,6 +200,10 @@
 <!-- Audio element — plays voice message and live call audio through OBS -->
 <audio id="audio" autoplay playsinline style="display:none;"></audio>
 
+<!-- Plays a phone caller's voice once they're on air — this is what actually
+     gets their voice onto the broadcast, since this page is what OBS captures. -->
+<audio id="callerAirAudio" autoplay playsinline style="display:none;"></audio>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
@@ -405,6 +409,82 @@ onSnapshot(
     // A different (or first) call just went live — tear down any previous connection first
     teardownGuest();
     if(liveCall.offer) connectToGuest(liveCall.id, liveCall);
+  }
+);
+
+// ═══════════════════════════════════════════════════════
+//  PHONE CALLER ON-AIR AUDIO — same idea as the video guest connection above,
+//  but audio-only, for the audio call-in feature. The caller's browser opens
+//  this connection straight to this overlay page once the producer sends them
+//  on air — that's what actually gets their voice onto the broadcast, since
+//  OBS only ever captures this page, never the producer's separate dashboard tab.
+//  The producer's own mic is never part of this connection.
+// ═══════════════════════════════════════════════════════
+const callerAirAudio = document.getElementById('callerAirAudio');
+let callerAirPc = null;
+let connectedAirCallId = null;
+let callerAirCandidateUnsub = null;
+
+function teardownCallerAir(){
+  if(callerAirCandidateUnsub){ callerAirCandidateUnsub(); callerAirCandidateUnsub = null; }
+  if(callerAirPc){ callerAirPc.close(); callerAirPc = null; }
+  callerAirAudio.srcObject = null;
+  connectedAirCallId = null;
+}
+
+async function connectToCallerAir(callId, data){
+  connectedAirCallId = callId;
+
+  callerAirPc = new RTCPeerConnection(videoIceConfig);
+
+  callerAirPc.ontrack = (event) => {
+    if(event.streams && event.streams[0]){
+      callerAirAudio.srcObject = event.streams[0];
+      callerAirAudio.play().catch(()=>{});
+    }
+  };
+
+  const callDocRef = doc(db, 'liveCalls', callId);
+
+  callerAirPc.onicecandidate = (event) => {
+    if(event.candidate){
+      addDoc(collection(db, 'liveCalls', callId, 'airOverlayCandidates'), event.candidate.toJSON()).catch(()=>{});
+    }
+  };
+
+  await callerAirPc.setRemoteDescription(new RTCSessionDescription(data.airOffer));
+  const answer = await callerAirPc.createAnswer();
+  await callerAirPc.setLocalDescription(answer);
+
+  await setDoc(callDocRef, { airAnswer: { type: answer.type, sdp: answer.sdp } }, { merge: true });
+
+  callerAirCandidateUnsub = onSnapshot(
+    collection(db, 'liveCalls', callId, 'airCallerCandidates'),
+    (snap) => {
+      snap.docChanges().forEach(async(change) => {
+        if(change.type === 'added' && callerAirPc){
+          await callerAirPc.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(()=>{});
+        }
+      });
+    }
+  );
+}
+
+// Watch for whichever audio call the producer has sent on air
+onSnapshot(
+  query(collection(db, 'liveCalls'), orderBy('createdAt', 'desc')),
+  (snap) => {
+    const liveCall = snap.docs.map(d => ({ id: d.id, ...d.data() })).find(c => c.status === 'live');
+
+    if(!liveCall){
+      if(connectedAirCallId) teardownCallerAir();
+      return;
+    }
+
+    if(liveCall.id === connectedAirCallId) return; // already connected to this one
+
+    teardownCallerAir();
+    if(liveCall.airOffer) connectToCallerAir(liveCall.id, liveCall);
   }
 );
 </script>
