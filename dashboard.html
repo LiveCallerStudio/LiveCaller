@@ -1759,10 +1759,16 @@ function startVideoCallsListener(){
       const waiting = calls.filter(c => c.status === 'waiting');
       const live = calls.find(c => c.status === 'live');
 
-      // If we're previewing a call that's no longer waiting (sent live, rejected,
-      // ended, or the guest left), close the preview automatically.
-      if(previewCallId && !waiting.some(c => c.id === previewCallId)){
-        stopVideoPreview();
+      // Keep the talkback connection alive through screening AND on-air, so the
+      // producer and guest can always hear each other. Only auto-close it once
+      // the call is truly over (ended/rejected/gone) — not just because it went live.
+      if(previewCallId){
+        const tracked = calls.find(c => c.id === previewCallId);
+        if(!tracked || tracked.status === 'ended' || tracked.status === 'rejected'){
+          stopVideoPreview();
+        } else {
+          updatePreviewPanelForStatus(tracked.status);
+        }
       }
 
       // Live guest panel
@@ -1878,6 +1884,7 @@ async function startVideoPreview(callId){
   previewStatus.textContent = 'Connecting…';
   videoPreviewPanel.style.display = 'block';
   updatePreviewMicBtn();
+  updatePreviewPanelForStatus(call.status);
 
   previewPc = new RTCPeerConnection(iceConfig);
 
@@ -1942,6 +1949,22 @@ async function startVideoPreview(callId){
   );
 }
 
+function updatePreviewPanelForStatus(status){
+  const isLive = status === 'live';
+  previewAirBtn.style.display = isLive ? 'none' : 'inline-flex';
+  previewRejectBtn.style.display = isLive ? 'none' : 'inline-flex';
+  previewStopBtn.textContent = isLive ? '🔇 Disconnect Talkback' : 'Stop Preview';
+  if(isLive){
+    previewStatus.textContent = previewMicStream
+      ? "🔴 On air — two-way audio still connected"
+      : "🔴 On air — you can see/hear them, they can't hear you";
+  } else {
+    previewStatus.textContent = previewMicStream
+      ? 'Previewing — two-way audio, not on air yet'
+      : 'Previewing — not on air yet';
+  }
+}
+
 previewMicMuteBtn.addEventListener('click', ()=>{
   if(!previewMicStream) return;
   previewMicMuted = !previewMicMuted;
@@ -1949,16 +1972,20 @@ previewMicMuteBtn.addEventListener('click', ()=>{
   updatePreviewMicBtn();
 });
 
+// "Stop Preview" / "Disconnect Talkback" — always just closes the producer's own
+// listen/talk connection. It never takes the guest off air; that's a separate action.
 previewStopBtn.addEventListener('click', stopVideoPreview);
 
 previewAirBtn.addEventListener('click', async()=>{
   if(!previewCallId) return;
   const id = previewCallId;
-  stopVideoPreview();
   if(currentLiveVideoId && currentLiveVideoId !== id){
     await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
   }
   await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince: Date.now() }).catch(()=>{});
+  // Talkback connection (previewPc) is already open here — keep it running so
+  // the producer and guest can keep hearing each other while live.
+  updatePreviewPanelForStatus('live');
 });
 
 previewRejectBtn.addEventListener('click', async()=>{
@@ -1975,12 +2002,15 @@ document.addEventListener('click', async(e)=>{
   const action = btn.dataset.action;
 
   if(action === 'video-air'){
-    if(previewCallId === id) stopVideoPreview();
     // Only one guest on air at a time — end any other live call first
     if(currentLiveVideoId && currentLiveVideoId !== id){
       await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
     }
     await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince: Date.now() }).catch(()=>{});
+    // Make sure a two-way talkback connection exists for this guest, even if the
+    // producer sent them on air straight from the card without previewing first.
+    await startVideoPreview(id);
+    updatePreviewPanelForStatus('live');
   }
   if(action === 'video-reject'){
     if(previewCallId === id) stopVideoPreview();
