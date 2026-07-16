@@ -3,7 +3,7 @@
   "short_name": "Voice Message",
   "description": "Leave a voice message for the show — song requests, shoutouts, birthdays, and more.",
   "start_url": "https://livecallerstudio.github.io/LiveCaller/voicemessage.html",
-  "scope": "https://livecallerstudio.github.io/LiveCaller/",
+  "scope": "https://livecallerstudio.github.io/LiveCaller/home",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0a0a",
