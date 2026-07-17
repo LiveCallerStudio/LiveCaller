@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152.png">
 <link rel="apple-touch-icon" sizes="167x167" href="apple-touch-icon-167.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<title>Live Caller — Video Guest</title>
+<title>Live Caller Studio — Video Guest</title>
 <style>
   :root{
     --green:#53FC18;
@@ -202,8 +202,18 @@
   .ctrl-btn.endcall{background:var(--red);color:#fff;box-shadow:0 4px 14px rgba(255,59,59,0.3);}
   .ctrl-btn.endcall:hover{filter:brightness(1.08);}
 
+  .footer-links{
+    display:flex;gap:20px;flex-wrap:wrap;justify-content:center;
+    margin-top:36px;
+  }
+  .footer-links a{
+    font-family:Arial,sans-serif;font-size:12.5px;color:#444;
+    text-decoration:none;letter-spacing:.2px;
+    transition:color .15s;
+  }
+  .footer-links a:hover{color:var(--green);}
   .site-footer{
-    margin-top:36px;font-family:Arial,sans-serif;font-size:10.5px;
+    margin-top:14px;font-family:Arial,sans-serif;font-size:10.5px;
     color:#2a2a2a;letter-spacing:2px;text-transform:uppercase;
     display:flex;align-items:center;gap:7px;
   }
@@ -236,12 +246,12 @@
       <div class="setup-hero">
         <h1>JOIN AS A<br>VIDEO GUEST</h1>
         <p class="sub-dots">CAMERA • MICROPHONE • DIRECT TO STREAM</p>
-        <p class="tagline">Your Feed Goes Straight On Air!</p>
+        <p class="tagline">Your feed goes straight on air!</p>
       </div>
 
       <div class="lines-closed-banner" id="linesClosedBanner">
         <strong>🎥 Video Guests Are Closed</strong>
-        The Host Isn't Taking Video Guests Right Now — Check Back Soon!
+        The host isn't taking video guests right now — check back soon!
       </div>
 
       <div class="error-banner" id="errorBanner"></div>
@@ -250,7 +260,7 @@
         <video id="localVideo" autoplay playsinline muted></video>
         <div class="cam-placeholder" id="camPlaceholder">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-          <span>Tap "Start Camera" to Preview Yourself Before Joining</span>
+          <span>Tap "Start Camera" to preview yourself before joining</span>
         </div>
         <div class="cam-badge" id="camBadge" style="display:none;"><span class="dot"></span>Preview</div>
       </div>
@@ -269,7 +279,7 @@
         <input type="text" id="callerCity" maxlength="40">
       </div>
 
-      <p class="disclaimer">By Joining, You Agree Your Camera and Microphone May Be Broadcast On-Air or On Stream.</p>
+      <p class="disclaimer">By joining, you agree your camera and microphone may be broadcast on-air or on stream.</p>
 
       <button class="call-btn" id="joinBtn" disabled>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
@@ -284,8 +294,8 @@
       </div>
 
       <div class="status-badge waiting" id="statusBadge"><span class="status-dot"></span><span id="statusText">Waiting</span></div>
-      <div class="call-sub" id="callSub">You're In The Green Room — Waiting For The Host To Bring You On Air.</div>
-      <div class="host-talk-badge" id="hostTalkBadge" style="display:none;">🎧 The Host Can Hear You & Is Talking Back</div>
+      <div class="call-sub" id="callSub">You're in the green room — waiting for the host to bring you on air.</div>
+      <div class="host-talk-badge" id="hostTalkBadge" style="display:none;">🎧 The host can hear you and is talking back</div>
 
       <div class="call-controls">
         <button class="ctrl-btn mute" id="muteBtn">🎤 Mute</button>
@@ -296,6 +306,11 @@
 
   </div>
 
+  <div class="footer-links">
+    <a href="home.html">Home</a>
+    <a href="voicemessage.html">Voice Message</a>
+    <a href="call.html">Call In Live</a>
+  </div>
   <div class="site-footer"><span>⚡</span> POWERED BY LIVE CALLER</div>
 
 </div>
@@ -339,6 +354,39 @@ let callDocRef = null;
 let micMuted = false;
 let camOff = false;
 let videoOpen = true; // defaults open until the settings doc says otherwise
+
+// ── Waiting tone — FaceTime-style soft two-tone dial pattern, played in the
+// green room while waiting for the host to bring this guest on air ──
+let waitingRingInterval = null;
+function startWaitingRing(){
+  stopWaitingRing();
+  function ring(){
+    try{
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [ {freq: 622.25, at: 0}, {freq: 466.16, at: 0.28} ].forEach(({freq, at})=>{
+        const t = ctx.currentTime + at;
+        const osc = ctx.createOscillator();
+        const env = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        osc.connect(env);
+        env.connect(ctx.destination);
+        env.gain.setValueAtTime(0, t);
+        env.gain.linearRampToValueAtTime(0.2, t + 0.03);
+        env.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+        osc.start(t);
+        osc.stop(t + 0.4);
+      });
+      setTimeout(()=> ctx.close().catch(()=>{}), 900);
+    }catch(e){}
+  }
+  ring();
+  waitingRingInterval = setInterval(ring, 2600);
+}
+function stopWaitingRing(){
+  clearInterval(waitingRingInterval);
+  waitingRingInterval = null;
+}
 
 const setupScreen      = document.getElementById('setupScreen');
 const callScreen       = document.getElementById('callScreen');
@@ -478,13 +526,17 @@ async function joinCall(){
 
     if(data.status === 'waiting'){
       setStatus('waiting', "You're in the green room — waiting for the host to bring you on air.");
+      startWaitingRing();
     } else if(data.status === 'live'){
       setStatus('live', "You're live! Your camera and mic are going straight to the stream.");
+      stopWaitingRing();
     } else if(data.status === 'rejected'){
+      stopWaitingRing();
       setStatus('rejected', "The host isn't able to bring you on right now. Thanks for stopping by!");
       cleanup(false);
       endOfCallScreen('Not Available', "The host isn't able to bring you on right now.");
     } else if(data.status === 'ended'){
+      stopWaitingRing();
       setStatus('ended', 'Your segment has ended. Thanks for joining!');
       cleanup(false);
       endOfCallScreen('Segment Ended', 'Thanks for joining as a video guest!');
@@ -535,6 +587,7 @@ function cleanup(updateFirestore){
   if(localStream) localStream.getTracks().forEach(t => t.stop());
   if(pc){ pc.close(); pc = null; }
   if(screenPc){ screenPc.close(); screenPc = null; }
+  stopWaitingRing();
   hostTalkBadge.style.display = 'none';
   if(updateFirestore && callDocRef){ updateDoc(callDocRef, { status:'ended' }).catch(()=>{}); }
 }

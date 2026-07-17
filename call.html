@@ -216,8 +216,18 @@
   .lines-closed-banner strong{display:block;color:#ccc;font-weight:700;margin-bottom:4px;font-size:14px;}
 
   /* ── Footer ── */
-  .site-footer{
+  .footer-links{
+    display:flex;gap:20px;flex-wrap:wrap;justify-content:center;
     margin-top:36px;
+  }
+  .footer-links a{
+    font-family:Arial,sans-serif;font-size:12.5px;color:#444;
+    text-decoration:none;letter-spacing:.2px;
+    transition:color .15s;
+  }
+  .footer-links a:hover{color:var(--green);}
+  .site-footer{
+    margin-top:14px;
     font-family:Arial,sans-serif;font-size:10.5px;
     color:#2a2a2a;letter-spacing:2px;text-transform:uppercase;
     display:flex;align-items:center;gap:7px;
@@ -309,6 +319,11 @@
   </div>
 
   <!-- Footer -->
+  <div class="footer-links">
+    <a href="home.html">Home</a>
+    <a href="voicemessage.html">Voice Message</a>
+    <a href="videocall.html">Video Guest</a>
+  </div>
   <div class="site-footer">
     <span>⚡</span> POWERED BY LIVE CALLER
   </div>
@@ -380,27 +395,26 @@ function startOutgoingRing(){
   function ring(){
     try{
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const gain = ctx.createGain();
-      gain.connect(ctx.destination);
-      // Single clear tone - standard mobile outgoing ring pattern
-      [440].forEach(freq=>{
+      // FaceTime-style soft two-tone dial pattern (descending pair), not a harsh telephone ring
+      [ {freq: 622.25, at: 0}, {freq: 466.16, at: 0.28} ].forEach(({freq, at})=>{
+        const t = ctx.currentTime + at;
         const osc = ctx.createOscillator();
-        osc.type = 'sine';
+        const env = ctx.createGain();
+        osc.type = 'triangle';
         osc.frequency.value = freq;
-        osc.connect(gain);
-        gain.gain.setValueAtTime(0.25, ctx.currentTime);
-        gain.gain.setValueAtTime(0.25, ctx.currentTime + 0.5);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.65);
+        osc.connect(env);
+        env.connect(ctx.destination);
+        env.gain.setValueAtTime(0, t);
+        env.gain.linearRampToValueAtTime(0.2, t + 0.03);
+        env.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+        osc.start(t);
+        osc.stop(t + 0.4);
       });
-      setTimeout(()=> ctx.close().catch(()=>{}), 1000);
+      setTimeout(()=> ctx.close().catch(()=>{}), 900);
     }catch(e){}
   }
   ring();
-  // Ring twice rapidly (brring brring) then pause
-  setTimeout(ring, 700);
-  outgoingRingInterval = setInterval(()=>{ ring(); setTimeout(ring, 700); }, 3500);
+  outgoingRingInterval = setInterval(ring, 2600);
 }
 function stopOutgoingRing(){
   clearInterval(outgoingRingInterval);
