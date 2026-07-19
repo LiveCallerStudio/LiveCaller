@@ -16,324 +16,633 @@
 <title>Live Caller Studio — Producer Dashboard</title>
 <style>
   :root{
-    --green:#53FC18; --green-dim:#2fa60d;
-    --red:#ff3b3b; --amber:#f5a623; --blue:#3d8bfd; --purple:#8b5cf6;
-    --black:#050505; --panel:#101010; --panel2:#161616; --line:#262626;
-    --text:#f2f2f2; --sub:#8a8a8a;
+    --green:#53FC18;
+    --black:#0a0a0a;
+    --panel:#131313;
+    --panel-2:#181818;
+    --line:#262626;
+    --red:#ff3b3b;
+    --text:#f2f2f2;
+    --sub:#8f8f8f;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;height:100%;background:var(--black);color:var(--text);
-    font-family:Arial,Helvetica,sans-serif;overflow:hidden;}
-
-  /* ===== Login ===== */
-  .login-screen{position:fixed;inset:0;background:var(--black);z-index:100;
-    display:flex;align-items:center;justify-content:center;padding:20px;}
-  .login-box{width:100%;max-width:340px;background:var(--panel);border:1px solid var(--line);
-    border-radius:14px;padding:32px 26px;text-align:center;}
-  .login-brand{color:var(--green);font-weight:900;font-size:18px;letter-spacing:1.5px;margin-bottom:4px;}
-  .login-sub{color:var(--sub);font-size:12.5px;margin-bottom:22px;}
-  .login-box input{width:100%;background:var(--black);border:1px solid var(--line);border-radius:8px;
-    padding:12px 14px;color:var(--text);font-size:14px;margin-bottom:12px;box-sizing:border-box;}
-  .login-box input:focus{outline:none;border-color:var(--green);}
-  .login-box button{width:100%;padding:13px;border-radius:8px;border:none;background:var(--green);
-    color:#0a0a0a;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.5px;
-    cursor:pointer;margin-top:4px;}
-  .login-error{color:var(--red);font-size:12.5px;margin-top:12px;min-height:16px;}
-
-  /* ===== App shell ===== */
-  #dashboardApp{display:none;flex-direction:column;height:100vh;}
-
-  /* ===== Top bar ===== */
-  .topbar{
-    display:flex;align-items:center;gap:14px;flex-wrap:nowrap;overflow-x:auto;
-    padding:10px 18px;background:linear-gradient(180deg,#131313,#0a0a0a);
-    border-bottom:1px solid var(--line);flex-shrink:0;
+  body{
+    margin:0; background:var(--black); color:var(--text);
+    font-family:Arial,Helvetica,sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
   }
-  .tb-brand{display:flex;align-items:center;gap:10px;flex-shrink:0;}
-  .tb-logo{width:38px;height:38px;border-radius:10px;background:var(--green);color:#000;
-    display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
-  .tb-brand-text{font-size:14px;font-weight:900;letter-spacing:1px;text-transform:uppercase;line-height:1.15;}
-  .tb-brand-text span{display:block;color:var(--green);font-size:11px;letter-spacing:2px;}
 
-  .tb-onair{display:flex;align-items:center;gap:7px;background:rgba(255,59,59,.12);
-    border:1px solid var(--red);color:var(--red);padding:8px 14px;border-radius:8px;
-    font-weight:900;font-size:12px;letter-spacing:1px;flex-shrink:0;}
-  .tb-onair.off{background:rgba(255,255,255,.03);border-color:var(--line);color:#555;}
-  .tb-onair .dot{width:8px;height:8px;border-radius:50%;background:currentColor;animation:blink 1s infinite;}
-  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.25;}}
+  /* ── Lightning bolt decorations (matches voicemessage.html / call.html) ── */
+  .bolt-wrap{
+    position:fixed;top:0;left:0;right:0;bottom:0;
+    pointer-events:none;z-index:0;overflow:hidden;
+  }
+  .bolt-tl,.bolt-tr{
+    position:absolute;top:-20px;
+    font-size:120px;line-height:1;
+    color:var(--green);opacity:.09;
+    filter:drop-shadow(0 0 20px rgba(83,252,24,0.5));
+    animation:boltpulse 3s ease-in-out infinite;
+  }
+  .bolt-tl{left:-20px;transform:rotate(-15deg);}
+  .bolt-tr{right:-20px;transform:rotate(15deg);animation-delay:1.5s;}
+  @keyframes boltpulse{0%,100%{opacity:.09;}50%{opacity:.16;}}
 
-  .tb-timer{flex-shrink:0;}
-  .tb-timer .val{font-family:'Courier New',monospace;font-size:17px;font-weight:900;color:#fff;}
-  .tb-timer .lbl{font-size:9.5px;color:#555;letter-spacing:1.5px;text-transform:uppercase;}
+  .ambient{
+    position:fixed;top:0;left:0;right:0;height:40vh;
+    pointer-events:none;z-index:0;
+    background:radial-gradient(ellipse 80% 60% at 50% 0%, rgba(83,252,24,0.08) 0%, transparent 70%);
+  }
 
-  .tb-meter{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
-    padding:7px 12px;flex-shrink:0;min-width:150px;}
-  .tb-meter .lbl{font-size:9px;color:#666;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;}
-  .tb-meter-row{display:flex;align-items:center;gap:8px;}
-  .tb-meter-bars{display:flex;gap:2px;align-items:flex-end;height:12px;}
-  .tb-meter-bars span{width:5px;height:100%;border-radius:1px;background:#232323;}
-  .tb-meter-val{font-family:'Courier New',monospace;font-size:11px;color:var(--sub);min-width:44px;text-align:right;}
+  #dashboardApp{position:relative;z-index:1;}
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 26px; border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, #111, #0a0a0a);
+    position:sticky; top:0; z-index:5;
+    flex-wrap:wrap; gap:14px;
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .bolt{color:var(--green); font-size:22px;}
+  .brand h1{font-size:16px; letter-spacing:1.5px; margin:0; text-transform:uppercase; font-weight:800;}
+  .brand h1 span{color:var(--green);}
+  .brand small{display:block; color:var(--sub); font-size:11px; letter-spacing:1px;}
 
-  .tb-stream{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
-    padding:7px 14px;flex-shrink:0;}
-  .tb-stream .lbl{font-size:9px;color:#666;letter-spacing:1.5px;text-transform:uppercase;}
-  .tb-stream .val{font-size:13px;font-weight:800;color:var(--green);display:flex;align-items:center;gap:6px;}
-  .tb-stream .val.bad{color:var(--red);}
+  .header-right{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
 
-  .tb-spacer{flex:1;}
+  .console-toggle{
+    display:flex;align-items:center;gap:10px;
+    padding:9px 15px;border-radius:6px;
+    border:1px solid #2a2a2a;
+    background:linear-gradient(180deg,#1c1c1c,#0d0d0d);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 5px rgba(0,0,0,0.5);
+    font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:800;
+    letter-spacing:1.2px;text-transform:uppercase;color:#666;
+    cursor:pointer;transition:all .15s ease;
+  }
+  .console-toggle:hover{border-color:#3a3a3a;}
+  .console-toggle:active{transform:translateY(1px);}
+  .console-led{
+    width:9px;height:9px;border-radius:50%;flex-shrink:0;
+    background:#232323;
+    box-shadow:inset 0 0 2px rgba(0,0,0,0.9);
+    transition:all .2s ease;
+  }
+  .console-toggle.open{
+    color:var(--green);
+    border-color:rgba(83,252,24,0.45);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), 0 0 14px rgba(83,252,24,0.18), 0 2px 5px rgba(0,0,0,0.5);
+  }
+  .console-toggle.open .console-led{
+    background:var(--green);
+    box-shadow:0 0 8px rgba(83,252,24,0.9), 0 0 3px rgba(83,252,24,1);
+    animation:ledpulse 1.6s ease-in-out infinite;
+  }
+  .console-toggle.closed{ color:#555; }
+  .console-toggle.closed .console-led{ background:#232323; box-shadow:inset 0 0 2px rgba(0,0,0,0.9); }
+  @keyframes ledpulse{0%,100%{opacity:1;}50%{opacity:.65;}}
+  .broadcast-controls{display:flex;align-items:center;gap:8px;}
 
-  .tb-host{display:flex;align-items:center;gap:9px;background:var(--panel2);border:1px solid var(--line);
-    border-radius:20px;padding:6px 12px 6px 6px;flex-shrink:0;}
-  .tb-host-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dim));
-    color:#000;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;}
-  .tb-host-name{font-size:12.5px;font-weight:800;line-height:1.1;}
-  .tb-host-name small{display:block;color:#666;font-size:10px;font-weight:400;}
+  /* ── Incoming Call / Video overlay — iOS/FaceTime-style ── */
+  .incoming-overlay{
+    display:none;
+    position:fixed;inset:0;z-index:300;
+    background:radial-gradient(ellipse at 50% 30%, #1a2e12 0%, #050505 75%);
+    flex-direction:column;align-items:center;justify-content:center;
+    gap:6px;padding:40px 20px;
+    animation:incomingFadeIn .25s ease;
+  }
+  .incoming-overlay.show{display:flex;}
+  @keyframes incomingFadeIn{from{opacity:0;}to{opacity:1;}}
+  .incoming-kind{
+    color:var(--green);font-size:13px;font-weight:800;letter-spacing:3px;
+    text-transform:uppercase;margin-bottom:18px;
+    text-shadow:0 0 16px rgba(83,252,24,0.6);
+  }
+  .incoming-avatar{
+    width:120px;height:120px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:44px;font-weight:900;color:#0a0a0a;
+    background:linear-gradient(135deg,var(--green),#2fa60d);
+    box-shadow:0 0 0 6px rgba(83,252,24,0.12), 0 0 40px rgba(83,252,24,0.35);
+    margin-bottom:22px;
+    animation:incomingPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes incomingPulse{
+    0%,100%{box-shadow:0 0 0 6px rgba(83,252,24,0.12), 0 0 40px rgba(83,252,24,0.35);}
+    50%{box-shadow:0 0 0 14px rgba(83,252,24,0.05), 0 0 55px rgba(83,252,24,0.5);}
+  }
+  .incoming-name{color:#fff;font-size:28px;font-weight:800;margin-bottom:8px;text-align:center;}
+  .incoming-sub{color:var(--sub);font-size:14px;font-family:Arial,Helvetica,sans-serif;margin-bottom:6px;}
+  .incoming-dots{display:inline-flex;gap:5px;}
+  .incoming-dots span{
+    width:6px;height:6px;border-radius:50%;background:var(--green);
+    animation:dotbounce 1.2s ease-in-out infinite;
+  }
+  .incoming-dots span:nth-child(2){animation-delay:.15s;}
+  .incoming-dots span:nth-child(3){animation-delay:.3s;}
+  @keyframes dotbounce{0%,60%,100%{opacity:.3;}30%{opacity:1;}}
+  .incoming-more{
+    color:#555;font-size:12.5px;font-family:Arial,Helvetica,sans-serif;
+    margin-top:8px;letter-spacing:.3px;
+  }
+  .incoming-actions{display:flex;gap:64px;margin-top:48px;}
+  .incoming-btn{
+    width:74px;height:74px;border-radius:50%;border:none;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .12s ease,filter .15s ease;
+    box-shadow:0 4px 18px rgba(0,0,0,0.5);
+  }
+  .incoming-btn:active{transform:scale(.93);}
+  .incoming-btn svg{width:30px;height:30px;}
+  .incoming-btn.decline{background:var(--red);color:#fff;}
+  .incoming-btn.decline:hover{filter:brightness(1.1);}
+  .incoming-btn.accept{background:var(--green);color:#0a0a0a;animation:acceptPulse 1.4s ease-in-out infinite;}
+  .incoming-btn.accept:hover{filter:brightness(1.1);}
+  @keyframes acceptPulse{0%,100%{box-shadow:0 4px 18px rgba(0,0,0,0.5),0 0 0 0 rgba(83,252,24,.5);}50%{box-shadow:0 4px 18px rgba(0,0,0,0.5),0 0 0 12px rgba(83,252,24,0);}}
+  .incoming-labels{
+    display:flex;gap:64px;margin-top:12px;
+    font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;
+    color:#888;letter-spacing:.3px;
+  }
+  .incoming-labels span{width:74px;text-align:center;}
+  .counter{
+    background:var(--panel-2); border:1px solid var(--green); color:var(--green);
+    padding:7px 14px; border-radius:20px; font-size:13px; font-weight:700; letter-spacing:.5px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .counter .dot{width:8px; height:8px; border-radius:50%; background:var(--green); animation:blink 1.4s infinite;}
+  @keyframes blink{0%,100%{opacity:1;} 50%{opacity:.25;}}
 
-  .tb-settings{width:36px;height:36px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);
-    color:#888;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
-    font-size:16px;transition:color .15s,border-color .15s;}
-  .tb-settings:hover{color:var(--green);border-color:var(--green);}
+  .search{
+    background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    padding:9px 12px; color:var(--text); font-size:13px; width:200px;
+  }
+  .search:focus{outline:none; border-color:var(--green);}
 
-  /* ===== Console grid ===== */
-  .console-grid{flex:1;display:grid;grid-template-columns:280px 1fr 300px;gap:12px;
-    padding:12px;overflow:hidden;min-height:0;}
+  select{
+    background:var(--panel); border:1px solid var(--line); color:var(--text);
+    padding:9px 10px; border-radius:8px; font-size:13px;
+  }
 
-  .console-col{display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-height:0;}
-  .console-col::-webkit-scrollbar{width:6px;}
-  .console-col::-webkit-scrollbar-thumb{background:#262626;border-radius:3px;}
+  .alert-banner{
+    display:none; max-width:1100px; margin:16px auto 0; padding:13px 18px;
+    background:rgba(83,252,24,0.12); border:1px solid var(--green); border-radius:10px;
+    color:var(--green); font-weight:700; font-size:14px; letter-spacing:.5px;
+    text-align:center; animation:flash 1s infinite;
+  }
+  .alert-banner.show{display:block;}
+  @keyframes flash{0%,100%{background:rgba(83,252,24,0.12);} 50%{background:rgba(83,252,24,0.28);}}
 
-  /* Queue sections (left column) */
-  .qsec{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;}
-  .qsec-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:11.5px;
-    font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#aaa;}
-  .qsec-head .ic{font-size:14px;}
-  .qsec-count{margin-left:auto;background:var(--line);color:#ccc;font-size:11px;font-weight:800;
-    padding:2px 8px;border-radius:10px;}
-  .qsec.audio .qsec-count{background:rgba(83,252,24,.15);color:var(--green);}
-  .qsec.video .qsec-count{background:rgba(139,92,246,.18);color:var(--purple);}
-  .qsec.hold .qsec-count{background:rgba(245,166,35,.18);color:var(--amber);}
-  .qsec.onair .qsec-count{background:rgba(255,59,59,.18);color:var(--red);}
+  main{max-width:1100px; margin:0 auto; padding:0;}
+  .tab-content{padding:24px 18px 60px;}
 
-  .qcard{display:flex;align-items:center;gap:10px;padding:9px;border-radius:8px;
-    background:var(--panel2);border:1px solid transparent;margin-bottom:7px;cursor:pointer;
-    transition:border-color .15s;}
-  .qcard:hover{border-color:var(--line);}
-  .qcard:last-child{margin-bottom:0;}
-  .qcard-avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;
-    background:linear-gradient(135deg,#333,#1a1a1a);color:#fff;font-weight:800;font-size:13px;
-    display:flex;align-items:center;justify-content:center;}
-  .qcard-body{flex:1;min-width:0;}
-  .qcard-name{font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .qcard-city{font-size:10.5px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .qcard-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;}
-  .qcard-time{font-family:'Courier New',monospace;font-size:11px;color:#888;}
-  .qcard-tag{font-size:9px;font-weight:800;padding:1px 6px;border-radius:5px;text-transform:uppercase;}
-  .qcard-tag.hold{background:rgba(245,166,35,.2);color:var(--amber);}
-  .qcard-tag.onair{background:var(--red);color:#fff;animation:blink 1s infinite;}
-  .qsec-showall{display:block;width:100%;text-align:left;background:none;border:none;color:var(--green);
-    font-size:11.5px;font-weight:700;cursor:pointer;padding:4px 2px 0;}
-  .qsec-empty{color:#555;font-size:11.5px;font-style:italic;padding:6px 2px;}
+  .empty{
+    text-align:center; color:var(--sub); padding:80px 20px; font-size:14px;
+  }
+  .empty .ic{font-size:40px; margin-bottom:14px; opacity:.5;}
 
-  /* ===== Center stage ===== */
-  .stage{background:var(--panel);border:1px solid var(--line);border-radius:10px;
-    padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    min-height:260px;text-align:center;position:relative;}
+  .queue{display:flex; flex-direction:column; gap:12px;}
 
-  .stage-idle{color:#444;}
-  .stage-idle .ic{font-size:40px;margin-bottom:10px;opacity:.5;}
-  .stage-idle .txt{font-size:13px;}
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    transition:border-color .15s ease;
+  }
+  .card.new{border-color:var(--green); box-shadow:0 0 0 1px rgba(83,252,24,0.25);}
+  .card.approved{opacity:.55;}
 
-  .incoming-kind-tag{display:flex;align-items:center;gap:8px;color:var(--green);font-size:12px;
-    font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;
-    position:absolute;top:16px;left:20px;}
-  .incoming-kind-tag .dot{width:8px;height:8px;border-radius:50%;background:currentColor;animation:blink 1s infinite;}
-  .incoming-kind-tag.video{color:var(--purple);}
+  .play-btn{
+    width:46px; height:46px; min-width:46px; border-radius:50%; border:2px solid var(--green);
+    background:transparent; color:var(--green); cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:background .15s ease;
+  }
+  .play-btn:hover{background:rgba(83,252,24,0.12);}
+  .play-btn.playing{background:var(--green); color:#0a0a0a;}
+  .play-btn svg{width:18px; height:18px;}
 
-  .stage-avatar-ring{width:170px;height:170px;border-radius:50%;border:3px solid var(--green);
-    display:flex;align-items:center;justify-content:center;margin-bottom:16px;position:relative;
-    box-shadow:0 0 40px rgba(83,252,24,.25);animation:ringpulse 1.6s ease-in-out infinite;}
-  @keyframes ringpulse{0%,100%{box-shadow:0 0 30px rgba(83,252,24,.2);}50%{box-shadow:0 0 55px rgba(83,252,24,.4);}}
-  .stage-avatar{width:150px;height:150px;border-radius:50%;background:linear-gradient(135deg,#333,#161616);
-    display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:800;color:#fff;
-    overflow:hidden;}
-  .stage-name{font-size:24px;font-weight:900;margin-bottom:4px;}
-  .stage-city{color:#777;font-size:13px;margin-bottom:22px;}
-  .stage-actions{display:flex;gap:20px;}
-  .stage-btn{display:flex;flex-direction:column;align-items:center;gap:8px;background:none;border:none;
-    cursor:pointer;color:#fff;}
-  .stage-btn-circle{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-    box-shadow:0 4px 16px rgba(0,0,0,.5);transition:transform .12s;}
-  .stage-btn:active .stage-btn-circle{transform:scale(.92);}
-  .stage-btn-circle svg{width:24px;height:24px;}
-  .stage-btn.accept .stage-btn-circle{background:var(--green);color:#000;}
-  .stage-btn.decline .stage-btn-circle{background:var(--red);color:#fff;}
-  .stage-btn-label{font-size:11.5px;font-weight:700;color:#999;}
+  .card-body{flex:1; min-width:200px;}
+  .card-top{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px;}
+  .card-name{font-weight:800; font-size:15px;}
+  .card-city{color:var(--sub); font-size:12px;}
+  .card-time{color:#5a5a5a; font-size:11px; margin-left:auto;}
+  .card-song{color:var(--green); font-size:12.5px; margin-bottom:6px;}
+  .card-song::before{content:"♪ ";}
 
-  /* Active call view */
-  .active-view{width:100%;display:none;flex-direction:column;gap:0;}
-  .active-view.show{display:flex;}
-  .active-video-wrap{position:relative;width:100%;aspect-ratio:16/10;background:#000;border-radius:10px;
-    overflow:hidden;border:1px solid var(--line);}
-  .active-video-wrap video{width:100%;height:100%;object-fit:cover;}
-  .active-video-header{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;
-    padding:12px 14px;background:linear-gradient(180deg,rgba(0,0,0,.7),transparent);}
-  .active-video-avatar{width:32px;height:32px;border-radius:50%;background:#333;display:flex;
-    align-items:center;justify-content:center;font-size:12px;font-weight:800;overflow:hidden;flex-shrink:0;}
-  .active-video-info{flex:1;text-align:left;}
-  .active-video-name{font-size:13.5px;font-weight:800;}
-  .active-video-status{font-size:10.5px;color:var(--green);display:flex;align-items:center;gap:5px;}
-  .active-video-status .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 1s infinite;}
-  .active-video-timer{font-family:'Courier New',monospace;font-size:12.5px;background:rgba(0,0,0,.5);
-    padding:4px 10px;border-radius:6px;}
-  .active-pip{position:absolute;bottom:14px;right:14px;width:110px;height:82px;border-radius:8px;
-    overflow:hidden;border:2px solid rgba(255,255,255,.2);background:#111;display:flex;align-items:center;
-    justify-content:center;font-size:11px;color:#666;}
+  .waveform{
+    display:flex; align-items:center; gap:2px; height:24px; margin:6px 0;
+  }
+  .waveform span{
+    width:3px; background:#3a3a3a; border-radius:2px;
+  }
+  .waveform.active span{background:var(--green);}
 
-  .active-audio-wrap{display:flex;align-items:center;gap:16px;padding:16px 4px;}
-  .active-audio-avatar{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#333,#161616);
-    display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;flex-shrink:0;}
-  .active-audio-info{flex:1;text-align:left;}
-  .active-audio-name{font-size:16px;font-weight:800;}
-  .active-audio-status{font-size:12px;color:var(--sub);}
-  .active-audio-timer{font-family:'Courier New',monospace;font-size:16px;color:var(--green);}
+  .duration{color:var(--sub); font-size:11px; font-variant-numeric:tabular-nums;}
 
-  .active-controls{display:flex;gap:10px;padding:12px 4px 2px;flex-wrap:wrap;justify-content:center;}
-  .ac-btn{display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--panel2);
-    border:1px solid var(--line);border-radius:10px;padding:10px 16px;cursor:pointer;color:#ccc;
-    min-width:64px;transition:border-color .15s,color .15s;}
-  .ac-btn:hover{border-color:#3a3a3a;}
-  .ac-btn.active{border-color:var(--red);color:var(--red);background:rgba(255,59,59,.08);}
-  .ac-btn.live{border-color:var(--green);color:var(--green);background:rgba(83,252,24,.08);}
-  .ac-btn.end{border-color:var(--red);color:var(--red);}
-  .ac-btn.end:hover{background:var(--red);color:#fff;}
-  .ac-btn-ic{font-size:17px;}
-  .ac-btn-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
+  .card-actions{display:flex; gap:8px; flex-wrap:wrap;}
+  .ibtn{
+    padding:9px 14px; border-radius:7px; border:1px solid var(--line); background:var(--panel-2);
+    color:var(--text); cursor:pointer; font-size:12px; font-weight:700; letter-spacing:.3px;
+    display:flex; align-items:center; gap:6px; transition:filter .15s ease;
+  }
+  .ibtn:hover{filter:brightness(1.3);}
+  .ibtn.approve{border-color:var(--green); color:var(--green);}
+  .ibtn.delete{border-color:var(--red); color:var(--red);}
+  .ibtn.download{color:var(--sub);}
+  .ibtn.favorite{color:#f5c518;}
+  .ibtn.favorite.active{background:#f5c518; color:#0a0a0a; border-color:#f5c518;}
+  .ibtn.on-air{color:var(--red); border-color:var(--red); animation:pulse-red 1.5s infinite;}
+  .ibtn.on-air-btn{color:var(--red); border-color:var(--red); font-weight:900;}
+  .ibtn.on-air-btn:hover{background:var(--red); color:#fff;}
+  .ibtn.on-air-btn.live{background:var(--red); color:#fff; animation:pulse-red 1.5s infinite;}
+  @keyframes pulse-red{0%,100%{box-shadow:0 0 0 0 rgba(255,59,59,0.4);} 50%{box-shadow:0 0 0 6px rgba(255,59,59,0);}}
 
-  /* History panel */
-  .history-panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;
-    padding:16px;margin-top:12px;flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
-  .history-tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin-bottom:12px;flex-shrink:0;}
-  .history-tab{background:none;border:none;color:#666;font-size:12px;font-weight:800;letter-spacing:.5px;
-    text-transform:uppercase;padding:0 0 10px;cursor:pointer;border-bottom:2px solid transparent;
-    display:flex;align-items:center;gap:6px;}
-  .history-tab.active{color:var(--green);border-bottom-color:var(--green);}
-  .history-tab .badge{background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;}
-  .history-table-wrap{flex:1;overflow-y:auto;min-height:0;}
-  .history-table{width:100%;border-collapse:collapse;font-size:12.5px;}
-  .history-table th{text-align:left;color:#666;font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;
-    padding:0 10px 8px;font-weight:700;position:sticky;top:0;background:var(--panel);}
-  .history-table td{padding:9px 10px;border-top:1px solid var(--line);vertical-align:middle;}
-  .ht-caller{display:flex;align-items:center;gap:8px;}
-  .ht-avatar{width:26px;height:26px;border-radius:50%;background:#2a2a2a;display:flex;align-items:center;
-    justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;}
-  .ht-type{display:flex;align-items:center;gap:5px;font-size:11.5px;}
-  .ht-type.audio{color:var(--green);}
-  .ht-type.video{color:var(--purple);}
-  .ht-status{font-weight:700;font-size:11.5px;}
-  .ht-status.completed{color:var(--green);}
-  .ht-status.missed{color:var(--red);}
-  .ht-actions{display:flex;gap:6px;}
-  .ht-actions button, .ht-actions a{width:26px;height:26px;border-radius:6px;background:var(--panel2);
-    border:1px solid var(--line);color:#999;display:flex;align-items:center;justify-content:center;
-    cursor:pointer;font-size:11px;text-decoration:none;}
-  .ht-actions button:hover, .ht-actions a:hover{border-color:var(--green);color:var(--green);}
-  .ht-actions .del:hover{border-color:var(--red);color:var(--red);}
-  .ht-actions .fav.active{color:var(--amber);border-color:var(--amber);}
-  .history-viewall{display:block;margin:12px auto 0;background:none;border:1px solid var(--line);
-    color:var(--green);padding:8px 20px;border-radius:8px;font-size:11.5px;font-weight:700;
-    text-transform:uppercase;letter-spacing:.5px;cursor:pointer;flex-shrink:0;}
-  .history-empty{color:#555;font-size:12.5px;text-align:center;padding:24px;}
+  .on-air-badge{
+    display:none; align-items:center; gap:6px; background:var(--red); color:#fff;
+    font-size:11px; font-weight:900; letter-spacing:1.5px; padding:5px 10px; border-radius:4px;
+    text-transform:uppercase;
+  }
+  .on-air-badge.show{display:flex;}
+  .on-air-dot{width:8px; height:8px; border-radius:50%; background:#fff; animation:blink 1s infinite;}
 
-  /* ===== Right column ===== */
-  .rsec{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;}
-  .rsec-title{font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#888;
-    margin-bottom:12px;}
+  .signout-btn{
+    background:transparent; border:1px solid var(--line); color:var(--sub);
+    padding:8px 14px; border-radius:8px; font-size:12px; font-weight:700;
+    cursor:pointer; letter-spacing:.3px; transition:color .15s ease, border-color .15s ease;
+  }
+  .signout-btn:hover{color:var(--red); border-color:var(--red);}
 
-  .bc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .bc-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 6px;border-radius:9px;
-    border:none;cursor:pointer;color:#fff;font-size:11px;font-weight:800;letter-spacing:.5px;
-    text-transform:uppercase;transition:filter .15s,opacity .15s;}
-  .bc-btn:hover{filter:brightness(1.12);}
-  .bc-btn:disabled{opacity:.35;cursor:not-allowed;}
-  .bc-btn-ic{font-size:19px;}
-  .bc-btn.openline{background:var(--green);color:#000;}
-  .bc-btn.onair{background:var(--red);}
-  .bc-btn.onair.active{box-shadow:0 0 0 2px #fff inset;animation:pulse-red 1.4s infinite;}
-  @keyframes pulse-red{0%,100%{box-shadow:0 0 0 0 rgba(255,59,59,.5);}50%{box-shadow:0 0 0 8px rgba(255,59,59,0);}}
-  .bc-btn.hold{background:var(--amber);color:#1a1200;}
-  .bc-btn.drop{background:#b91c1c;}
-  .bc-btn.preview{background:var(--blue);}
-  .bc-btn.videoline{background:var(--purple);}
-  .bc-btn.videoline .bc-btn-ic{font-size:19px;}
+  .home-btn{
+    display:inline-flex; align-items:center; gap:6px;
+    background:transparent; border:1px solid var(--line); color:var(--sub);
+    padding:8px 14px; border-radius:8px; font-size:12px; font-weight:700;
+    text-decoration:none; letter-spacing:.3px; transition:color .15s ease, border-color .15s ease;
+  }
+  .home-btn:hover{color:var(--green); border-color:var(--green);}
 
-  .qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .qa-btn{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 4px;border-radius:8px;
-    background:var(--panel2);border:1px solid var(--line);cursor:pointer;color:#aaa;font-size:10px;
-    font-weight:700;transition:border-color .15s,color .15s;}
-  .qa-btn:hover{border-color:#3a3a3a;}
-  .qa-btn.active{border-color:var(--amber);color:var(--amber);background:rgba(245,166,35,.08);}
-  .qa-btn-ic{font-size:15px;}
+  /* ── Live Call Cards ── */
+  .call-card{
+    background:var(--panel); border:2px solid var(--green); border-radius:12px;
+    padding:18px; margin-bottom:12px;
+  }
+  .call-card.on-hold{ border-color:var(--gold,#f5a623); }
+  .call-card.ended{ border-color:var(--line); opacity:.5; }
+  .call-card-top{
+    display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;
+  }
+  .call-card-ring{
+    width:46px; height:46px; border-radius:50%; border:2px solid var(--green);
+    display:flex; align-items:center; justify-content:center; color:var(--green);
+    animation:callring 1.2s ease-in-out infinite; flex-shrink:0;
+  }
+  .call-card-ring.active{ animation:none; border-color:var(--green); }
+  .call-card-ring.on-hold{ border-color:var(--gold,#f5a623); color:var(--gold,#f5a623); animation:none; }
+  .call-card-ring.ended{ border-color:var(--sub); color:var(--sub); animation:none; }
+  @keyframes callring{
+    0%,100%{box-shadow:0 0 0 0 rgba(83,252,24,.5);}
+    50%{box-shadow:0 0 0 8px rgba(83,252,24,0);}
+  }
+  .call-card-ring svg{ width:20px; height:20px; }
+  .call-card-info{ flex:1; }
+  .call-card-name{ font-size:16px; font-weight:900; }
+  .call-card-city{ color:var(--sub); font-size:12px; margin-top:2px; }
+  .call-card-status{
+    font-size:11px; letter-spacing:1px; text-transform:uppercase;
+    color:var(--green); font-weight:700; margin-top:4px;
+  }
+  .call-card-timer{ font-size:22px; font-weight:900; font-variant-numeric:tabular-nums; color:var(--text); }
+  .call-card-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .cbtn{
+    flex:1; padding:11px 10px; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--text); cursor:pointer;
+    font-size:12px; font-weight:700; letter-spacing:.3px; min-width:80px;
+    transition:filter .15s ease;
+  }
+  .cbtn:hover{ filter:brightness(1.3); }
+  .cbtn.answer{ border-color:var(--green); color:var(--green); }
+  .cbtn.end{ border-color:var(--red); color:var(--red); }
+  .cbtn.hold{ border-color:#f5a623; color:#f5a623; }
+  .cbtn.live{ background:var(--red); border-color:var(--red); color:#fff; font-weight:900; animation:pulse-red 1.5s infinite; }
+  .badge{
+    font-size:10px; padding:3px 8px; border-radius:10px; text-transform:uppercase; letter-spacing:.5px;
+    background:rgba(83,252,24,0.15); color:var(--green); font-weight:700;
+  }
+  .badge.approved{background:rgba(255,255,255,0.08); color:var(--sub);}
 
-  .ci-row{display:flex;align-items:center;gap:8px;font-size:12px;color:#ccc;margin-bottom:9px;}
-  .ci-row .ic{color:#666;font-size:13px;width:16px;text-align:center;flex-shrink:0;}
-  .ci-row.good{color:var(--green);}
-  .ci-copy{margin-left:auto;background:none;border:none;color:#555;cursor:pointer;font-size:11px;}
-  .ci-viewbtn{display:block;width:100%;text-align:center;background:var(--panel2);border:1px solid var(--line);
-    color:var(--green);padding:8px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;
-    margin-top:6px;text-transform:uppercase;letter-spacing:.4px;}
-  .ci-empty{color:#555;font-size:12px;font-style:italic;}
-  .ci-note-input{width:100%;background:var(--black);border:1px solid var(--line);border-radius:6px;
-    color:#ddd;font-size:11.5px;padding:6px 8px;margin-top:6px;box-sizing:border-box;font-family:inherit;}
+  audio.hiddenplayer{display:none;}
 
-  .sysmix{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-  .sys-row{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:#aaa;
-    margin-bottom:8px;}
-  .sys-row .sys-ic{color:var(--green);}
-  .sys-row.bad .sys-ic{color:var(--red);}
-  .sys-row .rec-dot{width:7px;height:7px;border-radius:50%;background:var(--red);margin-right:5px;
-    animation:blink 1s infinite;display:inline-block;}
+  .on-air-badge{
+    display:none; align-items:center; gap:7px; padding:7px 14px; border-radius:20px;
+    background:rgba(255,59,59,0.15); border:1px solid var(--red); color:var(--red);
+    font-size:13px; font-weight:700; letter-spacing:.5px;
+  }
+  .on-air-badge.show{display:flex;}
+  .on-air-badge .dot{width:8px; height:8px; border-radius:50%; background:var(--red); animation:blink 1s infinite;}
+  .signout-btn{
+    background:transparent; border:1px solid var(--line); color:var(--sub);
+    padding:7px 12px; border-radius:8px; font-size:12px; cursor:pointer; font-weight:700;
+  }
+  .signout-btn:hover{border-color:var(--red); color:var(--red);}
+  .ibtn.favorite{color:#f5a623; border-color:#f5a623;}
+  .ibtn.favorite.active{background:#f5a623; color:#0a0a0a;}
+  .ibtn.skip{color:var(--sub);}
+  .card.favorited{border-left:3px solid #f5a623;}
 
-  .mixer{display:flex;gap:8px;justify-content:center;}
-  .mixer-ch{display:flex;flex-direction:column;align-items:center;gap:6px;}
-  .mixer-track{width:20px;height:90px;background:#1a1a1a;border-radius:4px;position:relative;overflow:hidden;
-    border:1px solid var(--line);}
-  .mixer-fill{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(180deg,var(--red),var(--amber) 35%,var(--green) 65%);
-    height:35%;transition:height .1s ease;}
-  .mixer-lbl{font-size:9px;color:#666;font-weight:700;}
+  /* ── Call Center ── */
+  .active-call-panel{
+    background:linear-gradient(135deg, rgba(83,252,24,0.06), rgba(10,10,10,0));
+    border:1px solid var(--green); border-radius:14px; padding:20px; margin-bottom:20px;
+    box-shadow:0 0 30px rgba(83,252,24,0.1);
+  }
+  .active-call-header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:8px;}
+  .active-call-badge{font-size:11px; color:var(--green); letter-spacing:2px;
+    text-transform:uppercase; font-weight:900; margin-bottom:4px;}
+  .active-call-name{font-size:22px; font-weight:900; color:var(--text);}
+  .active-call-city{font-size:12px; color:var(--sub);}
+  .active-call-timer{font-size:36px; font-weight:900; color:var(--green);
+    font-variant-numeric:tabular-nums; flex-shrink:0;}
+  .active-call-status{
+    font-size:12px; color:var(--sub); letter-spacing:1.5px; text-transform:uppercase;
+    margin-bottom:16px; font-family:Arial,Helvetica,sans-serif;
+  }
+  .active-call-status.on-air{color:var(--red); font-weight:900;}
+  .active-call-status.on-hold{color:#f5a623;}
 
-  /* ===== Footer ===== */
-  .console-footer{display:flex;align-items:center;background:linear-gradient(0deg,#131313,#0d0d0d);
-    border-top:1px solid var(--line);padding:10px 20px;flex-shrink:0;gap:6px;}
-  .cf-btn{display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;
-    color:#777;cursor:pointer;font-size:10.5px;font-weight:700;flex:1;position:relative;
-    text-decoration:none;padding:4px;}
-  .cf-btn .ic{font-size:19px;}
-  .cf-btn.active{color:var(--green);}
-  .cf-btn .badge{position:absolute;top:-2px;right:26%;background:var(--red);color:#fff;font-size:9px;
-    font-weight:800;padding:1px 5px;border-radius:8px;}
-  .cf-end{background:var(--red);color:#fff;border:none;border-radius:8px;padding:11px 22px;
-    font-weight:800;font-size:12px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;
-    display:flex;align-items:center;gap:8px;flex-shrink:0;}
-  .cf-end:hover{filter:brightness(1.1);}
-  .cf-end .dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:blink 1s infinite;}
+  .preview-video-wrap{
+    position:relative; width:100%; max-width:360px; aspect-ratio:4/3;
+    background:#050505; border-radius:12px; overflow:hidden;
+    border:1px solid var(--line); margin-bottom:14px;
+  }
+  .preview-video-wrap video{ width:100%; height:100%; object-fit:cover; }
+  .preview-video-status{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    text-align:center; padding:16px; color:var(--sub); font-size:12.5px;
+    font-family:Arial,Helvetica,sans-serif;
+  }
 
-  /* Settings dropdown */
-  .settings-pop{position:fixed;top:60px;right:18px;background:var(--panel2);border:1px solid var(--line);
-    border-radius:10px;padding:14px;width:240px;z-index:150;display:none;box-shadow:0 8px 30px rgba(0,0,0,.6);}
-  .settings-pop.show{display:block;}
-  .settings-pop-row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;
-    padding:8px 0;border-bottom:1px solid var(--line);}
-  .settings-pop-row:last-child{border-bottom:none;}
-  .settings-signout{width:100%;margin-top:8px;background:none;border:1px solid var(--red);color:var(--red);
-    padding:8px;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;}
+  .active-call-controls{display:flex; gap:10px; flex-wrap:wrap;}
+  .cbtn{
+    flex:1; min-width:100px; padding:12px 10px; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--text); cursor:pointer; font-size:13px;
+    font-weight:700; letter-spacing:.3px; transition:all .15s ease;
+  }
+  .cbtn:hover{filter:brightness(1.3);}
+  .cbtn:disabled{opacity:.3; cursor:not-allowed;}
+  .cbtn-hold{border-color:#f5a623; color:#f5a623;}
+  .cbtn-hold.on-hold{background:#f5a623; color:#0a0a0a;}
+  .cbtn-mute{border-color:var(--sub); color:var(--sub);}
+  .cbtn-mute.muted{background:var(--red); border-color:var(--red); color:#fff;}
+  .cbtn-record{border-color:#e74c3c; color:#e74c3c;}
+  .cbtn-record.recording{background:#e74c3c; color:#fff; animation:pulse-red 1.2s infinite;}
+  .cbtn-air{border-color:var(--red); color:var(--red); font-weight:900;}
+  .cbtn-air.live{background:var(--red); color:#fff; animation:pulse-red 1.5s infinite;}
+  .cbtn-end{border-color:var(--red); color:var(--red);}
+  .record-status{
+    font-family:Arial,sans-serif; font-size:12px; color:var(--sub);
+    text-align:center; min-height:18px; margin-top:8px; letter-spacing:.5px;
+  }
+  .record-status.saved{color:var(--green);}
 
-  ::placeholder{color:#555;}
-  @media(max-width:1100px){
-    .console-grid{grid-template-columns:220px 1fr 260px;}
+  /* History cards */
+  .hist-card{
+    background:linear-gradient(180deg,#141414,#0a0a0a); border:1px solid #262626; border-radius:12px;
+    padding:14px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    margin-bottom:10px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .hist-card.missed{border-color:rgba(255,59,59,0.3); background:linear-gradient(180deg,#1a0e0e,#0a0a0a);}
+  .hist-missed-badge{
+    display:inline-block; margin-left:8px; padding:2px 8px; border-radius:8px;
+    background:rgba(255,59,59,0.15); color:var(--red); font-size:10px; font-weight:800;
+    letter-spacing:.5px; text-transform:uppercase; vertical-align:middle;
+  }
+  .hist-icon{font-size:22px; min-width:28px;}
+  .hist-body{flex:1; min-width:160px;}
+  .hist-name{font-weight:800; font-size:14px;}
+  .hist-meta{font-size:12px; color:var(--sub); margin-top:2px; font-family:Arial,sans-serif;}
+  .hist-right{display:flex; flex-direction:column; align-items:flex-end; gap:6px;}
+  .hist-dur{font-family:'Courier New',monospace; font-size:13px; color:var(--green); font-weight:700; font-variant-numeric:tabular-nums; text-shadow:0 0 8px rgba(83,252,24,0.4);}
+  .hist-time{font-size:11px; color:#5a5a5a;}
+  .hist-play{
+    padding:6px 12px; border-radius:6px; border:1px solid var(--green); background:transparent;
+    color:var(--green); font-size:11px; font-weight:700; cursor:pointer; text-decoration:none;
+    display:inline-block; transition:background .15s, color .15s;
+  }
+  .hist-play:hover{background:var(--green); color:#0a0a0a;}
+  .hist-delete{
+    padding:6px 10px; border-radius:6px; border:1px solid var(--red); background:transparent;
+    color:var(--red); font-size:11px; cursor:pointer; transition:background .15s, color .15s;
+  }
+  .hist-delete:hover{background:var(--red); color:#fff;}
+
+  /* ── Recordings Section ── */
+  .rec-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px; display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap;
+    margin-bottom:10px;
+  }
+  .rec-icon{ font-size:24px; padding-top:2px; }
+  .rec-body{ flex:1; min-width:160px; }
+  .rec-name{ font-weight:800; font-size:14px; margin-bottom:3px; }
+  .rec-meta{ font-size:12px; color:var(--sub); font-family:Arial,sans-serif; }
+  .rec-actions{ width:100%; display:flex; flex-direction:column; gap:8px; }
+  .rec-audio{ width:100%; height:36px; margin-top:4px; filter:invert(1) hue-rotate(70deg); }
+  .rec-btns{ display:flex; gap:8px; }
+  .rbtn{
+    padding:8px 14px; border-radius:7px; font-size:12px; font-weight:700;
+    cursor:pointer; text-decoration:none; display:inline-block;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--text);
+    transition:filter .15s, border-color .15s;
+  }
+  .rbtn:hover{ filter:brightness(1.3); }
+  .rbtn-save{ border-color:var(--green); color:var(--green); }
+  .rbtn-save:hover{ background:var(--green); color:#0a0a0a; }
+  .rbtn-del{ border-color:var(--red); color:var(--red); }
+  .rbtn-del:hover{ background:var(--red); color:#fff; }
+  .cbtn-end:hover{background:var(--red); color:#fff;}
+
+  .calls-section-title{
+    display:flex;align-items:center;gap:8px;
+    font-size:11px; color:var(--sub); text-transform:uppercase;
+    letter-spacing:1.5px; margin-bottom:10px;
+  }
+  .calls-section-title::before{
+    content:'';width:6px;height:6px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 6px rgba(83,252,24,0.8);flex-shrink:0;
+  }
+
+  .call-card{
+    background:var(--panel); border:1px solid var(--green); border-radius:12px;
+    padding:16px 18px; display:flex; align-items:center; gap:16px;
+    flex-wrap:wrap; margin-bottom:12px;
+    box-shadow:0 0 18px rgba(83,252,24,0.12); animation:flash-new 2s ease;
+  }
+  @keyframes flash-new{
+    0%,100%{box-shadow:0 0 18px rgba(83,252,24,.12);}
+    50%{box-shadow:0 0 30px rgba(83,252,24,.4);}
+  }
+  .call-ring-icon{
+    width:46px; height:46px; min-width:46px; border-radius:50%;
+    border:2px solid var(--green); display:flex; align-items:center; justify-content:center;
+    color:var(--green); animation:ringpulse 1.2s ease-in-out infinite;
+  }
+  @keyframes ringpulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(83,252,24,.5);}
+    50%{box-shadow:0 0 0 8px rgba(83,252,24,0);}
+  }
+  .call-card-body{flex:1; min-width:160px;}
+  .call-card-name{font-size:16px; font-weight:800; margin-bottom:2px;}
+  .call-card-city{font-size:12px; color:var(--sub);}
+  .call-card-time{font-size:11px; color:#555; margin-top:3px;}
+  .call-card-actions{display:flex; gap:8px;}
+  .ibtn-answer{background:var(--green); color:#0a0a0a; border:none; font-weight:900;}
+  .ibtn-reject{border-color:var(--red); color:var(--red);}
+
+  /* incoming call notification in header */
+  .call-counter{
+    display:none; align-items:center; gap:8px; background:rgba(83,252,24,0.12);
+    border:1px solid var(--green); color:var(--green); padding:6px 12px;
+    border-radius:20px; font-size:13px; font-weight:700; animation:blink-border 1s infinite;
+  }
+  .call-counter.show{display:flex;}
+  @keyframes blink-border{0%,100%{border-color:var(--green);}50%{border-color:transparent;}}
+
+  @media(max-width:640px){
+    header{padding:14px 16px;}
+    .brand h1{font-size:14px;}
+    .header-right{gap:10px;}
+    .search{width:100%;order:10;}
+    .card{flex-direction:column; align-items:stretch;}
+    .card-actions{justify-content:stretch;}
+    .ibtn{flex:1; justify-content:center;}
+    .tab-nav{padding:0 12px; overflow-x:auto; -webkit-overflow-scrolling:touch;}
+    .tab-btn{padding:12px 12px; font-size:12px; white-space:nowrap;}
+    .call-card-actions, .active-call-controls{flex-direction:column;}
+    .active-call-controls .cbtn{width:100%;}
+    .analytics-grid{grid-template-columns:repeat(2,1fr);}
+    .console-toggle{padding:8px 11px;font-size:10px;}
+  }
+
+  /* ── Tab Navigation ── */
+  .tab-nav{
+    display:flex; gap:0; border-bottom:1px solid var(--line);
+    background:var(--panel); padding:0 24px; position:sticky; top:73px; z-index:4;
+  }
+  .tab-btn{
+    background:transparent; border:none; border-bottom:2px solid transparent;
+    color:var(--sub); font-size:13px; font-weight:700; padding:14px 18px;
+    cursor:pointer; letter-spacing:.5px; transition:color .15s ease, border-color .15s ease;
+    margin-bottom:-1px;
+  }
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{color:var(--green); border-bottom-color:var(--green);}
+
+  /* ── Analytics ── */
+  .analytics-grid{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
+    gap:12px; margin-bottom:24px;
+  }
+  .stat-card{
+    position:relative;overflow:hidden;
+    background:linear-gradient(180deg,#161616,#0a0a0a);
+    border:1px solid #262626; border-radius:10px;
+    padding:20px 16px 16px; text-align:center;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 6px rgba(0,0,0,0.4);
+  }
+  .stat-card::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:2px;
+    background:linear-gradient(90deg,transparent,var(--green),transparent);
+    opacity:.6;
+  }
+  .stat-value{
+    font-family:'Courier New',monospace;
+    font-size:34px; font-weight:900; color:var(--green); letter-spacing:-1px; line-height:1;
+    margin-bottom:8px;
+    text-shadow:0 0 12px rgba(83,252,24,0.5);
+  }
+  .stat-label{
+    font-size:10.5px; color:#666; text-transform:uppercase; letter-spacing:1.5px;
+  }
+  .analytics-section{
+    background:linear-gradient(180deg,#141414,#0a0a0a); border:1px solid #262626; border-radius:10px;
+    padding:18px; margin-bottom:16px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .section-title{
+    display:flex;align-items:center;gap:8px;
+    margin:0 0 14px; font-size:11.5px; color:var(--green); text-transform:uppercase; letter-spacing:2px;
+  }
+  .section-title::before{
+    content:'';width:6px;height:6px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 6px rgba(83,252,24,0.8);flex-shrink:0;
+  }
+  .breakdown-list{display:flex; flex-direction:column; gap:8px;}
+  .breakdown-row{
+    display:flex; align-items:center; gap:10px;
+  }
+  .breakdown-label{font-size:13px; flex:1; color:var(--text);}
+  .breakdown-bar-wrap{flex:2; background:var(--black); border-radius:4px; height:6px; overflow:hidden;}
+  .breakdown-bar{height:100%; background:var(--green); border-radius:4px; transition:width .4s ease;}
+  .breakdown-count{font-size:12px; color:var(--sub); font-variant-numeric:tabular-nums; min-width:24px; text-align:right;}
+
+  /* ── Tips ── */
+  .tips-header{margin-bottom:16px;}
+  .tips-log{display:flex; flex-direction:column; gap:10px;}
+  .tip-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:14px 16px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .tip-method{
+    font-size:20px; line-height:1; min-width:28px; text-align:center;
+  }
+  .tip-body{flex:1;}
+  .tip-name{font-weight:700; font-size:14px;}
+  .tip-note{font-size:12px; color:var(--sub); margin-top:2px;}
+  .tip-time{font-size:11px; color:#5a5a5a; margin-left:auto;}
+  .tip-amount{
+    font-size:13px; font-weight:700; color:var(--green); background:rgba(83,252,24,0.1);
+    padding:4px 10px; border-radius:6px;
+  }
+
+  .login-screen{
+    position:fixed; inset:0; background:var(--black); z-index:100;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .login-box{
+    width:100%; max-width:340px; background:var(--panel); border:1px solid var(--line);
+    border-radius:14px; padding:32px 26px; text-align:center;
+  }
+  .login-brand{
+    color:var(--green); font-weight:900; font-size:18px; letter-spacing:1.5px; margin-bottom:4px;
+  }
+  .login-sub{
+    color:var(--sub); font-size:12.5px; margin-bottom:22px;
+  }
+  .login-box input{
+    width:100%; background:var(--black); border:1px solid var(--line); border-radius:8px;
+    padding:12px 14px; color:var(--text); font-size:14px; margin-bottom:12px;
+    box-sizing:border-box;
+  }
+  .login-box input:focus{outline:none; border-color:var(--green);}
+  .login-box button{
+    width:100%; padding:13px; border-radius:8px; border:none; background:var(--green);
+    color:#0a0a0a; font-weight:700; font-size:13px; text-transform:uppercase; letter-spacing:.5px;
+    cursor:pointer; margin-top:4px;
+  }
+  .login-box button:hover{filter:brightness(1.1);}
+  .login-error{
+    color:var(--red); font-size:12.5px; margin-top:12px; min-height:16px;
   }
 </style>
 </head>
 <body>
+
+<div class="bolt-wrap">
+  <div class="bolt-tl">⚡</div>
+  <div class="bolt-tr">⚡</div>
+</div>
+<div class="ambient"></div>
 
 <div class="login-screen" id="loginScreen">
   <div class="login-box">
@@ -346,246 +655,268 @@
   </div>
 </div>
 
-<div id="dashboardApp">
+<div id="dashboardApp" style="display:none;">
 
-  <!-- ===== Top bar ===== -->
-  <header class="topbar">
-    <div class="tb-brand">
-      <div class="tb-logo">⚡</div>
-      <div class="tb-brand-text">LIVE CALLER<span>STUDIO</span></div>
+<header>
+  <div class="brand">
+    <span class="bolt">⚡</span>
+    <div>
+      <h1>LIVE <span>CALLER</span> STUDIO</h1>
+      <small>PRODUCER DASHBOARD</small>
     </div>
-
-    <div class="tb-onair off" id="tbOnAir"><span class="dot"></span><span id="tbOnAirText">OFF AIR</span></div>
-
-    <div class="tb-timer">
-      <div class="val" id="tbStreamTime">00:00:00</div>
-      <div class="lbl">Stream Time</div>
+  </div>
+  <div class="header-right">
+    <div class="broadcast-controls">
+      <button class="console-toggle open" id="linesToggleBtn" type="button" title="Toggle whether phone lines are accepting live calls">
+        <span class="console-led"></span>
+        <span id="linesToggleText">Lines Open</span>
+      </button>
+      <button class="console-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video guests can join">
+        <span class="console-led"></span>
+        <span id="videoToggleText">Video Open</span>
+      </button>
     </div>
+    <div class="call-counter" id="callCounter">📞 <span id="callCountNum">0</span> Incoming</div>
+    <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
+    <div class="counter"><span class="dot"></span><span id="queueCount">0 waiting</span></div>
+    <input class="search" id="searchInput" placeholder="Search name, city, song…">
+    <select id="filterSelect">
+      <option value="pending">Pending only</option>
+      <option value="all">All messages</option>
+      <option value="approved">Approved only</option>
+    </select>
+    <a class="home-btn" href="home.html">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Home
+    </a>
+    <button class="signout-btn" id="signOutBtn">Sign Out</button>
+  </div>
+</header>
 
-    <div class="tb-meter">
-      <div class="lbl">Mic Level</div>
-      <div class="tb-meter-row">
-        <div class="tb-meter-bars" id="micLevelBars"></div>
-        <div class="tb-meter-val" id="micLevelVal">— dB</div>
-      </div>
+<div class="alert-banner" id="alertBanner">🎤 Incoming Voice Message</div>
+
+<!-- Tab Navigation -->
+<nav class="tab-nav">
+  <button class="tab-btn active" data-tab="queue">📥 Queue</button>
+  <button class="tab-btn" data-tab="calls">📞 Calls</button>
+  <button class="tab-btn" data-tab="video">🎥 Video Guests</button>
+  <button class="tab-btn" data-tab="history">📋 History</button>
+  <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
+</nav>
+
+<main>
+  <!-- QUEUE TAB -->
+  <div class="tab-content" id="tab-queue">
+    <div id="emptyState" class="empty" style="display:none;">
+      <div class="ic">📭</div>
+      <div>No messages waiting. The queue's clear.</div>
     </div>
-
-    <div class="tb-meter">
-      <div class="lbl">Program Mix (approx.)</div>
-      <div class="tb-meter-row">
-        <div class="tb-meter-bars" id="programLevelBars"></div>
-        <div class="tb-meter-val" id="programLevelVal">—</div>
-      </div>
-    </div>
-
-    <div class="tb-stream">
-      <div class="lbl">Stream Status</div>
-      <div class="val" id="tbStreamStatus">Checking…</div>
-    </div>
-
-    <div class="tb-spacer"></div>
-
-    <div class="tb-host">
-      <div class="tb-host-avatar" id="tbHostAvatar">?</div>
-      <div class="tb-host-name" id="tbHostName">Host<small>Producer</small></div>
-    </div>
-    <button class="tb-settings" id="tbSettingsBtn" title="Settings">⚙</button>
-  </header>
-
-  <div class="settings-pop" id="settingsPop">
-    <div class="settings-pop-row"><span>Phone Lines</span><span id="settingsLinesState">—</span></div>
-    <div class="settings-pop-row"><span>Video Guests</span><span id="settingsVideoState">—</span></div>
-    <div class="settings-pop-row"><span>Signed in as</span><span id="settingsEmail">—</span></div>
-    <button class="settings-signout" id="settingsSignOutBtn">Sign Out</button>
+    <div class="queue" id="queue"></div>
   </div>
 
-  <!-- ===== Console grid ===== -->
-  <div class="console-grid">
+  <!-- CALLS TAB -->
+  <div class="tab-content" id="tab-calls" style="display:none;">
 
-    <!-- LEFT: queues -->
-    <div class="console-col">
-      <div class="qsec audio">
-        <div class="qsec-head"><span class="ic">📞</span> Audio Queue <span class="qsec-count" id="audioQCount">0</span></div>
-        <div id="audioQList"><div class="qsec-empty">No callers waiting</div></div>
+    <!-- Active call panel — shown when a call is connected -->
+    <div class="active-call-panel" id="activeCallPanel" style="display:none;">
+      <div class="active-call-header">
+        <div class="active-call-info">
+          <div class="active-call-badge">📞 LIVE CALL</div>
+          <div class="active-call-name" id="activeCallerName">—</div>
+          <div class="active-call-city" id="activeCallerCity"></div>
+        </div>
+        <div class="active-call-timer" id="activeCallTimer">0:00</div>
       </div>
-
-      <div class="qsec video">
-        <div class="qsec-head"><span class="ic">🎥</span> Video Queue <span class="qsec-count" id="videoQCount">0</span></div>
-        <div id="videoQList"><div class="qsec-empty">No video guests waiting</div></div>
+      <div class="active-call-status" id="activeCallStatus">Screening</div>
+      <div class="active-call-controls">
+        <button class="cbtn cbtn-hold" id="holdBtn">⏸ Hold</button>
+        <button class="cbtn cbtn-mute" id="micMuteBtn">🎤 Mute Mic</button>
+        <button class="cbtn cbtn-record" id="recordBtn">⏺ Record</button>
+        <button class="cbtn cbtn-air" id="callOnAirBtn">🔴 Send On Air</button>
+        <button class="cbtn cbtn-end" id="endBtn">📵 End Call</button>
       </div>
+      <div class="record-status" id="recordStatus"></div>
+    </div>
 
-      <div class="qsec hold">
-        <div class="qsec-head"><span class="ic">⏸</span> On Hold <span class="qsec-count" id="holdQCount">0</span></div>
-        <div id="holdQList"><div class="qsec-empty">Nobody on hold</div></div>
+    <!-- Incoming calls queue -->
+    <div class="calls-section-title" id="incomingCallsTitle" style="display:none;">
+      Incoming Calls
+    </div>
+    <div class="empty" id="callsEmpty">
+      <div class="ic">📞</div>
+      <div>No incoming calls right now.</div>
+    </div>
+    <div class="queue" id="callsQueue"></div>
+
+    <!-- Hidden audio element — producer hears caller here, OBS captures via Browser Source -->
+    <audio id="callerAudio" autoplay style="display:none;"></audio>
+  </div>
+
+  <!-- VIDEO GUESTS TAB -->
+  <div class="tab-content" id="tab-video" style="display:none;">
+
+    <!-- On-air guest panel — shown when a guest is live -->
+    <div class="active-call-panel" id="activeVideoPanel" style="display:none;">
+      <div class="active-call-header">
+        <div class="active-call-info">
+          <div class="active-call-badge">🎥 VIDEO GUEST — LIVE</div>
+          <div class="active-call-name" id="activeVideoName">—</div>
+          <div class="active-call-city" id="activeVideoCity"></div>
+        </div>
+        <div class="active-call-timer" id="activeVideoTimer">0:00</div>
       </div>
-
-      <div class="qsec onair">
-        <div class="qsec-head"><span class="ic">🔴</span> Active On Air <span class="qsec-count" id="onairQCount">0</span></div>
-        <div id="onairQList"><div class="qsec-empty">Nobody on air</div></div>
+      <div class="active-call-status on-air">🔴 On air — connected directly to the overlay, no relay needed</div>
+      <div class="active-call-controls">
+        <button class="cbtn cbtn-end" id="videoEndBtn">📵 End Segment</button>
       </div>
     </div>
 
-    <!-- CENTER: stage + history -->
-    <div class="console-col" style="overflow-y:hidden;">
-      <div class="stage" id="stage">
-        <div class="stage-idle" id="stageIdle">
-          <div class="ic">📡</div>
-          <div class="txt">No incoming calls or active segments.<br>Waiting for the queue…</div>
-        </div>
-
-        <!-- Incoming call/video alert -->
-        <div id="stageIncoming" style="display:none;width:100%;">
-          <div class="incoming-kind-tag" id="incomingKindTag"><span class="dot"></span><span id="incomingKindText">INCOMING AUDIO CALL</span></div>
-          <div style="display:flex;flex-direction:column;align-items:center;">
-            <div class="stage-avatar-ring" id="incomingRing">
-              <div class="stage-avatar" id="incomingAvatar">?</div>
-            </div>
-            <div class="stage-name" id="incomingName">—</div>
-            <div class="stage-city" id="incomingCity"></div>
-            <div class="stage-actions">
-              <button class="stage-btn decline" id="stageDeclineBtn">
-                <span class="stage-btn-circle"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.996.996 0 010-1.41C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28a11.3 11.3 0 00-2.66-1.85.999.999 0 01-.56-.9v-3.1A17.6 17.6 0 0012 9z" transform="rotate(135 12 12)"/></svg></span>
-                <span class="stage-btn-label">Decline</span>
-              </button>
-              <button class="stage-btn accept" id="stageAcceptBtn">
-                <span class="stage-btn-circle"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></span>
-                <span class="stage-btn-label" id="stageAcceptLabel">Accept</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Active AUDIO call view -->
-        <div class="active-view" id="activeAudioView">
-          <div class="active-audio-wrap">
-            <div class="active-audio-avatar" id="activeAudioAvatar">?</div>
-            <div class="active-audio-info">
-              <div class="active-audio-name" id="activeAudioName">—</div>
-              <div class="active-audio-status" id="activeAudioStatus">Screening</div>
-            </div>
-            <div class="active-audio-timer" id="activeAudioTimer">0:00</div>
-          </div>
-          <div class="active-controls">
-            <button class="ac-btn" id="acMuteBtn"><span class="ac-btn-ic">🎤</span><span class="ac-btn-lbl">Mute</span></button>
-            <button class="ac-btn" id="acHoldBtn"><span class="ac-btn-ic">⏸</span><span class="ac-btn-lbl">Hold</span></button>
-            <button class="ac-btn" id="acRecordBtn"><span class="ac-btn-ic">⏺</span><span class="ac-btn-lbl">Record</span></button>
-            <button class="ac-btn" id="acOnAirBtn"><span class="ac-btn-ic">📡</span><span class="ac-btn-lbl">Send On Air</span></button>
-            <button class="ac-btn end" id="acEndBtn"><span class="ac-btn-ic">📵</span><span class="ac-btn-lbl">End</span></button>
-          </div>
-          <div style="text-align:center;font-size:11px;color:#666;min-height:16px;" id="acRecordStatus"></div>
-        </div>
-
-        <!-- Active VIDEO preview/talkback view -->
-        <div class="active-view" id="activeVideoView">
-          <div class="active-video-wrap">
-            <div class="active-video-header">
-              <div class="active-video-avatar" id="activeVideoAvatar">?</div>
-              <div class="active-video-info">
-                <div class="active-video-name" id="activeVideoName">—</div>
-                <div class="active-video-status" id="activeVideoStatus"><span class="dot"></span>Connecting…</div>
-              </div>
-              <div class="active-video-timer" id="activeVideoTimer" style="display:none;">0:00</div>
-            </div>
-            <video id="previewVideo" autoplay playsinline></video>
-            <div class="active-pip" id="activePip">Your Mic</div>
-          </div>
-          <div class="active-controls">
-            <button class="ac-btn" id="vcMicMuteBtn" style="display:none;"><span class="ac-btn-ic">🎙️</span><span class="ac-btn-lbl">Mute Mic</span></button>
-            <button class="ac-btn" id="vcAirBtn"><span class="ac-btn-ic">📡</span><span class="ac-btn-lbl">Send On Air</span></button>
-            <button class="ac-btn" id="vcTalkbackBtn"><span class="ac-btn-ic">🔇</span><span class="ac-btn-lbl">Disconnect</span></button>
-            <button class="ac-btn end" id="vcRejectBtn"><span class="ac-btn-ic">✕</span><span class="ac-btn-lbl">Reject</span></button>
-            <button class="ac-btn end" id="vcEndBtn" style="display:none;"><span class="ac-btn-ic">📵</span><span class="ac-btn-lbl">End Segment</span></button>
-          </div>
+    <!-- Screening preview — producer previews a waiting guest's camera/mic before sending them on air -->
+    <div class="active-call-panel" id="videoPreviewPanel" style="display:none;">
+      <div class="active-call-header">
+        <div class="active-call-info">
+          <div class="active-call-badge">🔍 PREVIEWING</div>
+          <div class="active-call-name" id="previewName">—</div>
+          <div class="active-call-city" id="previewCity"></div>
         </div>
       </div>
-
-      <div class="history-panel">
-        <div class="history-tabs">
-          <button class="history-tab active" data-histtab="audio">Call History</button>
-          <button class="history-tab" data-histtab="video">Video History</button>
-          <button class="history-tab" data-histtab="missed">Missed Calls <span class="badge" id="missedBadge" style="display:none;">0</span></button>
-          <button class="history-tab" data-histtab="favorites">Favorites</button>
-        </div>
-        <div class="history-table-wrap">
-          <table class="history-table">
-            <thead><tr><th>Caller</th><th>Type</th><th>Date / Time</th><th>Duration</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody id="historyTableBody"></tbody>
-          </table>
-          <div class="history-empty" id="historyEmpty" style="display:none;">Nothing here yet.</div>
-        </div>
+      <div class="preview-video-wrap">
+        <video id="previewVideo" autoplay playsinline></video>
+        <div class="preview-video-status" id="previewVideoStatus">Connecting to guest's camera…</div>
+      </div>
+      <div class="active-call-status" id="previewStatus">Connecting…</div>
+      <div class="active-call-controls">
+        <button class="cbtn cbtn-mute" id="previewMicMuteBtn" style="display:none;">🎙️ Mute My Mic</button>
+        <button class="cbtn cbtn-air" id="previewAirBtn">🔴 Send On Air</button>
+        <button class="cbtn cbtn-hold" id="previewStopBtn">Stop Preview</button>
+        <button class="cbtn cbtn-end" id="previewRejectBtn">✕ Reject</button>
       </div>
     </div>
 
-    <!-- RIGHT: controls / info -->
-    <div class="console-col">
-      <div class="rsec">
-        <div class="rsec-title">Broadcast Controls</div>
-        <div class="bc-grid">
-          <button class="bc-btn openline" id="bcOpenLine"><span class="bc-btn-ic">📶</span>Open Line</button>
-          <button class="bc-btn onair" id="bcOnAir"><span class="bc-btn-ic">🎙️</span>On Air</button>
-          <button class="bc-btn hold" id="bcHold"><span class="bc-btn-ic">⏸</span>Hold</button>
-          <button class="bc-btn drop" id="bcDrop"><span class="bc-btn-ic">📵</span>Drop</button>
-          <button class="bc-btn preview" id="bcPreview"><span class="bc-btn-ic">👁</span>Preview</button>
-          <button class="bc-btn videoline" id="bcVideoLine"><span class="bc-btn-ic">🎥</span>Video Line Open</button>
-        </div>
-      </div>
+    <!-- Incoming video guest requests -->
+    <div class="calls-section-title" id="incomingVideoTitle" style="display:none;">
+      Waiting to Join
+    </div>
+    <div class="empty" id="videoEmpty">
+      <div class="ic">🎥</div>
+      <div>No video guests waiting right now.</div>
+    </div>
+    <div class="queue" id="videoQueue"></div>
+  </div>
 
-      <div class="rsec">
-        <div class="rsec-title">Quick Actions</div>
-        <div class="qa-grid">
-          <button class="qa-btn" id="qaFavorite"><span class="qa-btn-ic">⭐</span>Favorite</button>
-          <button class="qa-btn" id="qaNote"><span class="qa-btn-ic">📝</span>Add Note</button>
-          <button class="qa-btn" id="qaRecord"><span class="qa-btn-ic">⏺</span>Record</button>
-          <button class="qa-btn" id="qaMute"><span class="qa-btn-ic">🎙️</span>Mute Caller</button>
-        </div>
-        <textarea class="ci-note-input" id="qaNoteInput" style="display:none;" rows="2" placeholder="Note about this caller…"></textarea>
+  <!-- ANALYTICS TAB -->
+  <div class="tab-content" id="tab-analytics" style="display:none;">
+    <div class="analytics-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="statTotal">—</div>
+        <div class="stat-label">Total Messages</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statToday">—</div>
+        <div class="stat-label">Today</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statApproved">—</div>
+        <div class="stat-label">Played On Air</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statFavorited">—</div>
+        <div class="stat-label">Favorited</div>
+      </div>
+    </div>
 
-      <div class="rsec">
-        <div class="rsec-title">Caller Info</div>
-        <div id="callerInfoBody"><div class="ci-empty">No active caller</div></div>
-      </div>
+    <div class="analytics-section">
+      <h3 class="section-title">Message Types</h3>
+      <div id="typeBreakdown" class="breakdown-list"></div>
+    </div>
 
-      <div class="rsec">
-        <div class="rsec-title">System Status</div>
-        <div class="sys-row"><span>OBS / Overlay</span><span class="sys-ic" id="sysObs">●</span></div>
-        <div class="sys-row"><span>Audio Engine</span><span class="sys-ic">●</span></div>
-        <div class="sys-row"><span>Phone Lines</span><span class="sys-ic" id="sysLines">●</span></div>
-        <div class="sys-row"><span>Video Guests</span><span class="sys-ic" id="sysVideo">●</span></div>
-        <div class="rsec-title" style="margin-top:14px;">Audio Mixer</div>
-        <div class="mixer">
-          <div class="mixer-ch"><div class="mixer-track"><div class="mixer-fill" id="mixMic" style="height:8%"></div></div><div class="mixer-lbl">Mic</div></div>
-          <div class="mixer-ch"><div class="mixer-track"><div class="mixer-fill" id="mixCaller" style="height:8%"></div></div><div class="mixer-lbl">Caller</div></div>
-          <div class="mixer-ch"><div class="mixer-track"><div class="mixer-fill" id="mixProgram" style="height:8%"></div></div><div class="mixer-lbl">Program</div></div>
-        </div>
-      </div>
+    <div class="analytics-section">
+      <h3 class="section-title">Top Song Requests</h3>
+      <div id="topSongs" class="breakdown-list"></div>
+    </div>
+
+    <div class="analytics-section">
+      <h3 class="section-title">Top Cities</h3>
+      <div id="topCities" class="breakdown-list"></div>
     </div>
   </div>
 
-  <!-- ===== Footer nav ===== -->
-  <footer class="console-footer">
-    <a class="cf-btn" href="home.html"><span class="ic">🏠</span>Home</a>
-    <button class="cf-btn" id="navMessages"><span class="ic">💬</span>Messages<span class="badge" id="navMsgBadge" style="display:none;">0</span></button>
-    <button class="cf-btn" id="navCalls"><span class="ic">📞</span>Calls</button>
-    <button class="cf-btn" id="navVideo"><span class="ic">🎥</span>Video Guests<span class="badge" id="navVidBadge" style="display:none;">0</span></button>
-    <button class="cf-btn" id="navSettings"><span class="ic">⚙</span>Settings</button>
-    <div class="tb-spacer"></div>
-    <button class="cf-end" id="endBroadcastBtn"><span class="dot"></span>End Broadcast</button>
-  </footer>
+  <!-- CALL HISTORY TAB -->
+  <div class="tab-content" id="tab-history" style="display:none;">
+    <div class="analytics-grid" style="margin-bottom:20px;">
+      <div class="stat-card">
+        <div class="stat-value" id="histTotal">—</div>
+        <div class="stat-label">Total Calls</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="histToday">—</div>
+        <div class="stat-label">Today</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="histAvgDur">—</div>
+        <div class="stat-label">Avg Duration</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="histRecorded">—</div>
+        <div class="stat-label">Recorded</div>
+      </div>
+    </div>
+    <div class="empty" id="histEmpty" style="display:none;">
+      <div class="ic">📋</div>
+      <div>No call history yet. Calls appear here after they end.</div>
+    </div>
+    <div class="queue" id="histList"></div>
+
+    <!-- Recordings Section -->
+    <div id="recordingsSection" style="margin-top:32px;">
+      <div class="section-title" style="margin-bottom:14px;">🎙️ Recorded Calls</div>
+      <div class="empty" id="recordingsEmpty" style="display:none;">
+        <div class="ic">🎙️</div>
+        <div>No recordings yet. Start recording calls using the Record button.</div>
+      </div>
+      <div id="recordingsList"></div>
+    </div>
+  </div>
+</main>
+
+<audio id="hiddenPlayer" class="hiddenplayer"></audio>
+
+<!-- Incoming Call / Video Guest overlay — iOS FaceTime-style full-screen alert -->
+<div class="incoming-overlay" id="incomingOverlay">
+  <div class="incoming-kind" id="incomingKind">INCOMING AUDIO CALL</div>
+  <div class="incoming-avatar" id="incomingAvatar">?</div>
+  <div class="incoming-name" id="incomingName">—</div>
+  <div class="incoming-sub" id="incomingSub">
+    <span class="incoming-dots"><span></span><span></span><span></span></span>
+  </div>
+  <div class="incoming-more" id="incomingMore" style="display:none;"></div>
+  <div class="incoming-actions">
+    <button class="incoming-btn decline" id="incomingDeclineBtn" title="Decline">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.996.996 0 010-1.41C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28a11.3 11.3 0 00-2.66-1.85.999.999 0 01-.56-.9v-3.1A17.6 17.6 0 0012 9z" transform="rotate(135 12 12)"/></svg>
+    </button>
+    <button class="incoming-btn accept" id="incomingAcceptBtn" title="Accept">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+    </button>
+  </div>
+  <div class="incoming-labels">
+    <span>Decline</span>
+    <span id="incomingAcceptLabel">Accept</span>
+  </div>
+</div>
 
 </div>
 
-<audio id="hiddenPlayer" style="display:none;"></audio>
-<audio id="callerAudio" autoplay style="display:none;"></audio>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import {
+  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   getFirestore, collection, query, orderBy, onSnapshot,
-  doc, updateDoc, deleteDoc, setDoc, addDoc, getDoc, serverTimestamp, writeBatch
+  doc, updateDoc, deleteDoc, setDoc, addDoc, getDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
+// ====== STEP 1: PASTE YOUR FIREBASE CONFIG HERE (same as home.html) ======
 const firebaseConfig = {
   apiKey: "AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc",
   authDomain: "djdeeze-hotline.firebaseapp.com",
@@ -594,170 +925,180 @@ const firebaseConfig = {
   messagingSenderId: "663942225296",
   appId: "1:663942225296:web:c6117cf6c23656b9842715"
 };
+// ============================================================================
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-const iceConfig = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'turn:openrelay.metered.ca:80', username:'openrelayproject', credential:'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443', username:'openrelayproject', credential:'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username:'openrelayproject', credential:'openrelayproject' }
-  ],
-  iceCandidatePoolSize: 10
-};
-
-function escapeHtml(str){ return (str||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function initialsFor(name){
-  const clean = (name||'').trim();
-  if(!clean) return '?';
-  return clean.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
-}
-function timeAgo(ts){
-  if(!ts) return '';
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
-  const diff = Math.floor((Date.now()-d.getTime())/1000);
-  if(diff<60) return 'just now';
-  if(diff<3600) return Math.floor(diff/60)+'m ago';
-  if(diff<86400) return Math.floor(diff/3600)+'h ago';
-  return d.toLocaleDateString();
-}
-function formatDur(s){ const m=Math.floor(s/60); return `${m}:${(s%60).toString().padStart(2,'0')}`; }
-function formatClock(totalSec){
-  const h=Math.floor(totalSec/3600), m=Math.floor((totalSec%3600)/60), s=totalSec%60;
-  return [h,m,s].map(n=>n.toString().padStart(2,'0')).join(':');
-}
-
-/* ===================== AUTH ===================== */
-const loginScreen=document.getElementById('loginScreen');
-const dashboardApp=document.getElementById('dashboardApp');
-const loginEmail=document.getElementById('loginEmail');
-const loginPassword=document.getElementById('loginPassword');
-const loginBtn=document.getElementById('loginBtn');
-const loginError=document.getElementById('loginError');
+const loginScreen = document.getElementById('loginScreen');
+const dashboardApp = document.getElementById('dashboardApp');
+const loginEmail = document.getElementById('loginEmail');
+const loginPassword = document.getElementById('loginPassword');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
 
 async function attemptLogin(){
-  loginError.textContent='';
-  loginBtn.disabled=true; loginBtn.textContent='Signing in…';
-  try{ await signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPassword.value); }
-  catch(err){ loginError.textContent='Invalid email or password.'; }
-  loginBtn.disabled=false; loginBtn.textContent='Sign In';
+  loginError.textContent = '';
+  loginBtn.disabled = true;
+  loginBtn.textContent = 'Signing in…';
+  try{
+    await signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPassword.value);
+  }catch(err){
+    loginError.textContent = 'Invalid email or password.';
+  }
+  loginBtn.disabled = false;
+  loginBtn.textContent = 'Sign In';
 }
-loginBtn.addEventListener('click', attemptLogin);
-loginPassword.addEventListener('keydown', e=>{ if(e.key==='Enter') attemptLogin(); });
 
-let dashboardStarted=false;
+loginBtn.addEventListener('click', attemptLogin);
+loginPassword.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') attemptLogin(); });
+
 onAuthStateChanged(auth, (user)=>{
   if(user){
-    loginScreen.style.display='none';
-    dashboardApp.style.display='flex';
-    document.getElementById('settingsEmail').textContent = user.email || '—';
-    const initials = initialsFor(user.email ? user.email.split('@')[0] : 'Host');
-    document.getElementById('tbHostAvatar').textContent = initials;
-    document.getElementById('tbHostName').innerHTML = `${escapeHtml((user.email||'Host').split('@')[0])}<small>Producer</small>`;
-    if(!dashboardStarted){
-      dashboardStarted=true;
-      startStreamTimer();
-      startLinesToggleListener();
-      startVideoToggleListener();
-      startCallsListener();
-      startVideoCallsListener();
-      startCallHistoryListener();
-      startObsHeartbeatWatcher();
-    }
+    loginScreen.style.display = 'none';
+    dashboardApp.style.display = 'block';
+    startQueueListener();
+    startCallsListener();
+    startCallHistoryListener();
+    startLinesToggleListener();
+    startVideoToggleListener();
+    startVideoCallsListener();
   } else {
-    loginScreen.style.display='flex';
-    dashboardApp.style.display='none';
+    loginScreen.style.display = 'flex';
+    dashboardApp.style.display = 'none';
   }
 });
 
-document.getElementById('settingsSignOutBtn').addEventListener('click', ()=>{
+const onAirBadge = document.getElementById('onAirBadge');
+const signOutBtn = document.getElementById('signOutBtn');
+signOutBtn.addEventListener('click', ()=>{
   if(confirm('Sign out of the Producer Dashboard?')) signOut(auth);
 });
+// (OBS runs its own browser engine), so they can't message each other directly.
+// Instead, the dashboard writes "now playing" state to this Firestore doc,
+// and overlay.html listens to it live. This works no matter where each page runs.
+const liveStateRef = doc(db, 'hotlineLive', 'nowPlaying');
 
-/* ===================== STREAM TIMER ===================== */
-let streamStartTime = Date.now();
-function startStreamTimer(){
-  setInterval(()=>{
-    document.getElementById('tbStreamTime').textContent = formatClock(Math.floor((Date.now()-streamStartTime)/1000));
-  }, 1000);
+// ── Phone lines open/closed ──
+// Controls whether call.html will let listeners call in, and whether home.html
+// shows "Lines Open" or "Lines Closed". Missing doc / missing field defaults to OPEN
+// so nothing breaks before this has ever been toggled.
+const linesSettingsRef = doc(db, 'hotlineSettings', 'callLines');
+const linesToggleBtn = document.getElementById('linesToggleBtn');
+const linesToggleText = document.getElementById('linesToggleText');
+let linesOpen = true;
+
+function renderLinesToggle(){
+  linesToggleBtn.classList.toggle('open', linesOpen);
+  linesToggleBtn.classList.toggle('closed', !linesOpen);
+  linesToggleText.textContent = linesOpen ? 'Lines Open' : 'Lines Closed';
 }
 
-/* ===================== MIC LEVEL METER ===================== */
-const NUM_BARS = 10;
-function buildBars(container){
-  container.innerHTML='';
-  for(let i=0;i<NUM_BARS;i++){ const s=document.createElement('span'); container.appendChild(s); }
-  return container.querySelectorAll('span');
+function startLinesToggleListener(){
+  onSnapshot(linesSettingsRef, (snap)=>{
+    const d = snap.data();
+    linesOpen = d ? d.open !== false : true;
+    renderLinesToggle();
+  }, ()=>{ /* if rules ever block this, just leave the last known state visible */ });
 }
-const micBars = buildBars(document.getElementById('micLevelBars'));
-const programBars = buildBars(document.getElementById('programLevelBars'));
-const micLevelVal = document.getElementById('micLevelVal');
-const programLevelVal = document.getElementById('programLevelVal');
-let micAnalyser=null, micAudioCtx=null, micRAF=null;
 
-function barColor(i,total){ if(i>=total-2) return '#ff3b3b'; if(i>=total-4) return '#f5a623'; return '#53FC18'; }
-
-function startMicMeter(stream){
-  stopMicMeter();
+linesToggleBtn.addEventListener('click', async()=>{
+  if(linesOpen && !confirm('Close phone lines? Listeners won\'t be able to call in until you reopen them.')) return;
+  linesToggleBtn.disabled = true;
   try{
-    micAudioCtx = new (window.AudioContext||window.webkitAudioContext)();
-    const src = micAudioCtx.createMediaStreamSource(stream);
-    micAnalyser = micAudioCtx.createAnalyser();
-    micAnalyser.fftSize = 256;
-    src.connect(micAnalyser);
-    const data = new Uint8Array(micAnalyser.frequencyBinCount);
-    function loop(){
-      micAnalyser.getByteFrequencyData(data);
-      const avg = data.reduce((a,b)=>a+b,0)/data.length;
-      const lit = Math.round((avg/140)*NUM_BARS);
-      micBars.forEach((b,i)=>{ b.style.background = i<lit ? barColor(i,NUM_BARS) : '#232323'; });
-      const db = avg>0 ? Math.round(20*Math.log10(avg/255)) : -60;
-      micLevelVal.textContent = db+' dB';
-      // "Program mix" = approximate blend, mirrors mic level scaled down when no caller audio graph exists
-      const progLit = Math.max(0, lit-1);
-      programBars.forEach((b,i)=>{ b.style.background = i<progLit ? barColor(i,NUM_BARS) : '#232323'; });
-      programLevelVal.textContent = progLit>0 ? (db-2)+' LUFS~' : '—';
-      document.getElementById('mixMic').style.height = Math.min(100,(avg/180)*100)+'%';
-      micRAF = requestAnimationFrame(loop);
+    await setDoc(linesSettingsRef, { open: !linesOpen, updatedAt: Date.now() }, { merge:true });
+  }catch(err){
+    if(err.code === 'permission-denied'){
+      alert(
+        "Can't update phone lines — Firestore is blocking it.\n\n" +
+        "This isn't a bug in the dashboard — it means the security rule for the " +
+        "\"hotlineSettings\" collection hasn't been added yet.\n\n" +
+        "Fix: Firebase Console → Firestore Database → Rules, add the hotlineSettings " +
+        "rule block from SETUP.md, then click Publish."
+      );
+    } else {
+      alert('Could not update phone lines status: ' + err.message);
     }
-    loop();
+  }
+  linesToggleBtn.disabled = false;
+});
+
+// ── Video guests open/closed ── separate toggle, same settings doc, different field
+const videoToggleBtn = document.getElementById('videoToggleBtn');
+const videoToggleText = document.getElementById('videoToggleText');
+let videoOpen = true;
+
+function renderVideoToggle(){
+  videoToggleBtn.classList.toggle('open', videoOpen);
+  videoToggleBtn.classList.toggle('closed', !videoOpen);
+  videoToggleText.textContent = videoOpen ? 'Video Guests Open' : 'Video Guests Closed';
+}
+
+function startVideoToggleListener(){
+  onSnapshot(linesSettingsRef, (snap)=>{
+    const d = snap.data();
+    videoOpen = d ? d.videoOpen !== false : true;
+    renderVideoToggle();
+  }, ()=>{ /* leave last known state visible if this ever errors */ });
+}
+
+videoToggleBtn.addEventListener('click', async()=>{
+  if(videoOpen && !confirm('Close video guests? Nobody new will be able to join until you reopen it.')) return;
+  videoToggleBtn.disabled = true;
+  try{
+    await setDoc(linesSettingsRef, { videoOpen: !videoOpen, updatedAt: Date.now() }, { merge:true });
+  }catch(err){
+    if(err.code === 'permission-denied'){
+      alert(
+        "Can't update video guests status — Firestore is blocking it.\n\n" +
+        "Add the hotlineSettings rule from SETUP.md in Firebase Console → " +
+        "Firestore Database → Rules, then click Publish."
+      );
+    } else {
+      alert('Could not update video guests status: ' + err.message);
+    }
+  }
+  videoToggleBtn.disabled = false;
+});
+
+let allMessages = [];
+let knownIds = new Set();
+let firstLoad = true;
+let currentlyPlayingId = null; // local browser preview
+let livePlayingId = null;       // sent to OBS (muted locally)
+
+const queueEl = document.getElementById('queue');
+const emptyState = document.getElementById('emptyState');
+const queueCount = document.getElementById('queueCount');
+const alertBanner = document.getElementById('alertBanner');
+const searchInput = document.getElementById('searchInput');
+const filterSelect = document.getElementById('filterSelect');
+const hiddenPlayer = document.getElementById('hiddenPlayer');
+
+// simple notification sound (WebAudio beep, no external file needed)
+function playChime(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(880, ctx.currentTime);
+    o.frequency.setValueAtTime(1320, ctx.currentTime + 0.12);
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.4);
   }catch(e){}
 }
-function stopMicMeter(){
-  if(micRAF) cancelAnimationFrame(micRAF);
-  if(micAudioCtx) micAudioCtx.close().catch(()=>{});
-  micAnalyser=null; micAudioCtx=null;
-  micBars.forEach(b=>b.style.background='#232323');
-  programBars.forEach(b=>b.style.background='#232323');
-  micLevelVal.textContent='— dB'; programLevelVal.textContent='—';
-  document.getElementById('mixMic').style.height='8%';
-}
 
-/* ===================== OBS HEARTBEAT / STREAM STATUS ===================== */
-function startObsHeartbeatWatcher(){
-  onSnapshot(doc(db,'hotlineLive','obsHeartbeat'), (snap)=>{
-    const d = snap.data();
-    const age = d && d.updatedAt ? Date.now()-d.updatedAt : Infinity;
-    const ok = age < 20000;
-    const statusEl = document.getElementById('tbStreamStatus');
-    statusEl.textContent = ok ? 'Excellent' : 'Offline';
-    statusEl.classList.toggle('bad', !ok);
-    document.getElementById('sysObs').style.color = ok ? 'var(--green)' : 'var(--red)';
-  }, ()=>{
-    document.getElementById('tbStreamStatus').textContent='Unknown';
-  });
-}
-
-/* ===================== PHONE / VIDEO RING TONES ===================== */
-let phoneRingInterval=null;
+// ── Phone ring — classic dual-tone (440Hz + 480Hz) with on/off pattern ──
+let phoneRingInterval = null;
 function startPhoneRing(){
   stopPhoneRing();
   function ring(){
     try{
-      const ctx=new (window.AudioContext||window.webkitAudioContext)();
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
       // iOS Phone-style alternating two-tone pattern — pitched lower and paced
       // differently from the video chime so producers can tell them apart by ear.
       [349.23, 440.00, 349.23, 440.00].forEach((freq,i)=>{
@@ -769,34 +1110,49 @@ function startPhoneRing(){
         env.gain.exponentialRampToValueAtTime(0.001,t+0.14);
         osc.start(t); osc.stop(t+0.14);
       });
-      setTimeout(()=>ctx.close().catch(()=>{}),1000);
+      setTimeout(()=> ctx.close().catch(()=>{}), 1000);
     }catch(e){}
   }
-  ring(); phoneRingInterval=setInterval(ring,1800);
+  ring(); // Ring immediately
+  phoneRingInterval = setInterval(ring, 1800);
 }
-function stopPhoneRing(){ clearInterval(phoneRingInterval); phoneRingInterval=null; }
+function stopPhoneRing(){
+  clearInterval(phoneRingInterval);
+  phoneRingInterval = null;
+}
 
-let videoRingInterval=null;
+// ── Video ring — FaceTime-style ascending marimba chime, repeating ──
+let videoRingInterval = null;
 function startVideoRing(){
   stopVideoRing();
   function chime(){
     try{
-      const ctx=new (window.AudioContext||window.webkitAudioContext)();
-      [523.25,659.25,783.99,1046.50].forEach((freq,i)=>{
-        const t=ctx.currentTime+i*0.11;
-        const osc=ctx.createOscillator(), env=ctx.createGain();
-        osc.type='triangle'; osc.frequency.value=freq;
-        osc.connect(env); env.connect(ctx.destination);
-        env.gain.setValueAtTime(0,t); env.gain.linearRampToValueAtTime(0.22,t+0.02);
-        env.gain.exponentialRampToValueAtTime(0.001,t+0.5);
-        osc.start(t); osc.stop(t+0.5);
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+      notes.forEach((freq, i) => {
+        const t = ctx.currentTime + i * 0.11;
+        const osc = ctx.createOscillator();
+        const env = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        osc.connect(env);
+        env.connect(ctx.destination);
+        env.gain.setValueAtTime(0, t);
+        env.gain.linearRampToValueAtTime(0.22, t + 0.02);
+        env.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        osc.start(t);
+        osc.stop(t + 0.5);
       });
-      setTimeout(()=>ctx.close().catch(()=>{}),900);
+      setTimeout(()=> ctx.close().catch(()=>{}), 900);
     }catch(e){}
   }
-  chime(); videoRingInterval=setInterval(chime,2000);
+  chime();
+  videoRingInterval = setInterval(chime, 2000);
 }
-function stopVideoRing(){ clearInterval(videoRingInterval); videoRingInterval=null; }
+function stopVideoRing(){
+  clearInterval(videoRingInterval);
+  videoRingInterval = null;
+}
 
 /* ===================== UI BUTTON SOUNDS ===================== */
 function playTap(){
@@ -857,691 +1213,1351 @@ function playOnAir(){
     setTimeout(()=>ctx.close().catch(()=>{}),450);
   }catch(e){}
 }
-
-// Delegated so every button in the dashboard gets a sound automatically,
-// with distinct sounds for the calls that matter most.
 document.addEventListener('click', (e)=>{
-  const el = e.target.closest('button, .qcard, a.cf-btn');
+  const el = e.target.closest('button, .card, .call-card');
   if(!el) return;
-  if(el===vcAirBtn || el===acOnAirBtn || el.id==='bcOnAir') { playOnAir(); return; }
-  if(el.id==='stageAcceptBtn') { playAccept(); return; }
-  if(el.id==='stageDeclineBtn' || el===vcRejectBtn || el===acEndBtn || el===vcEndBtn || el.id==='bcDrop' || el.id==='endBroadcastBtn') { playDecline(); return; }
+  if(el.id==='callOnAirBtn' || el.dataset?.action==='video-air' || el.id==='previewAirBtn') { playOnAir(); return; }
+  if(el.id==='incomingAcceptBtn') { playAccept(); return; }
+  if(el.id==='incomingDeclineBtn' || el.id==='endBtn' || el.dataset?.action==='video-reject' || el.id==='previewRejectBtn') { playDecline(); return; }
   playTap();
 });
 
-/* ===================== LINES / VIDEO TOGGLES ===================== */
-const linesSettingsRef = doc(db,'hotlineSettings','callLines');
-let linesOpen=true, videoOpen=true;
-const bcOpenLine=document.getElementById('bcOpenLine');
-const bcVideoLine=document.getElementById('bcVideoLine');
+// ── Incoming Call / Video overlay — iOS/FaceTime-style, shared by both call types ──
+const incomingOverlay     = document.getElementById('incomingOverlay');
+const incomingKind        = document.getElementById('incomingKind');
+const incomingAvatar      = document.getElementById('incomingAvatar');
+const incomingName        = document.getElementById('incomingName');
+const incomingMore        = document.getElementById('incomingMore');
+const incomingAcceptBtn   = document.getElementById('incomingAcceptBtn');
+const incomingDeclineBtn  = document.getElementById('incomingDeclineBtn');
+const incomingAcceptLabel = document.getElementById('incomingAcceptLabel');
+let incomingActiveItem = null;
 
-function renderLinesToggle(){
-  bcOpenLine.textContent=''; 
-  bcOpenLine.innerHTML = `<span class="bc-btn-ic">📶</span>${linesOpen?'Line Open':'Line Closed'}`;
-  bcOpenLine.style.opacity = linesOpen ? '1':'.55';
-  document.getElementById('settingsLinesState').textContent = linesOpen?'Open':'Closed';
-  document.getElementById('sysLines').style.color = linesOpen?'var(--green)':'var(--red)';
-}
-function renderVideoToggle(){
-  bcVideoLine.innerHTML = `<span class="bc-btn-ic">🎥</span>Video Line ${videoOpen?'Open':'Closed'}`;
-  bcVideoLine.style.opacity = videoOpen ? '1':'.55';
-  document.getElementById('settingsVideoState').textContent = videoOpen?'Open':'Closed';
-  document.getElementById('sysVideo').style.color = videoOpen?'var(--green)':'var(--red)';
-}
-function startLinesToggleListener(){
-  onSnapshot(linesSettingsRef,(snap)=>{
-    const d=snap.data(); linesOpen = d ? d.open!==false : true; renderLinesToggle();
-  });
-}
-function startVideoToggleListener(){
-  onSnapshot(linesSettingsRef,(snap)=>{
-    const d=snap.data(); videoOpen = d ? d.videoOpen!==false : true; renderVideoToggle();
-  });
-}
-bcOpenLine.addEventListener('click', async()=>{
-  if(linesOpen && !confirm('Close phone lines? Listeners won\'t be able to call in until reopened.')) return;
-  try{ await setDoc(linesSettingsRef,{open:!linesOpen, updatedAt:Date.now()},{merge:true}); }
-  catch(err){ alertPermission(err); }
-});
-bcVideoLine.addEventListener('click', async()=>{
-  if(videoOpen && !confirm('Close video guests? New guests won\'t be able to join until reopened.')) return;
-  try{ await setDoc(linesSettingsRef,{videoOpen:!videoOpen, updatedAt:Date.now()},{merge:true}); }
-  catch(err){ alertPermission(err); }
-});
-function alertPermission(err){
-  if(err.code==='permission-denied'){
-    alert("Can't update — Firestore is blocking it. Add the hotlineSettings rule from SETUP.md, Firebase Console → Firestore → Rules → Publish.");
-  } else alert('Error: '+err.message);
-}
-
-/* ===================== SETTINGS POPUP ===================== */
-const settingsPop=document.getElementById('settingsPop');
-document.getElementById('tbSettingsBtn').addEventListener('click', ()=> settingsPop.classList.toggle('show'));
-document.getElementById('navSettings').addEventListener('click', ()=> settingsPop.classList.toggle('show'));
-document.addEventListener('click',(e)=>{
-  if(!settingsPop.contains(e.target) && e.target.id!=='tbSettingsBtn' && e.target.id!=='navSettings'){
-    settingsPop.classList.remove('show');
-  }
-});
-
-/* ===================== INCOMING STAGE ALERT (shared) ===================== */
-let latestAudioCalls=[], latestVideoCalls=[];
-const stageIdle=document.getElementById('stageIdle');
-const stageIncoming=document.getElementById('stageIncoming');
-const activeAudioView=document.getElementById('activeAudioView');
-const activeVideoView=document.getElementById('activeVideoView');
-const incomingKindTag=document.getElementById('incomingKindTag');
-const incomingKindText=document.getElementById('incomingKindText');
-const incomingRing=document.getElementById('incomingRing');
-const incomingAvatar=document.getElementById('incomingAvatar');
-const incomingName=document.getElementById('incomingName');
-const incomingCity=document.getElementById('incomingCity');
-const stageAcceptBtn=document.getElementById('stageAcceptBtn');
-const stageDeclineBtn=document.getElementById('stageDeclineBtn');
-const stageAcceptLabel=document.getElementById('stageAcceptLabel');
-let incomingActiveItem=null;
-
-function refreshStage(){
-  const anyAudioActive = !!activePc;
-  const anyVideoActive = previewCallId!==null;
-  if(anyAudioActive){
-    stageIdle.style.display='none'; stageIncoming.style.display='none';
-    activeAudioView.classList.add('show'); activeVideoView.classList.remove('show');
-    return;
-  }
-  if(anyVideoActive){
-    stageIdle.style.display='none'; stageIncoming.style.display='none';
-    activeVideoView.classList.add('show'); activeAudioView.classList.remove('show');
-    return;
-  }
-  activeAudioView.classList.remove('show'); activeVideoView.classList.remove('show');
-  updateIncomingOverlay();
+function initialsFor(name){
+  const clean = (name || '').trim();
+  if(!clean) return '?';
+  return clean.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
 }
 
 function updateIncomingOverlay(){
-  const waitingAudio=latestAudioCalls.filter(c=>c.status==='waiting').map(c=>({...c,_kind:'audio'}));
-  const waitingVideo=latestVideoCalls.filter(c=>c.status==='waiting').map(c=>({...c,_kind:'video'}));
-  const combined=[...waitingAudio,...waitingVideo].sort((a,b)=>{
-    const ta=a.createdAt?.toMillis?a.createdAt.toMillis():0, tb=b.createdAt?.toMillis?b.createdAt.toMillis():0;
-    return ta-tb;
+  const waitingAudio = latestAudioCalls.filter(c => c.status === 'waiting').map(c => ({ ...c, _kind:'audio' }));
+  const waitingVideo = latestVideoCalls.filter(c => c.status === 'waiting').map(c => ({ ...c, _kind:'video' }));
+  const combined = [...waitingAudio, ...waitingVideo].sort((a, b)=>{
+    const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+    const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+    return ta - tb; // oldest first, so nobody gets skipped over
   });
-  if(combined.length===0){
-    stageIncoming.style.display='none'; stageIdle.style.display='flex'; incomingActiveItem=null; return;
+
+  if(combined.length === 0){
+    incomingOverlay.classList.remove('show');
+    incomingActiveItem = null;
+    return;
   }
-  stageIdle.style.display='none'; stageIncoming.style.display='block';
-  const item=combined[0]; incomingActiveItem=item;
-  const isVideo=item._kind==='video';
-  incomingKindText.textContent = isVideo?'INCOMING VIDEO CALL':'INCOMING AUDIO CALL';
-  incomingKindTag.classList.toggle('video', isVideo);
-  incomingRing.style.borderColor = isVideo ? 'var(--purple)' : 'var(--green)';
-  stageAcceptLabel.textContent = isVideo ? 'Preview' : 'Accept';
-  incomingName.textContent = item.callerName || (isVideo?'Video Guest':'Anonymous Caller');
-  incomingCity.textContent = item.callerCity || '';
+
+  const item = combined[0];
+  incomingActiveItem = item;
+  incomingKind.textContent = item._kind === 'video' ? 'INCOMING VIDEO CALL' : 'INCOMING AUDIO CALL';
+  incomingAcceptLabel.textContent = item._kind === 'video' ? 'Preview' : 'Accept';
+  incomingName.textContent = item.callerName || (item._kind === 'video' ? 'Video Guest' : 'Anonymous Caller');
   incomingAvatar.textContent = initialsFor(item.callerName);
-}
-stageAcceptBtn.addEventListener('click', ()=>{
-  if(!incomingActiveItem) return;
-  const item=incomingActiveItem;
-  if(item._kind==='audio') answerCall(item.id, item.callerName, item.callerCity);
-  else startVideoPreview(item.id);
-});
-stageDeclineBtn.addEventListener('click', async()=>{
-  if(!incomingActiveItem) return;
-  const item=incomingActiveItem;
-  if(item._kind==='audio') await setDoc(doc(db,'liveCalls',item.id),{status:'rejected'},{merge:true}).catch(()=>{});
-  else await updateDoc(doc(db,'videoCalls',item.id),{status:'rejected'}).catch(()=>{});
-});
-
-/* ===================== QUEUE RENDERING (left column) ===================== */
-function qcard(item, kind, extraTag){
-  const initials=initialsFor(item.callerName);
-  return `<div class="qcard" data-action="${kind==='audio'?'answer':'video-preview'}" data-id="${item.id}" data-name="${escapeHtml(item.callerName||'')}" data-city="${escapeHtml(item.callerCity||'')}">
-    <div class="qcard-avatar">${initials}</div>
-    <div class="qcard-body">
-      <div class="qcard-name">${escapeHtml(item.callerName||'Anonymous')}</div>
-      <div class="qcard-city">${escapeHtml(item.callerCity||'')}</div>
-    </div>
-    <div class="qcard-right">
-      <div class="qcard-time">${timeAgo(item.createdAt)}</div>
-      ${extraTag?`<span class="qcard-tag ${extraTag.cls}">${extraTag.txt}</span>`:''}
-    </div>
-  </div>`;
+  const more = combined.length - 1;
+  incomingMore.style.display = more > 0 ? 'block' : 'none';
+  incomingMore.textContent = more > 0 ? `+${more} more waiting` : '';
+  incomingOverlay.classList.add('show');
 }
 
-/* ===================== AUDIO CALLS ===================== */
-let activePc=null, activeCallId=null, activeCallRef=null;
-let endingCallInProgress=false;
-let producerStream=null, callCandidateUnsub=null;
-let callIsOnAir=false, callIsOnHold=false, micMuted=false;
-let callRecorder=null, callRecordingChunks=[], isRecording=false, callStartTime=null;
-let callTimerInterval=null, callSeconds=0;
-const callerAudio=document.getElementById('callerAudio');
-const activeAudioAvatar=document.getElementById('activeAudioAvatar');
-const activeAudioName=document.getElementById('activeAudioName');
-const activeAudioStatus=document.getElementById('activeAudioStatus');
-const activeAudioTimer=document.getElementById('activeAudioTimer');
-const acMuteBtn=document.getElementById('acMuteBtn');
-const acHoldBtn=document.getElementById('acHoldBtn');
-const acRecordBtn=document.getElementById('acRecordBtn');
-const acOnAirBtn=document.getElementById('acOnAirBtn');
-const acEndBtn=document.getElementById('acEndBtn');
-const acRecordStatus=document.getElementById('acRecordStatus');
+incomingAcceptBtn.addEventListener('click', ()=>{
+  if(!incomingActiveItem) return;
+  const item = incomingActiveItem;
+  incomingOverlay.classList.remove('show');
+  if(item._kind === 'audio'){
+    answerCall(item.id, item.callerName, item.callerCity);
+  } else {
+    startVideoPreview(item.id);
+    document.querySelector('.tab-btn[data-tab="video"]')?.click();
+  }
+});
+
+incomingDeclineBtn.addEventListener('click', async()=>{
+  if(!incomingActiveItem) return;
+  const item = incomingActiveItem;
+  incomingOverlay.classList.remove('show');
+  if(item._kind === 'audio'){
+    await setDoc(doc(db, 'liveCalls', item.id), { status: 'rejected' }, { merge: true }).catch(()=>{});
+  } else {
+    await updateDoc(doc(db, 'videoCalls', item.id), { status: 'rejected' }).catch(()=>{});
+  }
+});
+
+function timeAgo(ts){
+  if(!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const diff = Math.floor((Date.now() - d.getTime())/1000);
+  if(diff < 60) return 'just now';
+  if(diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if(diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  return d.toLocaleDateString();
+}
+
+function buildWaveformBars(count=40){
+  let html = '';
+  for(let i=0;i<count;i++){
+    const h = 4 + Math.round(Math.random()*20);
+    html += `<span style="height:${h}px"></span>`;
+  }
+  return html;
+}
+
+function render(){
+  const filter = filterSelect.value;
+  const term = searchInput.value.trim().toLowerCase();
+
+  let list = allMessages.filter(m=>{
+    if(filter === 'pending' && m.status !== 'pending') return false;
+    if(filter === 'approved' && m.status !== 'approved') return false;
+    if(term){
+      const hay = `${m.name||''} ${m.city||''} ${m.songArtist||''} ${m.songTrack||''} ${m.shoutoutName||''} ${m.birthdayName||''} ${m.dedicationTo||''} ${m.messageType||''}`.toLowerCase();
+      if(!hay.includes(term)) return false;
+    }
+    return true;
+  });
+
+  // newest first (already ordered by query, but keep explicit for filtered views)
+  list = list.slice().sort((a,b)=>{
+    const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+    const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+    return tb - ta;
+  });
+
+  const pendingCount = allMessages.filter(m=>m.status==='pending').length;
+  queueCount.textContent = `${pendingCount} waiting`;
+
+  if(list.length === 0){
+    emptyState.style.display = 'block';
+    queueEl.innerHTML = '';
+    return;
+  }
+  emptyState.style.display = 'none';
+
+  queueEl.innerHTML = list.map(m=>{
+    const isNew = m.status === 'pending';
+    const previewing = currentlyPlayingId === m.id;
+    const isLive = livePlayingId === m.id;
+    return `
+    <div class="card ${isNew ? 'new' : ''} ${m.status==='approved' ? 'approved' : ''} ${m.favorited ? 'favorited' : ''}" data-id="${m.id}">
+      <button class="play-btn ${previewing ? 'playing' : ''}" data-action="play" data-id="${m.id}" aria-label="${previewing ? 'Stop preview' : 'Preview'}">
+        ${previewing ? `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`
+                     : `<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>`}
+      </button>
+      <div class="card-body">
+        <div class="card-top">
+          <span class="card-name">${escapeHtml(m.name || 'Anonymous Caller')}</span>
+          ${m.city ? `<span class="card-city">· ${escapeHtml(m.city)}</span>` : ''}
+          <span class="badge type-badge">${typeLabel(m.messageType)}</span>
+          <span class="badge ${m.status==='approved' ? 'approved' : ''}">${m.status === 'approved' ? 'Played' : 'New'}</span>
+          <span class="card-time">${timeAgo(m.createdAt)}</span>
+        </div>
+        ${typeDetail(m)}
+        <div class="waveform ${previewing || isLive ? 'active' : ''}">${buildWaveformBars()}</div>
+      </div>
+      <div class="card-actions">
+        <button class="ibtn approve" data-action="approve" data-id="${m.id}">✓ Approve</button>
+        <button class="ibtn favorite ${m.favorited ? 'active' : ''}" data-action="favorite" data-id="${m.id}">⭐ ${m.favorited ? 'Saved' : 'Favorite'}</button>
+        <button class="ibtn on-air-btn ${isLive ? 'live' : ''}" data-action="golive" data-id="${m.id}">${isLive ? '⏹ Stop Live' : '🔴 Send Live On Air'}</button>
+        <a class="ibtn download" href="${m.audioUrl}" download target="_blank" rel="noopener">⬇ Download</a>
+        <button class="ibtn delete" data-action="delete" data-id="${m.id}">🗑 Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function typeLabel(type){
+  const map = {
+    general:'🎙️ General', song:'🎵 Song', shoutout:'📢 Shout-Out',
+    birthday:'🎂 Birthday', dedication:'💌 Dedication'
+  };
+  return map[type] || '🎙️ General';
+}
+
+function typeDetail(m){
+  const t = m.messageType;
+  if(t === 'song' && (m.songArtist || m.songTrack)){
+    return `<div class="card-song">${escapeHtml([m.songArtist, m.songTrack].filter(Boolean).join(' – '))}</div>`;
+  }
+  if(t === 'shoutout' && m.shoutoutName){
+    return `<div class="card-song">Shout-out to: ${escapeHtml(m.shoutoutName)}</div>`;
+  }
+  if(t === 'birthday' && m.birthdayName){
+    return `<div class="card-song">🎂 ${escapeHtml(m.birthdayName)}</div>`;
+  }
+  if(t === 'dedication' && m.dedicationTo){
+    return `<div class="card-song">💌 For: ${escapeHtml(m.dedicationTo)}</div>`;
+  }
+  return '';
+}
+
+function escapeHtml(str){
+  return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+queueEl.addEventListener('click', async (e)=>{
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+  const msg = allMessages.find(m=>m.id===id);
+  if(!msg) return;
+
+  if(action === 'play'){
+    // PREVIEW ONLY — plays in this browser, never touches OBS or Firestore
+    if(currentlyPlayingId === id){
+      hiddenPlayer.pause();
+      currentlyPlayingId = null;
+      render();
+      return;
+    }
+    // Stop any live broadcast if switching to preview
+    if(livePlayingId){
+      hiddenPlayer.pause();
+      livePlayingId = null;
+      onAirBadge.classList.remove('show');
+      await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+    }
+    currentlyPlayingId = id;
+    hiddenPlayer.src = msg.audioUrl;
+    hiddenPlayer.muted = false; // audible in dashboard browser only
+    hiddenPlayer.play().catch(()=>{});
+    render();
+  }
+
+  if(action === 'golive'){
+    // SEND LIVE ON AIR — audio plays in OBS overlay only, muted in this browser
+    if(livePlayingId === id){
+      // Already live — stop it
+      hiddenPlayer.pause();
+      livePlayingId = null;
+      onAirBadge.classList.remove('show');
+      await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+      render();
+      return;
+    }
+    // Stop any local preview first
+    currentlyPlayingId = null;
+    livePlayingId = id;
+    hiddenPlayer.src = msg.audioUrl;
+    hiddenPlayer.muted = true; // MUTED in browser — OBS overlay plays the real audio
+    hiddenPlayer.play().catch(()=>{});
+    onAirBadge.classList.add('show');
+    await setDoc(liveStateRef, {
+      active: true,
+      name: msg.name || 'Anonymous Caller',
+      city: msg.city || '',
+      audioUrl: msg.audioUrl,
+      messageType: msg.messageType || 'general',
+      songArtist: msg.songArtist || null,
+      songTrack: msg.songTrack || null,
+      updatedAt: Date.now()
+    });
+    render();
+  }
+
+  if(action === 'favorite'){
+    await updateDoc(doc(db, 'hotlineMessages', id), { favorited: !msg.favorited });
+  }
+
+  if(action === 'skip'){
+    hiddenPlayer.pause();
+    currentlyPlayingId = null;
+    onAirBadge.classList.remove('show');
+    await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+    render();
+  }
+
+  if(action === 'approve'){
+    await updateDoc(doc(db, 'hotlineMessages', id), { status: 'approved' });
+  }
+
+  if(action === 'delete'){
+    if(!confirm('Delete this message from the queue? This cannot be undone.')) return;
+    try{
+      await deleteDoc(doc(db, 'hotlineMessages', id));
+    }catch(err){
+      alert('Could not delete message: ' + err.message);
+    }
+  }
+});
+
+hiddenPlayer.addEventListener('ended', async ()=>{
+  const wasLive = livePlayingId !== null;
+  currentlyPlayingId = null;
+  livePlayingId = null;
+  if(wasLive){
+    onAirBadge.classList.remove('show');
+    await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+  }
+  render();
+});
+
+searchInput.addEventListener('input', render);
+filterSelect.addEventListener('change', render);
+
+// ── Tab switching ──
+const tabBtns = document.querySelectorAll('.tab-btn');
+const tabContents = document.querySelectorAll('.tab-content');
+tabBtns.forEach(btn =>{
+  btn.addEventListener('click', ()=>{
+    tabBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const target = btn.dataset.tab;
+    tabContents.forEach(c =>{
+      c.style.display = c.id === 'tab-' + target ? 'block' : 'none';
+    });
+    if(target === 'analytics') renderAnalytics();
+  });
+});
+
+// ── Analytics ──
+function renderAnalytics(){
+  const msgs = allMessages;
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  document.getElementById('statTotal').textContent = msgs.length;
+  document.getElementById('statApproved').textContent = msgs.filter(m=>m.status==='approved').length;
+  document.getElementById('statFavorited').textContent = msgs.filter(m=>m.favorited).length;
+  document.getElementById('statToday').textContent = msgs.filter(m=>{
+    const t = m.createdAt?.toDate ? m.createdAt.toDate() : null;
+    return t && t >= today;
+  }).length;
+
+  // Message type breakdown
+  const typeCounts = {};
+  msgs.forEach(m=>{ const t = m.messageType||'general'; typeCounts[t] = (typeCounts[t]||0)+1; });
+  const typeMax = Math.max(...Object.values(typeCounts), 1);
+  const typeLabels = {general:'🎙️ General', song:'🎵 Song', shoutout:'📢 Shout-Out', birthday:'🎂 Birthday', dedication:'💌 Dedication'};
+  document.getElementById('typeBreakdown').innerHTML = Object.entries(typeCounts)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([k,v])=>`
+      <div class="breakdown-row">
+        <span class="breakdown-label">${typeLabels[k]||k}</span>
+        <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${(v/typeMax*100).toFixed(0)}%"></div></div>
+        <span class="breakdown-count">${v}</span>
+      </div>`).join('') || '<span style="color:var(--sub);font-size:13px;">No data yet.</span>';
+
+  // Top songs
+  const songCounts = {};
+  msgs.filter(m=>m.messageType==='song' && (m.songArtist||m.songTrack)).forEach(m=>{
+    const key = [m.songArtist, m.songTrack].filter(Boolean).join(' – ');
+    songCounts[key] = (songCounts[key]||0)+1;
+  });
+  const songMax = Math.max(...Object.values(songCounts), 1);
+  const topSongs = Object.entries(songCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  document.getElementById('topSongs').innerHTML = topSongs.length
+    ? topSongs.map(([k,v])=>`
+      <div class="breakdown-row">
+        <span class="breakdown-label">${escapeHtml(k)}</span>
+        <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${(v/songMax*100).toFixed(0)}%"></div></div>
+        <span class="breakdown-count">${v}</span>
+      </div>`).join('')
+    : '<span style="color:var(--sub);font-size:13px;">No song requests yet.</span>';
+
+  // Top cities
+  const cityCounts = {};
+  msgs.filter(m=>m.city).forEach(m=>{ const c = m.city.trim(); cityCounts[c] = (cityCounts[c]||0)+1; });
+  const cityMax = Math.max(...Object.values(cityCounts), 1);
+  const topCities = Object.entries(cityCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  document.getElementById('topCities').innerHTML = topCities.length
+    ? topCities.map(([k,v])=>`
+      <div class="breakdown-row">
+        <span class="breakdown-label">${escapeHtml(k)}</span>
+        <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${(v/cityMax*100).toFixed(0)}%"></div></div>
+        <span class="breakdown-count">${v}</span>
+      </div>`).join('')
+    : '<span style="color:var(--sub);font-size:13px;">No city data yet.</span>';
+}
+
+// ── Tips Firestore listener ──
+// Live Firestore listener — auto-refreshes, no polling needed
+// Only starts after login succeeds (see onAuthStateChanged below) so the queue
+// is never queried while logged out.
+let queueListenerStarted = false;
+// ═══════════════════════════════════════════════════════
+//  LIVE CALLS — WebRTC via Firestore signaling
+// ═══════════════════════════════════════════════════════
+// ICE config — STUN for direct connections + TURN relay for cross-network/NAT traversal
+// Open Relay Project is free, no account required — handles symmetric NAT and mobile networks
+const iceConfig = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ],
+  iceCandidatePoolSize: 10
+};
+
+let activePc = null;         // RTCPeerConnection for current call
+let activeCallId = null;     // current call Firestore ID
+let activeCallRef = null;    // Firestore doc ref for current call
+let producerStream = null;   // producer mic stream
+let callTimerInterval = null;
+let callSeconds = 0;
+let callIsOnAir = false;
+let callIsOnHold = false;
+let callCandidateUnsub = null;
+
+// DOM refs for call UI
+const activeCallPanel  = document.getElementById('activeCallPanel');
+const activeCallerName = document.getElementById('activeCallerName');
+const activeCallerCity = document.getElementById('activeCallerCity');
+const activeCallTimer  = document.getElementById('activeCallTimer');
+const activeCallStatus = document.getElementById('activeCallStatus');
+const holdBtn          = document.getElementById('holdBtn');
+const callOnAirBtn     = document.getElementById('callOnAirBtn');
+const endBtn           = document.getElementById('endBtn');
+const callsEmpty       = document.getElementById('callsEmpty');
+const callsQueue       = document.getElementById('callsQueue');
+const callCounter      = document.getElementById('callCounter');
+const callCountNum     = document.getElementById('callCountNum');
+const incomingCallsTitle = document.getElementById('incomingCallsTitle');
+const callerAudio      = document.getElementById('callerAudio');
+const micMuteBtn       = document.getElementById('micMuteBtn');
+const recordBtn        = document.getElementById('recordBtn');
+const recordStatus     = document.getElementById('recordStatus');
+let micMuted = false;
+let callRecorder = null;
+let callRecordingChunks = [];
+let isRecording = false;
+let callStartTime = null;
+let activeCallerCity2 = ''; // store city for history
+
+// Hold music state
+let holdMusicCtx = null;
+let holdMusicTimeout = null;
 
 function startCallTimer(){
-  callSeconds=0; clearInterval(callTimerInterval);
-  callTimerInterval=setInterval(()=>{ callSeconds++; activeAudioTimer.textContent=formatDur(callSeconds); },1000);
+  callSeconds = 0;
+  clearInterval(callTimerInterval);
+  callTimerInterval = setInterval(()=>{
+    callSeconds++;
+    const m = Math.floor(callSeconds/60);
+    const s = callSeconds % 60;
+    activeCallTimer.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  }, 1000);
 }
-function setCallStatus(text){ activeAudioStatus.textContent=text; }
+
+function setCallStatus(text, cls=''){
+  activeCallStatus.textContent = text;
+  activeCallStatus.className = 'active-call-status' + (cls ? ' '+cls : '');
+}
 
 function cleanupActiveCall(){
   clearInterval(callTimerInterval);
-  if(callCandidateUnsub){ callCandidateUnsub(); callCandidateUnsub=null; }
-  if(activePc){ activePc.close(); activePc=null; }
-  if(producerStream){ producerStream.getTracks().forEach(t=>t.stop()); producerStream=null; }
-  stopMicMeter();
-  callerAudio.srcObject=null;
-  activeCallId=null; activeCallRef=null; callIsOnAir=false; callIsOnHold=false;
-  document.getElementById('tbOnAir').classList.remove('off'); 
-  document.getElementById('tbOnAir').classList.add('off');
-  document.getElementById('tbOnAirText').textContent='OFF AIR';
-  refreshStage(); updateCallerInfo(null);
+  if(callCandidateUnsub){ callCandidateUnsub(); callCandidateUnsub = null; }
+  if(activePc){ activePc.close(); activePc = null; }
+  if(producerStream){ producerStream.getTracks().forEach(t=>t.stop()); producerStream = null; }
+  callerAudio.srcObject = null;
+  activePc = null; activeCallId = null; activeCallRef = null;
+  callIsOnAir = false; callIsOnHold = false;
+  activeCallPanel.style.display = 'none';
+  onAirBadge.classList.remove('show');
 }
 
 async function answerCall(callId, callerName, callerCity){
   if(activePc){ alert('End the current call before answering a new one.'); return; }
+
   stopPhoneRing();
-  activeCallId=callId; activeCallRef=doc(db,'liveCalls',callId);
-  try{ producerStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false}); }
-  catch(err){ alert('Microphone access required to answer calls.'); return; }
-  startMicMeter(producerStream);
 
-  activePc=new RTCPeerConnection(iceConfig);
-  producerStream.getTracks().forEach(t=>activePc.addTrack(t,producerStream));
-  activePc.ontrack=(e)=>{ if(e.streams&&e.streams[0]){ callerAudio.srcObject=e.streams[0]; callerAudio.play().catch(()=>{}); } };
-  activePc.onicecandidate=(e)=>{ if(e.candidate&&activeCallId) addDoc(collection(db,'liveCalls',activeCallId,'dashboardCandidates'),e.candidate.toJSON()).catch(()=>{}); };
+  activeCallId = callId;
+  activeCallRef = doc(db, 'liveCalls', callId);
 
-  const snap=await getDoc(activeCallRef); const data=snap.data();
-  if(!data?.offer){ alert('Could not read call offer.'); cleanupActiveCall(); return; }
-  await activePc.setRemoteDescription(new RTCSessionDescription(data.offer));
-  const answer=await activePc.createAnswer(); await activePc.setLocalDescription(answer);
-  await setDoc(activeCallRef,{answer:{type:answer.type,sdp:answer.sdp},status:'answered'},{merge:true});
+  // 1. Get producer mic
+  try{
+    producerStream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true }, video:false });
+  }catch(err){
+    alert('Microphone access required to answer calls. Please allow mic permissions.');
+    return;
+  }
 
-  callCandidateUnsub=onSnapshot(collection(db,'liveCalls',callId,'callerCandidates'),(snap)=>{
-    snap.docChanges().forEach(async(change)=>{
-      if(change.type==='added'&&activePc) await activePc.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(()=>{});
-    });
-  });
+  // 2. Create peer connection and add local tracks
+  activePc = new RTCPeerConnection(iceConfig);
+  producerStream.getTracks().forEach(track => activePc.addTrack(track, producerStream));
 
-  activeAudioName.textContent=callerName||'Anonymous Caller';
-  activeAudioAvatar.textContent=initialsFor(callerName);
+  // 3. Play caller audio when remote track arrives
+  activePc.ontrack = (event)=>{
+    if(event.streams && event.streams[0]){
+      callerAudio.srcObject = event.streams[0];
+      callerAudio.play().catch(e => console.warn('callerAudio play blocked:', e));
+    }
+  };
+
+  // 4. Wire onicecandidate BEFORE any setDescription call so no candidates are dropped
+  activePc.onicecandidate = (event)=>{
+    if(event.candidate && activeCallId){
+      addDoc(collection(db, 'liveCalls', activeCallId, 'dashboardCandidates'), event.candidate.toJSON())
+        .catch(()=>{});
+    }
+  };
+
+  // 5. Get caller's offer and set remote description
+  const callSnap = await getDoc(activeCallRef);
+  const callData = callSnap.data();
+  if(!callData?.offer){ alert('Could not read call offer from Firestore.'); cleanupActiveCall(); return; }
+
+  await activePc.setRemoteDescription(new RTCSessionDescription(callData.offer));
+
+  // 6. Create answer and set local description — ICE gathering starts here (handler already wired)
+  const answer = await activePc.createAnswer();
+  await activePc.setLocalDescription(answer);
+
+  // 7. Save answer to Firestore
+  await setDoc(activeCallRef, {
+    answer: { type: answer.type, sdp: answer.sdp },
+    status: 'answered'
+  }, { merge: true });
+
+  // 8. Listen for caller ICE candidates — start immediately, Firestore delivers existing docs too
+  // No buffering needed on this side because setRemoteDescription already happened above
+  callCandidateUnsub = onSnapshot(
+    collection(db, 'liveCalls', callId, 'callerCandidates'),
+    (snap)=>{
+      snap.docChanges().forEach(async(change)=>{
+        if(change.type === 'added' && activePc){
+          await activePc.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(()=>{});
+        }
+      });
+    }
+  );
+
+  // 9. Show active call panel
+  activeCallerName.textContent = callerName || 'Anonymous Caller';
+  activeCallerCity.textContent = callerCity || '';
+  activeCallPanel.style.display = 'block';
   setCallStatus('Screening — caller not on air yet');
-  micMuted=false; acMuteBtn.classList.remove('active'); acHoldBtn.classList.remove('active');
-  acRecordBtn.classList.remove('active'); acOnAirBtn.classList.remove('live');
-  acRecordStatus.textContent=''; isRecording=false; callStartTime=Date.now();
-  startCallTimer(); refreshStage();
-  updateCallerInfo({name:callerName, city:callerCity, kind:'audio'});
+  holdBtn.textContent = '⏸ Hold';
+  holdBtn.classList.remove('on-hold');
+  callOnAirBtn.textContent = '🔴 Send On Air';
+  callOnAirBtn.classList.remove('live');
+  callIsOnAir = false; callIsOnHold = false;
+  // Reset recording + mute state
+  callStartTime = Date.now();
+  micMuted = false;
+  micMuteBtn.textContent = '🎤 Mute Mic';
+  micMuteBtn.classList.remove('muted');
+  recordBtn.textContent = '⏺ Record';
+  recordBtn.classList.remove('recording');
+  recordStatus.textContent = '';
+  isRecording = false;
+  startCallTimer();
+
+  // Switch to Calls tab if not already there
+  document.querySelectorAll('.tab-btn').forEach(b=> b.classList.remove('active'));
+  document.querySelector('[data-tab="calls"]').classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c=> c.style.display = 'none');
+  document.getElementById('tab-calls').style.display = 'block';
 }
 
-acHoldBtn.addEventListener('click', async()=>{
-  if(!activeCallRef||!activePc) return;
-  callIsOnHold=!callIsOnHold;
+// ── Hold music via WebRTC track replacement ──
+function buildHoldMusicStream(){
+  holdMusicCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const dest = holdMusicCtx.createMediaStreamDestination();
+  // Pleasant C-major arpeggio — caller hears this while on hold
+  const notes = [261.63,329.63,392.00,523.25,392.00,329.63,261.63,0];
+  let idx = 0;
+  function tick(){
+    if(!holdMusicCtx) return;
+    const freq = notes[idx % notes.length];
+    if(freq){
+      const osc = holdMusicCtx.createOscillator();
+      const env = holdMusicCtx.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      osc.connect(env); env.connect(dest);
+      env.gain.setValueAtTime(0, holdMusicCtx.currentTime);
+      env.gain.linearRampToValueAtTime(0.18, holdMusicCtx.currentTime + 0.04);
+      env.gain.exponentialRampToValueAtTime(0.001, holdMusicCtx.currentTime + 0.45);
+      osc.start(); osc.stop(holdMusicCtx.currentTime + 0.45);
+    }
+    idx++;
+    holdMusicTimeout = setTimeout(tick, 420);
+  }
+  tick();
+  return dest.stream;
+}
+
+function stopHoldMusic(){
+  clearTimeout(holdMusicTimeout);
+  if(holdMusicCtx){ holdMusicCtx.close().catch(()=>{}); holdMusicCtx = null; }
+}
+
+// Hold / unhold
+holdBtn.addEventListener('click', async()=>{
+  if(!activeCallRef || !activePc) return;
+  callIsOnHold = !callIsOnHold;
+
   if(callIsOnHold){
-    if(producerStream) producerStream.getAudioTracks().forEach(t=>t.enabled=false);
-    acHoldBtn.classList.add('active'); setCallStatus('On Hold');
-    await setDoc(activeCallRef,{status:'held'},{merge:true});
+    // Mute producer mic
+    if(producerStream) producerStream.getAudioTracks().forEach(t => t.enabled = false);
+    // Replace sender track with hold music
+    const holdStream = buildHoldMusicStream();
+    const holdTrack = holdStream.getAudioTracks()[0];
+    const sender = activePc.getSenders().find(s => s.track?.kind === 'audio');
+    if(sender && holdTrack) await sender.replaceTrack(holdTrack).catch(()=>{});
+    holdBtn.textContent = '▶ Resume';
+    holdBtn.classList.add('on-hold');
+    setCallStatus('On Hold — caller hears hold music', 'on-hold');
+    await setDoc(activeCallRef, { status: 'held' }, { merge: true });
   } else {
-    if(producerStream) producerStream.getAudioTracks().forEach(t=>t.enabled=true);
-    acHoldBtn.classList.remove('active'); setCallStatus('Screening');
-    await setDoc(activeCallRef,{status:'answered'},{merge:true});
+    // Restore producer mic track
+    stopHoldMusic();
+    if(producerStream){
+      producerStream.getAudioTracks().forEach(t => t.enabled = true);
+      const sender = activePc.getSenders().find(s => s.track?.kind === 'audio');
+      const micTrack = producerStream.getAudioTracks()[0];
+      if(sender && micTrack) await sender.replaceTrack(micTrack).catch(()=>{});
+    }
+    holdBtn.textContent = '⏸ Hold';
+    holdBtn.classList.remove('on-hold');
+    setCallStatus('Screening', '');
+    await setDoc(activeCallRef, { status: 'answered' }, { merge: true });
   }
 });
-acMuteBtn.addEventListener('click', ()=>{
+
+// Mic mute (dashboard only — caller still hears hold music or silence)
+micMuteBtn.addEventListener('click', ()=>{
   if(!producerStream) return;
-  micMuted=!micMuted;
-  producerStream.getAudioTracks().forEach(t=>t.enabled=!micMuted);
-  acMuteBtn.classList.toggle('active',micMuted);
+  micMuted = !micMuted;
+  producerStream.getAudioTracks().forEach(t => t.enabled = !micMuted);
+  micMuteBtn.textContent = micMuted ? '🔇 Unmute Mic' : '🎤 Mute Mic';
+  micMuteBtn.classList.toggle('muted', micMuted);
 });
+
+// ── Call Recording ──
 function startCallRecording(){
-  if(!callerAudio.srcObject){ acRecordStatus.textContent='No call audio to record.'; return; }
-  callRecordingChunks=[];
-  const mimeType=MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':'audio/mp4';
-  try{ callRecorder=new MediaRecorder(callerAudio.srcObject,{mimeType}); }
-  catch(e){ acRecordStatus.textContent='Recording not supported.'; return; }
-  callRecorder.ondataavailable=e=>{ if(e.data.size>0) callRecordingChunks.push(e.data); };
-  callRecorder.start(1000); isRecording=true;
-  acRecordBtn.classList.add('active'); acRecordStatus.textContent='⏺ Recording…';
+  if(!callerAudio.srcObject){ recordStatus.textContent = 'No call audio to record.'; return; }
+  callRecordingChunks = [];
+  const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+  try{
+    callRecorder = new MediaRecorder(callerAudio.srcObject, { mimeType });
+  }catch(e){
+    recordStatus.textContent = 'Recording not supported in this browser.'; return;
+  }
+  callRecorder.ondataavailable = e =>{ if(e.data.size > 0) callRecordingChunks.push(e.data); };
+  callRecorder.start(1000);
+  isRecording = true;
+  recordBtn.textContent = '⏹ Stop Recording';
+  recordBtn.classList.add('recording');
+  recordStatus.textContent = '⏺ Recording…';
 }
+
 async function stopCallRecording(){
-  if(!callRecorder||callRecorder.state==='inactive') return null;
-  isRecording=false; acRecordBtn.classList.remove('active'); acRecordStatus.textContent='☁ Uploading…';
-  return new Promise(resolve=>{
-    callRecorder.onstop=async()=>{
-      const blob=new Blob(callRecordingChunks,{type:callRecorder.mimeType});
-      const fd=new FormData(); fd.append('file',blob); fd.append('upload_preset','djdeeze_hotline');
+  if(!callRecorder || callRecorder.state === 'inactive') return null;
+  isRecording = false;
+  recordBtn.textContent = '⏺ Record';
+  recordBtn.classList.remove('recording');
+  recordStatus.textContent = '☁ Uploading recording…';
+
+  return new Promise(resolve =>{
+    callRecorder.onstop = async ()=>{
+      const blob = new Blob(callRecordingChunks, { type: callRecorder.mimeType });
+      const fd = new FormData();
+      fd.append('file', blob);
+      fd.append('upload_preset', 'djdeeze_hotline');
       try{
-        const res=await fetch('https://api.cloudinary.com/v1_1/vz1v6nzp/video/upload',{method:'POST',body:fd});
-        const data=await res.json();
-        acRecordStatus.textContent='✅ Saved'; setTimeout(()=>acRecordStatus.textContent='',3000);
+        const res = await fetch('https://api.cloudinary.com/v1_1/vz1v6nzp/video/upload',{ method:'POST', body:fd });
+        const data = await res.json();
+        recordStatus.textContent = '✅ Recording saved';
+        recordStatus.className = 'record-status saved';
+        setTimeout(()=>{ recordStatus.textContent = ''; recordStatus.className = 'record-status'; }, 4000);
         resolve(data.secure_url);
-      }catch(e){ acRecordStatus.textContent='Upload failed.'; resolve(null); }
+      }catch(e){
+        recordStatus.textContent = 'Recording upload failed.';
+        resolve(null);
+      }
     };
     callRecorder.stop();
   });
 }
-acRecordBtn.addEventListener('click', ()=>{ if(isRecording) stopCallRecording(); else startCallRecording(); });
 
-acOnAirBtn.addEventListener('click', async()=>{
-  if(!activeCallRef) return;
-  callIsOnAir=!callIsOnAir;
-  const onAirEl=document.getElementById('tbOnAir'), onAirText=document.getElementById('tbOnAirText');
-  if(callIsOnAir){
-    acOnAirBtn.classList.add('live'); setCallStatus('ON AIR — Broadcasting');
-    onAirEl.classList.remove('off'); onAirText.textContent='ON AIR';
-    await setDoc(doc(db,'hotlineLive','nowPlaying'),{
-      active:true,name:activeAudioName.textContent,city:'',messageType:'livecall',
-      callId:activeCallId,audioUrl:null,updatedAt:Date.now()
-    });
-    await setDoc(activeCallRef,{status:'live'},{merge:true});
-  } else {
-    acOnAirBtn.classList.remove('live'); setCallStatus('Screening — taken off air');
-    onAirEl.classList.add('off'); onAirText.textContent='OFF AIR';
-    await setDoc(doc(db,'hotlineLive','nowPlaying'),{active:false,updatedAt:Date.now()});
-    await setDoc(activeCallRef,{status:'answered'},{merge:true});
-  }
+recordBtn.addEventListener('click', ()=>{
+  if(isRecording) stopCallRecording().catch(()=>{});
+  else startCallRecording();
 });
-acEndBtn.addEventListener('click', async()=>{
-  if(!activeCallRef) return;
-  endingCallInProgress=true;
-  let recUrl=null; if(isRecording) recUrl=await stopCallRecording();
-  await setDoc(activeCallRef,{status:'ended'},{merge:true});
-  if(callIsOnAir) await setDoc(doc(db,'hotlineLive','nowPlaying'),{active:false,updatedAt:Date.now()});
-  await saveCallHistory(recUrl);
-  cleanupActiveCall();
-  endingCallInProgress=false;
-});
-async function saveCallHistory(recordingUrl=null){
-  const duration=callStartTime?Math.floor((Date.now()-callStartTime)/1000):0;
+
+// ── Save call to history ──
+async function saveCallHistory(recordingUrl = null){
+  const endTime = Date.now();
+  const duration = callStartTime ? Math.floor((endTime - callStartTime) / 1000) : 0;
   try{
-    await addDoc(collection(db,'callHistory'),{
-      callerName:activeAudioName.textContent||'Unknown', callerCity:null, duration,
-      recordingUrl:recordingUrl||null, status:'completed', type:'audio', createdAt:serverTimestamp()
+    await addDoc(collection(db, 'callHistory'), {
+      callerName: document.getElementById('activeCallerName').textContent || 'Unknown',
+      callerCity: document.getElementById('activeCallerCity').textContent || null,
+      duration,
+      recordingUrl: recordingUrl || null,
+      status: 'completed',
+      type: 'audio',
+      createdAt: serverTimestamp()
     });
-  }catch(e){}
+  }catch(e){ console.warn('Could not save call history:', e); }
 }
 
-const loggedMissedIds=new Set();
+// ── Missed calls — logged once per call/video request that never got answered ──
+const loggedMissedIds = new Set();
+const loggedVideoHistoryIds = new Set();
 async function logMissedCall(item, kind){
-  if(loggedMissedIds.has(item.id)) return; loggedMissedIds.add(item.id);
+  if(loggedMissedIds.has(item.id)) return;
+  loggedMissedIds.add(item.id);
   try{
-    await addDoc(collection(db,'callHistory'),{
-      callerName:item.callerName||(kind==='video'?'Video Guest':'Unknown'), callerCity:item.callerCity||null,
-      duration:0, recordingUrl:null, status:'missed', type:kind, createdAt:serverTimestamp()
+    await addDoc(collection(db, 'callHistory'), {
+      callerName: item.callerName || (kind === 'video' ? 'Video Guest' : 'Unknown'),
+      callerCity: item.callerCity || null,
+      duration: 0,
+      recordingUrl: null,
+      status: 'missed',
+      type: kind,
+      createdAt: serverTimestamp()
     });
-  }catch(e){}
+  }catch(e){ console.warn('Could not log missed call:', e); }
 }
-const loggedVideoHistoryIds=new Set();
+
 async function saveVideoCallHistory(item){
-  if(loggedVideoHistoryIds.has(item.id)) return; loggedVideoHistoryIds.add(item.id);
-  const duration=item.liveSince?Math.floor((Date.now()-item.liveSince)/1000):0;
+  if(loggedVideoHistoryIds.has(item.id)) return;
+  loggedVideoHistoryIds.add(item.id);
+  const duration = item.liveSince ? Math.floor((Date.now() - item.liveSince) / 1000) : 0;
   try{
-    await addDoc(collection(db,'callHistory'),{
-      callerName:item.callerName||'Video Guest', callerCity:item.callerCity||null, duration,
-      recordingUrl:item._recordingUrl||null, status:'completed', type:'video', createdAt:serverTimestamp()
+    await addDoc(collection(db, 'callHistory'), {
+      callerName: item.callerName || 'Video Guest',
+      callerCity: item.callerCity || null,
+      duration,
+      recordingUrl: null,
+      status: 'completed',
+      type: 'video',
+      createdAt: serverTimestamp()
     });
-  }catch(e){}
+  }catch(e){ console.warn('Could not save video call history:', e); }
 }
 
-function startCallsListener(){
-  onSnapshot(query(collection(db,'liveCalls'),orderBy('createdAt','desc')),(snap)=>{
-    const calls=snap.docs.map(d=>({id:d.id,...d.data()}));
-    latestAudioCalls=calls;
-    const waiting=calls.filter(c=>c.status==='waiting');
-    const held=calls.filter(c=>c.status==='held');
-    const live=calls.filter(c=>c.status==='live');
+// Send call on air — audio stays in dashboard (OBS captures via Browser Source)
+// Overlay just shows the visual lower-third, no audio routed through it
+callOnAirBtn.addEventListener('click', async()=>{
+  if(!activeCallRef) return;
+  callIsOnAir = !callIsOnAir;
 
-    document.getElementById('audioQCount').textContent=waiting.length;
-    const audioQList=document.getElementById('audioQList');
-    audioQList.innerHTML = waiting.length ? waiting.map(c=>qcard(c,'audio')).join('') : '<div class="qsec-empty">No callers waiting</div>';
-
-    if(waiting.length>0 && !activePc){
-      snap.docChanges().forEach(change=>{ if(change.type==='added'&&change.doc.data().status==='waiting') startPhoneRing(); });
-    } else stopPhoneRing();
-
-    // If the call we're currently on ended from the OTHER side (caller hung up),
-    // our own view would otherwise sit there stale — clean it up automatically.
-    // (Guarded so this doesn't double-fire when we're the ones ending it.)
-    if(activeCallId && !endingCallInProgress){
-      const activeDoc=calls.find(c=>c.id===activeCallId);
-      if(activeDoc && activeDoc.status==='ended' && activePc){
-        saveCallHistory(null);
-        cleanupActiveCall();
-      }
-    }
-
-    updateIncomingOverlay(); refreshStage();
-
-    calls.forEach(c=>{
-      if(c.status==='rejected'||(c.status==='ended'&&!c.answer)) logMissedCall(c,'audio');
+  if(callIsOnAir){
+    callOnAirBtn.textContent = '⏹ Take Off Air';
+    callOnAirBtn.classList.add('live');
+    setCallStatus('ON AIR — Live Call Broadcasting', 'on-air');
+    onAirBadge.classList.add('show');
+    // Tell overlay to show the live-call lower third AND connect directly to this
+    // caller for audio — that direct connection is what actually gets the caller's
+    // voice onto the broadcast (OBS's Browser Source can only capture overlay.html
+    // itself, not a separate dashboard browser tab).
+    await setDoc(liveStateRef, {
+      active: true,
+      name: activeCallerName.textContent,
+      city: activeCallerCity.textContent,
+      messageType: 'livecall',
+      callId: activeCallId,
+      audioUrl: null,
+      updatedAt: Date.now()
     });
-    renderHoldList(held);
-    renderOnAirList(live,'audio');
-    renderMissedBadge();
-  });
-}
-
-/* ===================== VIDEO CALLS ===================== */
-let previewPc=null, previewCallId=null, previewCandidateUnsub=null;
-let previewMicStream=null, previewMicMuted=false, currentLiveVideoId=null, videoTimerInterval=null;
-const previewVideo=document.getElementById('previewVideo');
-const activeVideoAvatar=document.getElementById('activeVideoAvatar');
-const activeVideoName=document.getElementById('activeVideoName');
-const activeVideoStatus=document.getElementById('activeVideoStatus');
-const activeVideoTimer=document.getElementById('activeVideoTimer');
-const vcMicMuteBtn=document.getElementById('vcMicMuteBtn');
-const vcAirBtn=document.getElementById('vcAirBtn');
-const vcTalkbackBtn=document.getElementById('vcTalkbackBtn');
-const vcRejectBtn=document.getElementById('vcRejectBtn');
-const vcEndBtn=document.getElementById('vcEndBtn');
-
-function updatePreviewPanelForStatus(status){
-  const isLive=status==='live';
-  vcAirBtn.style.display=isLive?'none':'flex';
-  vcRejectBtn.style.display=isLive?'none':'flex';
-  vcEndBtn.style.display=isLive?'flex':'none';
-  vcTalkbackBtn.querySelector('.ac-btn-lbl').textContent=isLive?'Disconnect':'Stop Preview';
-  activeVideoTimer.style.display=isLive?'block':'none';
-  if(isLive){
-    activeVideoStatus.innerHTML='<span class="dot"></span>ON AIR';
-    if(!videoTimerInterval){ let s=0; videoTimerInterval=setInterval(()=>{ s++; activeVideoTimer.textContent=formatDur(s); },1000); }
-    currentLiveVideoId=previewCallId;
-    document.getElementById('tbOnAir').classList.remove('off');
-    document.getElementById('tbOnAirText').textContent='ON AIR';
+    await setDoc(activeCallRef, { status: 'live' }, { merge: true });
   } else {
-    activeVideoStatus.innerHTML = previewMicStream ? '<span class="dot"></span>Previewing — two-way audio' : '<span class="dot"></span>Previewing';
-    clearInterval(videoTimerInterval); videoTimerInterval=null;
+    callOnAirBtn.textContent = '🔴 Send On Air';
+    callOnAirBtn.classList.remove('live');
+    setCallStatus('Screening — call taken off air');
+    onAirBadge.classList.remove('show');
+    await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+    await setDoc(activeCallRef, { status: 'answered' }, { merge: true });
   }
+});
+
+// End call
+endBtn.addEventListener('click', async()=>{
+  if(!activeCallRef) return;
+  endBtn.disabled = true;
+  endBtn.textContent = 'Ending…';
+
+  // Stop recording if active and save URL
+  let recUrl = null;
+  if(isRecording) recUrl = await stopCallRecording();
+
+  // Stop hold music if on hold
+  stopHoldMusic();
+  stopPhoneRing();
+
+  await setDoc(activeCallRef, { status: 'ended' }, { merge: true });
+  if(callIsOnAir){
+    await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+  }
+
+  // Save to call history
+  await saveCallHistory(recUrl);
+
+  cleanupActiveCall();
+  endBtn.disabled = false;
+  endBtn.textContent = '📵 End Call';
+});
+
+// Calls Firestore listener — shows incoming calls queue
+function startCallsListener(){
+  onSnapshot(
+    query(collection(db, 'liveCalls'), orderBy('createdAt', 'desc')),
+    (snap)=>{
+      const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
+      latestAudioCalls = calls;
+
+      // Incoming = waiting calls only
+      const ringing = calls.filter(c => c.status === 'waiting');
+      const count = ringing.length;
+
+      // Header counter
+      callCountNum.textContent = count;
+      count > 0 ? callCounter.classList.add('show') : callCounter.classList.remove('show');
+
+      // Phone ring — start when there are waiting calls, stop when queue is clear
+      if(count > 0 && !activePc){
+        // Only start ring if a NEW call just arrived
+        snap.docChanges().forEach(change=>{
+          if(change.type === 'added' && change.doc.data().status === 'waiting'){
+            startPhoneRing();
+          }
+        });
+      } else {
+        stopPhoneRing();
+      }
+
+      updateIncomingOverlay();
+
+      // Missed calls — rejected, or ended without ever being answered
+      calls.forEach(c=>{
+        if(c.status === 'rejected' || (c.status === 'ended' && !c.answer)){
+          logMissedCall(c, 'audio');
+        }
+      });
+
+      // Render incoming call cards
+      if(ringing.length === 0 && !activePc){
+        callsEmpty.style.display = 'block';
+        callsQueue.innerHTML = '';
+        incomingCallsTitle.style.display = 'none';
+        return;
+      }
+      callsEmpty.style.display = 'none';
+      incomingCallsTitle.style.display = ringing.length > 0 ? 'block' : 'none';
+
+      callsQueue.innerHTML = ringing.map(c=>`
+        <div class="call-card" data-id="${c.id}">
+          <div class="call-ring-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+          </div>
+          <div class="call-card-body">
+            <div class="call-card-name">${escapeHtml(c.callerName || 'Anonymous Caller')}</div>
+            <div class="call-card-city">${c.callerCity ? escapeHtml(c.callerCity) : ''}</div>
+            <div class="call-card-time">${timeAgo(c.createdAt)}</div>
+          </div>
+          <div class="call-card-actions">
+            <button class="ibtn ibtn-answer" data-action="answer" data-id="${c.id}"
+              data-name="${escapeHtml(c.callerName||'')}" data-city="${escapeHtml(c.callerCity||'')}">
+              ✆ Answer
+            </button>
+            <button class="ibtn ibtn-reject" data-action="reject" data-id="${c.id}">
+              ✕ Reject
+            </button>
+          </div>
+        </div>`).join('');
+    }
+  );
 }
+
+// ═══════════════════════════════════════════════════════
+//  VIDEO GUESTS — the dashboard only ever touches Firestore status here.
+//  It never opens a WebRTC connection itself; the guest's camera/mic connect
+//  straight to overlay.html once a call is marked 'live'.
+// ═══════════════════════════════════════════════════════
+const activeVideoPanel = document.getElementById('activeVideoPanel');
+const activeVideoName  = document.getElementById('activeVideoName');
+const activeVideoCity  = document.getElementById('activeVideoCity');
+const activeVideoTimer = document.getElementById('activeVideoTimer');
+const incomingVideoTitle = document.getElementById('incomingVideoTitle');
+const videoEmpty = document.getElementById('videoEmpty');
+const videoQueue = document.getElementById('videoQueue');
+const videoEndBtn = document.getElementById('videoEndBtn');
+
+let videoTimerInterval = null;
+let currentLiveVideoId = null;
+let latestVideoCalls = [];
+let latestAudioCalls = [];
+
+function startVideoTimer(sinceMs){
+  clearInterval(videoTimerInterval);
+  function tick(){
+    const secs = Math.max(0, Math.floor((Date.now() - sinceMs) / 1000));
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    activeVideoTimer.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  }
+  tick();
+  videoTimerInterval = setInterval(tick, 1000);
+}
+
+function startVideoCallsListener(){
+  onSnapshot(
+    query(collection(db, 'videoCalls'), orderBy('createdAt', 'desc')),
+    (snap)=>{
+      const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
+      latestVideoCalls = calls;
+      const waiting = calls.filter(c => c.status === 'waiting');
+      const live = calls.find(c => c.status === 'live');
+
+      // FaceTime-style ring — starts the moment a new guest is waiting, keeps
+      // going while any are still waiting, stops once the queue is clear.
+      if(waiting.length > 0){
+        snap.docChanges().forEach(change=>{
+          if(change.type === 'added' && change.doc.data().status === 'waiting'){
+            startVideoRing();
+          }
+        });
+      } else {
+        stopVideoRing();
+      }
+
+      updateIncomingOverlay();
+
+      // Missed video guests — rejected, or ended without ever going live
+      // Completed video segments — ended after having been live at least once
+      calls.forEach(c=>{
+        if(c.status === 'rejected' || (c.status === 'ended' && !c.liveSince)){
+          logMissedCall(c, 'video');
+        } else if(c.status === 'ended' && c.liveSince){
+          saveVideoCallHistory(c);
+        }
+      });
+
+      // Keep the talkback connection alive through screening AND on-air, so the
+      // producer and guest can always hear each other. Only auto-close it once
+      // the call is truly over (ended/rejected/gone) — not just because it went live.
+      if(previewCallId){
+        const tracked = calls.find(c => c.id === previewCallId);
+        if(!tracked || tracked.status === 'ended' || tracked.status === 'rejected'){
+          stopVideoPreview();
+        } else {
+          updatePreviewPanelForStatus(tracked.status);
+        }
+      }
+
+      // Live guest panel
+      if(live){
+        activeVideoPanel.style.display = 'block';
+        activeVideoName.textContent = live.callerName || 'Guest';
+        activeVideoCity.textContent = live.callerCity || '';
+        if(live.id !== currentLiveVideoId){
+          currentLiveVideoId = live.id;
+          startVideoTimer(live.liveSince || Date.now());
+        }
+      } else {
+        activeVideoPanel.style.display = 'none';
+        clearInterval(videoTimerInterval);
+        currentLiveVideoId = null;
+      }
+
+      // Waiting queue
+      if(waiting.length === 0){
+        videoEmpty.style.display = 'block';
+        videoQueue.innerHTML = '';
+        incomingVideoTitle.style.display = 'none';
+        return;
+      }
+      videoEmpty.style.display = 'none';
+      incomingVideoTitle.style.display = 'block';
+
+      videoQueue.innerHTML = waiting.map(c=>`
+        <div class="call-card" data-id="${c.id}">
+          <div class="call-ring-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+            </svg>
+          </div>
+          <div class="call-card-body">
+            <div class="call-card-name">${escapeHtml(c.callerName || 'Guest')}</div>
+            <div class="call-card-city">${c.callerCity ? escapeHtml(c.callerCity) : ''}</div>
+            <div class="call-card-time">${timeAgo(c.createdAt)}</div>
+          </div>
+          <div class="call-card-actions">
+            <button class="ibtn" data-action="video-preview" data-id="${c.id}">🔍 Preview</button>
+            <button class="ibtn ibtn-answer" data-action="video-air" data-id="${c.id}">🔴 Send On Air</button>
+            <button class="ibtn ibtn-reject" data-action="video-reject" data-id="${c.id}">✕ Reject</button>
+          </div>
+        </div>`).join('');
+    }
+  );
+}
+
+videoEndBtn.addEventListener('click', async()=>{
+  if(!currentLiveVideoId) return;
+  await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
+});
+
+// ═══════════════════════════════════════════════════════
+//  SCREENING PREVIEW — a separate, dashboard-only WebRTC connection so the
+//  producer can see/hear a waiting guest before sending them on air. This never
+//  touches the "air" connection (guest → overlay.html) — purely for review.
+// ═══════════════════════════════════════════════════════
+const videoPreviewPanel  = document.getElementById('videoPreviewPanel');
+const previewName        = document.getElementById('previewName');
+const previewCity         = document.getElementById('previewCity');
+const previewVideo        = document.getElementById('previewVideo');
+const previewVideoStatus  = document.getElementById('previewVideoStatus');
+const previewStatus       = document.getElementById('previewStatus');
+const previewAirBtn       = document.getElementById('previewAirBtn');
+const previewStopBtn      = document.getElementById('previewStopBtn');
+const previewRejectBtn    = document.getElementById('previewRejectBtn');
+const previewMicMuteBtn   = document.getElementById('previewMicMuteBtn');
+
+let previewPc = null;
+let previewCallId = null;
+let previewCandidateUnsub = null;
+let previewMicStream = null;   // producer's own mic, so they can talk back to the guest
+let previewMicMuted = false;
+
+function updatePreviewMicBtn(){
+  if(!previewMicStream){
+    previewMicMuteBtn.style.display = 'none';
+    return;
+  }
+  previewMicMuteBtn.style.display = 'inline-flex';
+  previewMicMuteBtn.textContent = previewMicMuted ? '🔇 Unmute My Mic' : '🎙️ Mute My Mic';
+  previewMicMuteBtn.classList.toggle('muted', previewMicMuted);
+}
+
 function stopVideoPreview(){
-  if(previewCandidateUnsub){ previewCandidateUnsub(); previewCandidateUnsub=null; }
-  if(previewPc){ previewPc.close(); previewPc=null; }
-  if(previewMicStream){ previewMicStream.getTracks().forEach(t=>t.stop()); previewMicStream=null; }
-  stopMicMeter();
-  previewMicMuted=false; previewVideo.srcObject=null; previewCallId=null;
-  clearInterval(videoTimerInterval); videoTimerInterval=null;
-  if(currentLiveVideoId){
-    document.getElementById('tbOnAir').classList.add('off');
-    document.getElementById('tbOnAirText').textContent='OFF AIR';
-  }
-  currentLiveVideoId=null;
-  refreshStage(); updateCallerInfo(null);
+  if(previewCandidateUnsub){ previewCandidateUnsub(); previewCandidateUnsub = null; }
+  if(previewPc){ previewPc.close(); previewPc = null; }
+  if(previewMicStream){ previewMicStream.getTracks().forEach(t => t.stop()); previewMicStream = null; }
+  previewMicMuted = false;
+  previewVideo.srcObject = null;
+  previewCallId = null;
+  videoPreviewPanel.style.display = 'none';
 }
+
 async function startVideoPreview(callId){
-  if(previewCallId && previewCallId!==callId) stopVideoPreview();
-  if(previewCallId===callId) return;
-  const call=latestVideoCalls.find(c=>c.id===callId);
-  if(!call||!call.screenOffer){ alert("Guest's connection isn't ready yet — try again shortly."); return; }
+  // Only one preview at a time
+  if(previewCallId && previewCallId !== callId) stopVideoPreview();
+  if(previewCallId === callId) return; // already previewing this one
 
-  previewCallId=callId;
-  activeVideoName.textContent=call.callerName||'Guest';
-  activeVideoAvatar.textContent=initialsFor(call.callerName);
-  activeVideoStatus.innerHTML='<span class="dot"></span>Connecting…';
-  refreshStage();
-  updateCallerInfo({name:call.callerName, city:call.callerCity, kind:'video'});
-
-  // Move it out of 'waiting' the instant it's accepted — otherwise it keeps
-  // ringing and keeps showing as "incoming" even though it's being handled.
-  if(call.status === 'waiting'){
-    stopVideoRing();
-    await updateDoc(doc(db,'videoCalls',callId),{status:'screening'}).catch(()=>{});
+  const call = latestVideoCalls.find(c => c.id === callId);
+  if(!call || !call.screenOffer){
+    alert("This guest's preview connection isn't ready yet — try again in a moment.");
+    return;
   }
 
-  previewPc=new RTCPeerConnection(iceConfig);
-  previewPc.ontrack=(e)=>{
-    if(e.streams&&e.streams[0]){ previewVideo.srcObject=e.streams[0]; previewVideo.play().catch(()=>{}); }
+  previewCallId = callId;
+  previewName.textContent = call.callerName || 'Guest';
+  previewCity.textContent = call.callerCity || '';
+  previewVideoStatus.style.display = 'flex';
+  previewVideoStatus.textContent = "Connecting to guest's camera…";
+  previewStatus.textContent = 'Connecting…';
+  videoPreviewPanel.style.display = 'block';
+  updatePreviewMicBtn();
+  updatePreviewPanelForStatus(call.status);
+
+  previewPc = new RTCPeerConnection(iceConfig);
+
+  previewPc.ontrack = (event) => {
+    if(event.streams && event.streams[0]){
+      previewVideo.srcObject = event.streams[0];
+      previewVideo.play().catch(()=>{});
+      previewVideoStatus.style.display = 'none';
+      previewStatus.textContent = previewMicStream
+        ? 'Previewing — two-way audio, not on air yet'
+        : 'Previewing — not on air yet';
+    }
   };
-  previewPc.onicecandidate=(e)=>{ if(e.candidate&&previewCallId) addDoc(collection(db,'videoCalls',previewCallId,'screenDashboardCandidates'),e.candidate.toJSON()).catch(()=>{}); };
+
+  previewPc.onicecandidate = (e) => {
+    if(e.candidate && previewCallId){
+      addDoc(collection(db, 'videoCalls', previewCallId, 'screenDashboardCandidates'), e.candidate.toJSON()).catch(()=>{});
+    }
+  };
 
   try{
     await previewPc.setRemoteDescription(new RTCSessionDescription(call.screenOffer));
+
+    // Try to grab the producer's own mic so they can talk back to the guest during
+    // screening. If denied or unavailable, the preview still works — just one-way.
     try{
-      previewMicStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
-      previewMicStream.getAudioTracks().forEach(t=>previewPc.addTrack(t,previewMicStream));
-      startMicMeter(previewMicStream);
-    }catch(micErr){ previewMicStream=null; }
-    vcMicMuteBtn.style.display=previewMicStream?'flex':'none';
-    const answer=await previewPc.createAnswer(); await previewPc.setLocalDescription(answer);
-    await setDoc(doc(db,'videoCalls',callId),{screenAnswer:{type:answer.type,sdp:answer.sdp}},{merge:true});
-  }catch(err){ activeVideoStatus.textContent='Could not connect.'; return; }
-
-  updatePreviewPanelForStatus(call.status);
-  previewCandidateUnsub=onSnapshot(collection(db,'videoCalls',callId,'screenCallerCandidates'),(snap)=>{
-    snap.docChanges().forEach(async(change)=>{
-      if(change.type==='added'&&previewPc) await previewPc.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(()=>{});
-    });
-  });
-}
-vcMicMuteBtn.addEventListener('click', ()=>{
-  if(!previewMicStream) return;
-  previewMicMuted=!previewMicMuted;
-  previewMicStream.getAudioTracks().forEach(t=>t.enabled=!previewMicMuted);
-  vcMicMuteBtn.classList.toggle('active',previewMicMuted);
-});
-vcTalkbackBtn.addEventListener('click', stopVideoPreview);
-vcAirBtn.addEventListener('click', async()=>{
-  if(!previewCallId) return;
-  const id=previewCallId;
-  if(currentLiveVideoId && currentLiveVideoId!==id) await updateDoc(doc(db,'videoCalls',currentLiveVideoId),{status:'ended'}).catch(()=>{});
-  await updateDoc(doc(db,'videoCalls',id),{status:'live',liveSince:Date.now()}).catch(()=>{});
-  updatePreviewPanelForStatus('live');
-});
-vcRejectBtn.addEventListener('click', async()=>{
-  if(!previewCallId) return; const id=previewCallId;
-  stopVideoPreview();
-  await updateDoc(doc(db,'videoCalls',id),{status:'rejected'}).catch(()=>{});
-});
-vcEndBtn.addEventListener('click', async()=>{
-  if(!previewCallId) return;
-  await updateDoc(doc(db,'videoCalls',previewCallId),{status:'ended'}).catch(()=>{});
-});
-
-function startVideoCallsListener(){
-  onSnapshot(query(collection(db,'videoCalls'),orderBy('createdAt','desc')),(snap)=>{
-    const calls=snap.docs.map(d=>({id:d.id,...d.data()}));
-    latestVideoCalls=calls;
-    const waiting=calls.filter(c=>c.status==='waiting');
-    const live=calls.filter(c=>c.status==='live');
-
-    document.getElementById('videoQCount').textContent=waiting.length;
-    const videoQList=document.getElementById('videoQList');
-    videoQList.innerHTML = waiting.length ? waiting.map(c=>qcard(c,'video')).join('') : '<div class="qsec-empty">No video guests waiting</div>';
-
-    if(waiting.length>0){
-      snap.docChanges().forEach(change=>{ if(change.type==='added'&&change.doc.data().status==='waiting') startVideoRing(); });
-    } else stopVideoRing();
-
-    if(previewCallId){
-      const tracked=calls.find(c=>c.id===previewCallId);
-      if(!tracked||tracked.status==='ended'||tracked.status==='rejected') stopVideoPreview();
-      else updatePreviewPanelForStatus(tracked.status);
+      previewMicStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation:true, noiseSuppression:true }
+      });
+      previewMicStream.getAudioTracks().forEach(track => previewPc.addTrack(track, previewMicStream));
+    }catch(micErr){
+      previewMicStream = null;
+      console.warn('Producer mic unavailable — preview will be one-way (you can see/hear the guest, but they can\'t hear you).', micErr);
+    }
+    updatePreviewMicBtn();
+    if(previewVideo.srcObject){
+      previewStatus.textContent = previewMicStream
+        ? 'Previewing — two-way audio, not on air yet'
+        : 'Previewing — not on air yet';
     }
 
-    updateIncomingOverlay(); refreshStage();
+    const answer = await previewPc.createAnswer();
+    await previewPc.setLocalDescription(answer);
+    await setDoc(doc(db, 'videoCalls', callId), {
+      screenAnswer: { type: answer.type, sdp: answer.sdp }
+    }, { merge: true });
+  }catch(err){
+    previewVideoStatus.textContent = 'Could not connect to preview.';
+    console.error(err);
+    return;
+  }
 
-    calls.forEach(c=>{
-      if(c.status==='rejected'||(c.status==='ended'&&!c.liveSince)) logMissedCall(c,'video');
-      else if(c.status==='ended'&&c.liveSince) saveVideoCallHistory(c);
-    });
-    renderOnAirList(live,'video');
-    renderMissedBadge();
-  });
+  previewCandidateUnsub = onSnapshot(
+    collection(db, 'videoCalls', callId, 'screenCallerCandidates'),
+    (snap) => {
+      snap.docChanges().forEach(async(change) => {
+        if(change.type === 'added' && previewPc){
+          await previewPc.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(()=>{});
+        }
+      });
+    }
+  );
 }
 
-/* ===================== HOLD / ON-AIR SIDEBAR LISTS ===================== */
-function renderHoldList(held){
-  document.getElementById('holdQCount').textContent=held.length;
-  const el=document.getElementById('holdQList');
-  el.innerHTML = held.length ? held.map(c=>qcard(c,'audio',{cls:'hold',txt:'Hold'})).join('') : '<div class="qsec-empty">Nobody on hold</div>';
-}
-function renderOnAirList(liveItems, kind){
-  const existing = document.getElementById('onairQList').dataset.kind===kind ? [] : null;
-  const el=document.getElementById('onairQList');
-  const key = kind+'Live';
-  el.dataset[key]=JSON.stringify(liveItems.map(c=>c.id));
-  const allLive=[
-    ...(JSON.parse(el.dataset.audioLive||'[]')).map(id=>({id,kind:'audio'})),
-    ...(JSON.parse(el.dataset.videoLive||'[]')).map(id=>({id,kind:'video'}))
-  ];
-  document.getElementById('onairQCount').textContent=allLive.length;
-  if(allLive.length===0){ el.innerHTML='<div class="qsec-empty">Nobody on air</div>'; return; }
-  el.innerHTML = allLive.map(x=>{
-    const src = x.kind==='audio'?latestAudioCalls:latestVideoCalls;
-    const item = src.find(c=>c.id===x.id);
-    if(!item) return '';
-    return qcard(item, x.kind, {cls:'onair',txt:'On Air'});
-  }).join('');
+function updatePreviewPanelForStatus(status){
+  const isLive = status === 'live';
+  previewAirBtn.style.display = isLive ? 'none' : 'inline-flex';
+  previewRejectBtn.style.display = isLive ? 'none' : 'inline-flex';
+  previewStopBtn.textContent = isLive ? '🔇 Disconnect Talkback' : 'Stop Preview';
+  if(isLive){
+    previewStatus.textContent = previewMicStream
+      ? "🔴 On air — two-way audio still connected"
+      : "🔴 On air — you can see/hear them, they can't hear you";
+  } else {
+    previewStatus.textContent = previewMicStream
+      ? 'Previewing — two-way audio, not on air yet'
+      : 'Previewing — not on air yet';
+  }
 }
 
-/* ===================== CALLER INFO / QUICK ACTIONS ===================== */
-let currentCallerCtx=null;
-function updateCallerInfo(ctx){
-  currentCallerCtx=ctx;
-  const el=document.getElementById('callerInfoBody');
-  if(!ctx){ el.innerHTML='<div class="ci-empty">No active caller</div>'; return; }
-  el.innerHTML = `
-    <div class="ci-row"><span class="ic">👤</span>${escapeHtml(ctx.name||'Unknown')}</div>
-    <div class="ci-row"><span class="ic">📍</span>${escapeHtml(ctx.city||'Unknown location')}</div>
-    <div class="ci-row good"><span class="ic">📶</span>Connected</div>
-    <div class="ci-row"><span class="ic">${ctx.kind==='video'?'🎥':'📞'}</span>${ctx.kind==='video'?'Video Guest':'Audio Caller'}</div>
-  `;
-}
-document.getElementById('qaFavorite').addEventListener('click', async function(){
-  if(!currentCallerCtx) return;
-  this.classList.toggle('active');
-});
-document.getElementById('qaMute').addEventListener('click', function(){
-  if(currentCallerCtx?.kind==='video') vcMicMuteBtn.click(); else acMuteBtn.click();
-  this.classList.toggle('active');
-});
-document.getElementById('qaRecord').addEventListener('click', function(){
-  if(currentCallerCtx?.kind==='audio'){ acRecordBtn.click(); this.classList.toggle('active',isRecording); }
-});
-document.getElementById('qaNote').addEventListener('click', function(){
-  const input=document.getElementById('qaNoteInput');
-  input.style.display = input.style.display==='none' ? 'block' : 'none';
-  this.classList.toggle('active', input.style.display==='block');
+previewMicMuteBtn.addEventListener('click', ()=>{
+  if(!previewMicStream) return;
+  previewMicMuted = !previewMicMuted;
+  previewMicStream.getAudioTracks().forEach(t => t.enabled = !previewMicMuted);
+  updatePreviewMicBtn();
 });
 
-/* Right-column broadcast controls mirror the stage/active buttons */
-document.getElementById('bcOnAir').addEventListener('click', ()=>{
-  if(activePc) acOnAirBtn.click(); else if(previewCallId) vcAirBtn.click();
-});
-document.getElementById('bcHold').addEventListener('click', ()=>{ if(activePc) acHoldBtn.click(); });
-document.getElementById('bcDrop').addEventListener('click', ()=>{
-  if(activePc) acEndBtn.click(); else if(previewCallId) vcRejectBtn.click();
-});
-document.getElementById('bcPreview').addEventListener('click', ()=>{
-  if(incomingActiveItem && incomingActiveItem._kind==='video') startVideoPreview(incomingActiveItem.id);
+// "Stop Preview" / "Disconnect Talkback" — always just closes the producer's own
+// listen/talk connection. It never takes the guest off air; that's a separate action.
+previewStopBtn.addEventListener('click', stopVideoPreview);
+
+previewAirBtn.addEventListener('click', async()=>{
+  if(!previewCallId) return;
+  const id = previewCallId;
+  if(currentLiveVideoId && currentLiveVideoId !== id){
+    await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
+  }
+  await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince: Date.now() }).catch(()=>{});
+  // Talkback connection (previewPc) is already open here — keep it running so
+  // the producer and guest can keep hearing each other while live.
+  updatePreviewPanelForStatus('live');
 });
 
-/* ===================== QUEUE CARD CLICK DELEGATION ===================== */
-document.addEventListener('click', (e)=>{
-  const card=e.target.closest('.qcard'); if(!card) return;
-  const action=card.dataset.action, id=card.dataset.id, name=card.dataset.name, city=card.dataset.city;
-  if(action==='answer') answerCall(id,name,city);
-  if(action==='video-preview') startVideoPreview(id);
+previewRejectBtn.addEventListener('click', async()=>{
+  if(!previewCallId) return;
+  const id = previewCallId;
+  stopVideoPreview();
+  await updateDoc(doc(db, 'videoCalls', id), { status: 'rejected' }).catch(()=>{});
 });
 
-/* ===================== HISTORY (tabs + bulk delete) ===================== */
-let allHistory=[]; let historyTab='audio';
-function renderMissedBadge(){
-  const missedCount=allHistory.filter(c=>c.status==='missed').length;
-  const badge=document.getElementById('missedBadge');
-  badge.style.display = missedCount>0 ? 'inline-block':'none';
-  badge.textContent=missedCount;
-}
-function renderHistoryTable(){
-  const body=document.getElementById('historyTableBody');
-  const emptyEl=document.getElementById('historyEmpty');
-  let list=allHistory;
-  if(historyTab==='audio') list=list.filter(c=>c.status!=='missed' && (c.type||'audio')==='audio');
-  else if(historyTab==='video') list=list.filter(c=>c.status!=='missed' && c.type==='video');
-  else if(historyTab==='missed') list=list.filter(c=>c.status==='missed');
-  else if(historyTab==='favorites') list=list.filter(c=>c.favorited);
-
-  if(list.length===0){ body.innerHTML=''; emptyEl.style.display='block'; return; }
-  emptyEl.style.display='none';
-  body.innerHTML=list.map(c=>{
-    const isVideo=c.type==='video'; const isMissed=c.status==='missed';
-    return `<tr data-id="${c.id}">
-      <td><div class="ht-caller"><div class="ht-avatar">${initialsFor(c.callerName)}</div>${escapeHtml(c.callerName||'Unknown')}</div></td>
-      <td><span class="ht-type ${isVideo?'video':'audio'}">${isVideo?'🎥 Video':'📞 Audio'}</span></td>
-      <td>${c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString() : ''}</td>
-      <td>${formatDur(c.duration||0)}</td>
-      <td><span class="ht-status ${isMissed?'missed':'completed'}">${isMissed?'Missed':'Completed'}</span></td>
-      <td><div class="ht-actions">
-        ${c.recordingUrl?`<a href="${c.recordingUrl}" target="_blank" rel="noopener" title="Play">▶</a><a href="${c.recordingUrl}" download title="Save">⬇</a>`:''}
-        <button class="fav ${c.favorited?'active':''}" data-action="fav-history" data-id="${c.id}" title="Favorite">⭐</button>
-        <button class="del" data-action="delete-history" data-id="${c.id}" title="Delete">🗑</button>
-      </div></td>
-    </tr>`;
-  }).join('');
-}
-document.querySelectorAll('.history-tab').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.history-tab').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active'); historyTab=btn.dataset.histtab; renderHistoryTable();
-  });
-});
 document.addEventListener('click', async(e)=>{
-  const delBtn=e.target.closest('[data-action="delete-history"]');
-  if(delBtn){ if(confirm('Delete this record permanently?')) await deleteDoc(doc(db,'callHistory',delBtn.dataset.id)).catch(()=>{}); return; }
-  const favBtn=e.target.closest('[data-action="fav-history"]');
-  if(favBtn){
-    const item=allHistory.find(c=>c.id===favBtn.dataset.id);
-    await updateDoc(doc(db,'callHistory',favBtn.dataset.id),{favorited:!item?.favorited}).catch(()=>{});
+  const btn = e.target.closest('[data-action="video-air"],[data-action="video-reject"]');
+  if(!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+
+  if(action === 'video-air'){
+    // Only one guest on air at a time — end any other live call first
+    if(currentLiveVideoId && currentLiveVideoId !== id){
+      await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
+    }
+    await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince: Date.now() }).catch(()=>{});
+    // Make sure a two-way talkback connection exists for this guest, even if the
+    // producer sent them on air straight from the card without previewing first.
+    await startVideoPreview(id);
+    updatePreviewPanelForStatus('live');
+  }
+  if(action === 'video-reject'){
+    if(previewCallId === id) stopVideoPreview();
+    await updateDoc(doc(db, 'videoCalls', id), { status: 'rejected' }).catch(()=>{});
   }
 });
-document.getElementById('historyTableBody').insertAdjacentHTML('beforebegin','');
-const clearAllBtn=document.createElement('button');
-clearAllBtn.textContent='Clear All In This Tab'; clearAllBtn.className='history-viewall';
-clearAllBtn.style.borderColor='var(--red)'; clearAllBtn.style.color='var(--red)';
-clearAllBtn.addEventListener('click', async()=>{
-  let list=allHistory;
-  if(historyTab==='audio') list=list.filter(c=>c.status!=='missed'&&(c.type||'audio')==='audio');
-  else if(historyTab==='video') list=list.filter(c=>c.status!=='missed'&&c.type==='video');
-  else if(historyTab==='missed') list=list.filter(c=>c.status==='missed');
-  else if(historyTab==='favorites') list=list.filter(c=>c.favorited);
-  if(list.length===0) return;
-  if(!confirm(`Delete all ${list.length} record(s) in this tab? This cannot be undone.`)) return;
-  const batch=writeBatch(db);
-  list.forEach(c=>batch.delete(doc(db,'callHistory',c.id)));
-  await batch.commit().catch(()=>{});
+
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-action="video-preview"]');
+  if(!btn) return;
+  startVideoPreview(btn.dataset.id);
 });
-document.querySelector('.history-panel').appendChild(clearAllBtn);
+
+// ── Call History & Recordings delete actions ──
+document.addEventListener('click', async(e)=>{
+  const btn = e.target.closest('[data-action="delete-history"],[data-action="delete-recording"]');
+  if(!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+  if(!id) return;
+  if(!confirm('Delete this record permanently?')) return;
+  try{
+    await deleteDoc(doc(db, 'callHistory', id));
+  }catch(err){ alert('Could not delete: ' + err.message); }
+});
+
+// ── Calls tab action delegation ──
+document.addEventListener('click', async(e)=>{
+  const btn = e.target.closest('[data-action="answer"],[data-action="reject"]');
+  if(!btn) return;
+  const id   = btn.dataset.id;
+  const name = btn.dataset.name;
+  const city = btn.dataset.city;
+  if(btn.dataset.action === 'answer'){
+    await answerCall(id, name, city);
+  }
+  if(btn.dataset.action === 'reject'){
+    await setDoc(doc(db, 'liveCalls', id), { status: 'rejected' }, { merge: true });
+  }
+});
 
 function startCallHistoryListener(){
-  onSnapshot(query(collection(db,'callHistory'),orderBy('createdAt','desc')),(snap)=>{
-    allHistory=snap.docs.map(d=>({id:d.id,...d.data()}));
-    renderHistoryTable(); renderMissedBadge();
-  });
+  const histList   = document.getElementById('histList');
+  const histEmpty  = document.getElementById('histEmpty');
+  const histTotal  = document.getElementById('histTotal');
+  const histToday  = document.getElementById('histToday');
+  const histAvgDur = document.getElementById('histAvgDur');
+  const histRec    = document.getElementById('histRecorded');
+
+  onSnapshot(
+    query(collection(db, 'callHistory'), orderBy('createdAt', 'desc')),
+    (snap)=>{
+      const calls = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      const today = new Date(); today.setHours(0,0,0,0);
+
+      histTotal.textContent = calls.length;
+      histToday.textContent = calls.filter(c=>{
+        const t = c.createdAt?.toDate ? c.createdAt.toDate() : null;
+        return t && t >= today;
+      }).length;
+      histRec.textContent = calls.filter(c=> c.recordingUrl).length;
+      const durations = calls.filter(c=> c.duration > 0).map(c=> c.duration);
+      histAvgDur.textContent = durations.length
+        ? formatDur(Math.round(durations.reduce((a,b)=>a+b,0)/durations.length))
+        : '—';
+
+      if(calls.length === 0){
+        histEmpty.style.display = 'block';
+        histList.innerHTML = '';
+        return;
+      }
+      histEmpty.style.display = 'none';
+
+      histList.innerHTML = calls.map(c=>{
+        const isMissed = c.status === 'missed';
+        const isVideo = c.type === 'video';
+        const icon = isMissed ? (isVideo ? '🎥' : '📵') : (isVideo ? '🎥' : (c.recordingUrl ? '🔴' : '📞'));
+        return `
+        <div class="hist-card ${isMissed ? 'missed' : ''}" data-histid="${c.id}">
+          <div class="hist-icon">${icon}</div>
+          <div class="hist-body">
+            <div class="hist-name">${escapeHtml(c.callerName || 'Unknown')}${isMissed ? '<span class="hist-missed-badge">Missed</span>' : ''}</div>
+            <div class="hist-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${isVideo ? 'Video' : 'Audio'}${isMissed ? ' · Never answered' : ''}</div>
+          </div>
+          <div class="hist-right">
+            <div class="hist-dur">${formatDur(c.duration || 0)}</div>
+            <div class="hist-time">${timeAgo(c.createdAt)}</div>
+            <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+              ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" target="_blank" rel="noopener">▶ Play</a>` : ''}
+              ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}
+              <button class="hist-delete" data-action="delete-history" data-id="${c.id}" title="Delete">🗑</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+
+      // ── Recordings section ──
+      const recorded = calls.filter(c => c.recordingUrl);
+      const recSection = document.getElementById('recordingsSection');
+      const recList    = document.getElementById('recordingsList');
+      const recEmpty   = document.getElementById('recordingsEmpty');
+
+      if(recSection){
+        if(recorded.length === 0){
+          recEmpty.style.display = 'block';
+          recList.innerHTML = '';
+        } else {
+          recEmpty.style.display = 'none';
+          recList.innerHTML = recorded.map(c=>`
+            <div class="rec-card" data-recid="${c.id}">
+              <div class="rec-icon">🎙️</div>
+              <div class="rec-body">
+                <div class="rec-name">${escapeHtml(c.callerName || 'Unknown')}</div>
+                <div class="rec-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${formatDur(c.duration || 0)} · ${timeAgo(c.createdAt)}</div>
+              </div>
+              <div class="rec-actions">
+                <audio class="rec-audio" src="${c.recordingUrl}" controls preload="none"></audio>
+                <div class="rec-btns">
+                  <a class="rbtn rbtn-save" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>
+                  <button class="rbtn rbtn-del" data-action="delete-recording" data-id="${c.id}">🗑 Delete</button>
+                </div>
+              </div>
+            </div>`).join('');
+        }
+      }
+    }
+  );
 }
 
-/* ===================== FOOTER NAV ===================== */
-document.getElementById('navMessages').addEventListener('click', ()=>{ window.location.href='home.html'; });
-document.getElementById('navCalls').addEventListener('click', ()=>{
-  document.getElementById('audioQList').scrollIntoView({behavior:'smooth',block:'center'});
-});
-document.getElementById('navVideo').addEventListener('click', ()=>{
-  document.getElementById('videoQList').scrollIntoView({behavior:'smooth',block:'center'});
-});
-document.getElementById('endBroadcastBtn').addEventListener('click', async()=>{
-  if(!confirm('End broadcast? This will wrap up any active call/video and sign you out.')) return;
-  if(activePc) await acEndBtn.click();
-  if(previewCallId) stopVideoPreview();
-  signOut(auth);
-});
+function formatDur(s){
+  const m = Math.floor(s/60);
+  return `${m}:${(s%60).toString().padStart(2,'0')}`;
+}
 
-refreshStage();
+function startQueueListener(){
+  if(queueListenerStarted) return;
+  queueListenerStarted = true;
+  const q = query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc'));
+  onSnapshot(q, (snapshot)=>{
+    allMessages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    if(!firstLoad){
+      snapshot.docChanges().forEach(change=>{
+        if(change.type === 'added' && !knownIds.has(change.doc.id)){
+          // new incoming message
+          alertBanner.classList.add('show');
+          playChime();
+          setTimeout(()=> alertBanner.classList.remove('show'), 4000);
+        }
+      });
+    }
+    allMessages.forEach(m => knownIds.add(m.id));
+    firstLoad = false;
+
+    render();
+  }, (err)=>{
+    queueEl.innerHTML = `<div class="empty">Couldn't connect to Firebase: ${err.message}<br><br>Check your firebaseConfig and Firestore security rules.</div>`;
+  });
+}
 </script>
 </body>
 </html>
