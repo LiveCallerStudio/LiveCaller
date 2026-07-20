@@ -689,6 +689,7 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
       Home
     </a>
+    <button class="home-btn" id="soundToggleBtn" title="Button sounds on — click to mute">🔊</button>
     <button class="signout-btn" id="signOutBtn">Sign Out</button>
   </div>
 </header>
@@ -954,16 +955,20 @@ async function attemptLogin(){
 loginBtn.addEventListener('click', attemptLogin);
 loginPassword.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') attemptLogin(); });
 
+let dashboardListenersStarted = false;
 onAuthStateChanged(auth, (user)=>{
   if(user){
     loginScreen.style.display = 'none';
     dashboardApp.style.display = 'block';
-    startQueueListener();
-    startCallsListener();
-    startCallHistoryListener();
-    startLinesToggleListener();
-    startVideoToggleListener();
-    startVideoCallsListener();
+    if(!dashboardListenersStarted){
+      dashboardListenersStarted = true;
+      startQueueListener();
+      startCallsListener();
+      startCallHistoryListener();
+      startLinesToggleListener();
+      startVideoToggleListener();
+      startVideoCallsListener();
+    }
   } else {
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
@@ -1155,9 +1160,37 @@ function stopVideoRing(){
 }
 
 /* ===================== UI BUTTON SOUNDS ===================== */
+// One shared, persistent AudioContext instead of creating (and half-closing) a new
+// one on every single click — repeatedly spinning up contexts is wasteful and on
+// some browsers (mobile Safari especially) can make the UI feel like it's not
+// responding to taps at all once too many are left open.
+let sfxCtx = null;
+function getSfxCtx(){
+  if(!sfxCtx || sfxCtx.state === 'closed'){
+    sfxCtx = new (window.AudioContext||window.webkitAudioContext)();
+  }
+  if(sfxCtx.state === 'suspended') sfxCtx.resume().catch(()=>{});
+  return sfxCtx;
+}
+
+let soundsEnabled = localStorage.getItem('lcs_soundsEnabled') !== 'off';
+function toggleSounds(){
+  soundsEnabled = !soundsEnabled;
+  localStorage.setItem('lcs_soundsEnabled', soundsEnabled ? 'on' : 'off');
+  renderSoundToggle();
+}
+function renderSoundToggle(){
+  const btn = document.getElementById('soundToggleBtn');
+  if(!btn) return;
+  btn.textContent = soundsEnabled ? '🔊' : '🔇';
+  btn.title = soundsEnabled ? 'Button sounds on — click to mute' : 'Button sounds muted — click to unmute';
+}
+renderSoundToggle();
+
 function playTap(){
+  if(!soundsEnabled) return;
   try{
-    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const ctx=getSfxCtx();
     const osc=ctx.createOscillator(), env=ctx.createGain();
     osc.type='sine'; osc.frequency.value=1200;
     osc.connect(env); env.connect(ctx.destination);
@@ -1165,12 +1198,12 @@ function playTap(){
     env.gain.linearRampToValueAtTime(0.12,ctx.currentTime+0.005);
     env.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.06);
     osc.start(); osc.stop(ctx.currentTime+0.07);
-    setTimeout(()=>ctx.close().catch(()=>{}),150);
   }catch(e){}
 }
 function playAccept(){
+  if(!soundsEnabled) return;
   try{
-    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const ctx=getSfxCtx();
     [880,1318.51].forEach((freq,i)=>{
       const t=ctx.currentTime+i*0.08;
       const osc=ctx.createOscillator(), env=ctx.createGain();
@@ -1180,12 +1213,12 @@ function playAccept(){
       env.gain.exponentialRampToValueAtTime(0.001,t+0.18);
       osc.start(t); osc.stop(t+0.18);
     });
-    setTimeout(()=>ctx.close().catch(()=>{}),400);
   }catch(e){}
 }
 function playDecline(){
+  if(!soundsEnabled) return;
   try{
-    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const ctx=getSfxCtx();
     [523.25,392.00].forEach((freq,i)=>{
       const t=ctx.currentTime+i*0.09;
       const osc=ctx.createOscillator(), env=ctx.createGain();
@@ -1195,12 +1228,12 @@ function playDecline(){
       env.gain.exponentialRampToValueAtTime(0.001,t+0.2);
       osc.start(t); osc.stop(t+0.2);
     });
-    setTimeout(()=>ctx.close().catch(()=>{}),400);
   }catch(e){}
 }
 function playOnAir(){
+  if(!soundsEnabled) return;
   try{
-    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const ctx=getSfxCtx();
     [660,880,1108.73].forEach((freq,i)=>{
       const t=ctx.currentTime+i*0.06;
       const osc=ctx.createOscillator(), env=ctx.createGain();
@@ -1210,12 +1243,12 @@ function playOnAir(){
       env.gain.exponentialRampToValueAtTime(0.001,t+0.22);
       osc.start(t); osc.stop(t+0.22);
     });
-    setTimeout(()=>ctx.close().catch(()=>{}),450);
   }catch(e){}
 }
 document.addEventListener('click', (e)=>{
   const el = e.target.closest('button, .card, .call-card');
   if(!el) return;
+  if(el.id==='soundToggleBtn') { toggleSounds(); return; }
   if(el.id==='callOnAirBtn' || el.dataset?.action==='video-air' || el.id==='previewAirBtn') { playOnAir(); return; }
   if(el.id==='incomingAcceptBtn') { playAccept(); return; }
   if(el.id==='incomingDeclineBtn' || el.id==='endBtn' || el.dataset?.action==='video-reject' || el.id==='previewRejectBtn') { playDecline(); return; }
@@ -1240,7 +1273,7 @@ function initialsFor(name){
 }
 
 function updateIncomingOverlay(){
-  const waitingAudio = latestAudioCalls.filter(c => c.status === 'waiting').map(c => ({ ...c, _kind:'audio' }));
+  const waitingAudio = latestAudioCalls.filter(c => c.status === 'waiting' && c.id !== connectingCallId).map(c => ({ ...c, _kind:'audio' }));
   const waitingVideo = latestVideoCalls.filter(c => c.status === 'waiting').map(c => ({ ...c, _kind:'video' }));
   const combined = [...waitingAudio, ...waitingVideo].sort((a, b)=>{
     const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
@@ -1617,6 +1650,8 @@ let callSeconds = 0;
 let callIsOnAir = false;
 let callIsOnHold = false;
 let callCandidateUnsub = null;
+let connectingCallId = null; // set the instant Answer is clicked, cleared once connected/failed —
+                              // closes the race where the ring/incoming-alert could re-fire mid-connect
 
 // DOM refs for call UI
 const activeCallPanel  = document.getElementById('activeCallPanel');
@@ -1652,9 +1687,7 @@ function startCallTimer(){
   clearInterval(callTimerInterval);
   callTimerInterval = setInterval(()=>{
     callSeconds++;
-    const m = Math.floor(callSeconds/60);
-    const s = callSeconds % 60;
-    activeCallTimer.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    activeCallTimer.textContent = formatDur(callSeconds);
   }, 1000);
 }
 
@@ -1676,9 +1709,16 @@ function cleanupActiveCall(){
 }
 
 async function answerCall(callId, callerName, callerCity){
-  if(activePc){ alert('End the current call before answering a new one.'); return; }
+  if(activePc || connectingCallId){ return; } // already on a call, or already mid-connect — ignore re-clicks/re-fires
 
+  // Everything below happens synchronously, before any await, so there is no
+  // window where a re-render or a stray snapshot can make this call look
+  // "incoming" again or restart the ringtone.
+  connectingCallId = callId;
   stopPhoneRing();
+  callStartTime = Date.now(); // "Answer Time" — duration is measured from here, not from when the call arrived
+  document.querySelectorAll(`[data-action="answer"][data-id="${callId}"]`).forEach(b=>{ b.disabled = true; b.textContent = 'Connecting…'; });
+  renderCallsQueue(); // re-render immediately so this call drops out of the incoming list right away
 
   activeCallId = callId;
   activeCallRef = doc(db, 'liveCalls', callId);
@@ -1688,6 +1728,8 @@ async function answerCall(callId, callerName, callerCity){
     producerStream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true }, video:false });
   }catch(err){
     alert('Microphone access required to answer calls. Please allow mic permissions.');
+    activeCallId = null; activeCallRef = null; connectingCallId = null;
+    renderCallsQueue();
     return;
   }
 
@@ -1714,7 +1756,12 @@ async function answerCall(callId, callerName, callerCity){
   // 5. Get caller's offer and set remote description
   const callSnap = await getDoc(activeCallRef);
   const callData = callSnap.data();
-  if(!callData?.offer){ alert('Could not read call offer from Firestore.'); cleanupActiveCall(); return; }
+  if(!callData?.offer){
+    alert('Could not read call offer from Firestore.');
+    connectingCallId = null;
+    cleanupActiveCall();
+    return;
+  }
 
   await activePc.setRemoteDescription(new RTCSessionDescription(callData.offer));
 
@@ -1751,8 +1798,7 @@ async function answerCall(callId, callerName, callerCity){
   callOnAirBtn.textContent = '🔴 Send On Air';
   callOnAirBtn.classList.remove('live');
   callIsOnAir = false; callIsOnHold = false;
-  // Reset recording + mute state
-  callStartTime = Date.now();
+  // Reset recording + mute state (callStartTime was already set at the moment Answer was clicked)
   micMuted = false;
   micMuteBtn.textContent = '🎤 Mute Mic';
   micMuteBtn.classList.remove('muted');
@@ -1761,6 +1807,7 @@ async function answerCall(callId, callerName, callerCity){
   recordStatus.textContent = '';
   isRecording = false;
   startCallTimer();
+  connectingCallId = null; // fully connected now — safe for the ring/incoming logic to resume normally
 
   // Switch to Calls tab if not already there
   document.querySelectorAll('.tab-btn').forEach(b=> b.classList.remove('active'));
@@ -2018,17 +2065,21 @@ function startCallsListener(){
       const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
       latestAudioCalls = calls;
 
-      // Incoming = waiting calls only
-      const ringing = calls.filter(c => c.status === 'waiting');
+      // Incoming = waiting calls only, minus whichever call we're mid-connecting to
+      // (it's still 'waiting' in Firestore for a brief moment, but it must not
+      // render or ring as "incoming" again once Answer has been clicked)
+      const ringing = calls.filter(c => c.status === 'waiting' && c.id !== connectingCallId);
       const count = ringing.length;
 
       // Header counter
       callCountNum.textContent = count;
       count > 0 ? callCounter.classList.add('show') : callCounter.classList.remove('show');
 
-      // Phone ring — start when there are waiting calls, stop when queue is clear
-      if(count > 0 && !activePc){
-        // Only start ring if a NEW call just arrived
+      // Phone ring — start when there are waiting calls, stop when queue is clear.
+      // Guarded on connectingCallId too, so a snapshot that fires mid-connect
+      // (before activePc exists) can never restart the ring for a call already
+      // being answered.
+      if(count > 0 && !activePc && !connectingCallId){
         snap.docChanges().forEach(change=>{
           if(change.type === 'added' && change.doc.data().status === 'waiting'){
             startPhoneRing();
@@ -2047,40 +2098,46 @@ function startCallsListener(){
         }
       });
 
-      // Render incoming call cards
-      if(ringing.length === 0 && !activePc){
-        callsEmpty.style.display = 'block';
-        callsQueue.innerHTML = '';
-        incomingCallsTitle.style.display = 'none';
-        return;
-      }
-      callsEmpty.style.display = 'none';
-      incomingCallsTitle.style.display = ringing.length > 0 ? 'block' : 'none';
-
-      callsQueue.innerHTML = ringing.map(c=>`
-        <div class="call-card" data-id="${c.id}">
-          <div class="call-ring-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-            </svg>
-          </div>
-          <div class="call-card-body">
-            <div class="call-card-name">${escapeHtml(c.callerName || 'Anonymous Caller')}</div>
-            <div class="call-card-city">${c.callerCity ? escapeHtml(c.callerCity) : ''}</div>
-            <div class="call-card-time">${timeAgo(c.createdAt)}</div>
-          </div>
-          <div class="call-card-actions">
-            <button class="ibtn ibtn-answer" data-action="answer" data-id="${c.id}"
-              data-name="${escapeHtml(c.callerName||'')}" data-city="${escapeHtml(c.callerCity||'')}">
-              ✆ Answer
-            </button>
-            <button class="ibtn ibtn-reject" data-action="reject" data-id="${c.id}">
-              ✕ Reject
-            </button>
-          </div>
-        </div>`).join('');
+      renderCallsQueue();
     }
   );
+}
+
+function renderCallsQueue(){
+  const calls = latestAudioCalls;
+  const ringing = calls.filter(c => c.status === 'waiting' && c.id !== connectingCallId);
+
+  if(ringing.length === 0 && !activePc){
+    callsEmpty.style.display = 'block';
+    callsQueue.innerHTML = '';
+    incomingCallsTitle.style.display = 'none';
+    return;
+  }
+  callsEmpty.style.display = 'none';
+  incomingCallsTitle.style.display = ringing.length > 0 ? 'block' : 'none';
+
+  callsQueue.innerHTML = ringing.map(c=>`
+    <div class="call-card" data-id="${c.id}">
+      <div class="call-ring-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+        </svg>
+      </div>
+      <div class="call-card-body">
+        <div class="call-card-name">${escapeHtml(c.callerName || 'Anonymous Caller')}</div>
+        <div class="call-card-city">${c.callerCity ? escapeHtml(c.callerCity) : ''}</div>
+        <div class="call-card-time">${timeAgo(c.createdAt)}</div>
+      </div>
+      <div class="call-card-actions">
+        <button class="ibtn ibtn-answer" data-action="answer" data-id="${c.id}"
+          data-name="${escapeHtml(c.callerName||'')}" data-city="${escapeHtml(c.callerCity||'')}">
+          ✆ Answer
+        </button>
+        <button class="ibtn ibtn-reject" data-action="reject" data-id="${c.id}">
+          ✕ Reject
+        </button>
+      </div>
+    </div>`).join('');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2106,9 +2163,7 @@ function startVideoTimer(sinceMs){
   clearInterval(videoTimerInterval);
   function tick(){
     const secs = Math.max(0, Math.floor((Date.now() - sinceMs) / 1000));
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    activeVideoTimer.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    activeVideoTimer.textContent = formatDur(secs);
   }
   tick();
   videoTimerInterval = setInterval(tick, 1000);
@@ -2529,8 +2584,11 @@ function startCallHistoryListener(){
 }
 
 function formatDur(s){
-  const m = Math.floor(s/60);
-  return `${m}:${(s%60).toString().padStart(2,'0')}`;
+  s = Math.max(0, Math.floor(s));
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = s%60;
+  return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
 }
 
 function startQueueListener(){
