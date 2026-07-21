@@ -358,6 +358,8 @@ let videoOpen = true; // defaults open until the settings doc says otherwise
 // ── Waiting tone — FaceTime-style soft two-tone dial pattern, played in the
 // green room while waiting for the host to bring this guest on air ──
 let waitingRingInterval = null;
+let waitingTimeoutTimer = null;
+const WAITING_TIMEOUT_MS = 90000; // 90s of no answer = "Timeout reached"
 function startWaitingRing(){
   stopWaitingRing();
   function ring(){
@@ -579,15 +581,27 @@ async function joinCall(){
     if(data.status === 'waiting'){
       setStatus('waiting', "You're in the green room — waiting for the host to bring you on air.");
       startWaitingRing();
+      if(!waitingTimeoutTimer){
+        waitingTimeoutTimer = setTimeout(async ()=>{
+          stopWaitingRing();
+          setStatus('rejected', "No answer — the host wasn't able to get to your request in time.");
+          if(callDocRef) await updateDoc(callDocRef, { status:'timeout' }).catch(()=>{});
+          cleanup(false);
+          endOfCallScreen('No Answer', "The host wasn't able to get to your request in time. Feel free to try again!");
+        }, WAITING_TIMEOUT_MS);
+      }
     } else if(data.status === 'live'){
+      clearTimeout(waitingTimeoutTimer); waitingTimeoutTimer = null;
       setStatus('live', "You're live! Your camera and mic are going straight to the stream.");
       stopWaitingRing();
     } else if(data.status === 'rejected'){
+      clearTimeout(waitingTimeoutTimer); waitingTimeoutTimer = null;
       stopWaitingRing();
       setStatus('rejected', "The host isn't able to bring you on right now. Thanks for stopping by!");
       cleanup(false);
       endOfCallScreen('Not Available', "The host isn't able to bring you on right now.");
     } else if(data.status === 'ended'){
+      clearTimeout(waitingTimeoutTimer); waitingTimeoutTimer = null;
       stopWaitingRing();
       setStatus('ended', 'Your segment has ended. Thanks for joining!');
       cleanup(false);
@@ -640,6 +654,7 @@ function cleanup(updateFirestore){
   if(pc){ pc.close(); pc = null; }
   if(screenPc){ screenPc.close(); screenPc = null; }
   stopWaitingRing();
+  clearTimeout(waitingTimeoutTimer); waitingTimeoutTimer = null;
   hostTalkBadge.style.display = 'none';
   if(updateFirestore && callDocRef){ updateDoc(callDocRef, { status:'ended' }).catch(()=>{}); }
 }

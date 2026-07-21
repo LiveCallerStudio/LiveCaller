@@ -1099,11 +1099,19 @@ function playChime(){
 
 // ── Phone ring — classic dual-tone (440Hz + 480Hz) with on/off pattern ──
 let phoneRingInterval = null;
+let phoneRingCtx = null;
+function getPhoneRingCtx(){
+  if(!phoneRingCtx || phoneRingCtx.state === 'closed'){
+    phoneRingCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if(phoneRingCtx.state === 'suspended') phoneRingCtx.resume().catch(()=>{});
+  return phoneRingCtx;
+}
 function startPhoneRing(){
   stopPhoneRing();
   function ring(){
     try{
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = getPhoneRingCtx();
       // iOS Phone-style alternating two-tone pattern — pitched lower and paced
       // differently from the video chime so producers can tell them apart by ear.
       [349.23, 440.00, 349.23, 440.00].forEach((freq,i)=>{
@@ -1115,7 +1123,6 @@ function startPhoneRing(){
         env.gain.exponentialRampToValueAtTime(0.001,t+0.14);
         osc.start(t); osc.stop(t+0.14);
       });
-      setTimeout(()=> ctx.close().catch(()=>{}), 1000);
     }catch(e){}
   }
   ring(); // Ring immediately
@@ -1128,11 +1135,19 @@ function stopPhoneRing(){
 
 // ── Video ring — FaceTime-style ascending marimba chime, repeating ──
 let videoRingInterval = null;
+let videoRingCtx = null;
+function getVideoRingCtx(){
+  if(!videoRingCtx || videoRingCtx.state === 'closed'){
+    videoRingCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if(videoRingCtx.state === 'suspended') videoRingCtx.resume().catch(()=>{});
+  return videoRingCtx;
+}
 function startVideoRing(){
   stopVideoRing();
   function chime(){
     try{
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = getVideoRingCtx();
       const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
       notes.forEach((freq, i) => {
         const t = ctx.currentTime + i * 0.11;
@@ -1148,7 +1163,6 @@ function startVideoRing(){
         osc.start(t);
         osc.stop(t + 0.5);
       });
-      setTimeout(()=> ctx.close().catch(()=>{}), 900);
     }catch(e){}
   }
   chime();
@@ -2195,7 +2209,7 @@ function startVideoCallsListener(){
       // Missed video guests — rejected, or ended without ever going live
       // Completed video segments — ended after having been live at least once
       calls.forEach(c=>{
-        if(c.status === 'rejected' || (c.status === 'ended' && !c.liveSince)){
+        if(c.status === 'rejected' || c.status === 'timeout' || (c.status === 'ended' && !c.liveSince)){
           logMissedCall(c, 'video');
         } else if(c.status === 'ended' && c.liveSince){
           saveVideoCallHistory(c);
