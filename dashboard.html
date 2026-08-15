@@ -112,10 +112,6 @@
     border-radius:10px;padding:9px 12px;font-size:14px;min-width:0;width:140px;
   }
   .search:focus{outline:none;border-color:var(--g-line);}
-  #filterSelect{
-    background:var(--panel);border:1px solid var(--line);color:var(--tx);
-    border-radius:10px;padding:9px 10px;font-size:12px;
-  }
   .home-btn,.signout-btn{
     background:var(--panel);border:1px solid var(--line);color:var(--sub);
     border-radius:10px;padding:8px 12px;font-size:12px;font-weight:600;
@@ -315,7 +311,7 @@
 
   /* Hide bulky header chrome on small phones */
   @media(max-width:700px){
-    .search,#filterSelect{width:100%;}
+    .search{width:100%;max-width:220px;}
     .header-right .home-btn span,.signout-btn{font-size:11px;}
     .brand h1{font-size:12px;}
     header{gap:8px;}
@@ -383,6 +379,45 @@
     border:1px solid var(--line2);background:var(--panel2);color:var(--tx);
     border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;
   }
+
+  /* Queue filter — segmented control */
+  .queue-toolbar{
+    margin-bottom:14px;
+  }
+  .filter-seg{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:4px;
+    padding:4px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+  }
+  .seg-btn{
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    border:none;background:transparent;color:var(--sub);
+    font-size:13px;font-weight:700;letter-spacing:0.2px;
+    padding:11px 8px;border-radius:10px;cursor:pointer;
+    min-height:44px;transition:background .15s,color .15s;
+  }
+  .seg-btn:active{transform:scale(0.98);}
+  .seg-btn.active{
+    background:var(--g-dim);color:var(--g);
+    box-shadow:inset 0 0 0 1px var(--g-line);
+  }
+  .seg-count{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:20px;height:20px;padding:0 6px;border-radius:100px;
+    font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;
+    background:rgba(255,255,255,0.06);color:inherit;
+  }
+  .seg-btn.active .seg-count{
+    background:rgba(83,252,24,0.2);
+  }
+  @media(min-width:700px){
+    .filter-seg{max-width:420px;}
+    .seg-btn{font-size:13px;padding:10px 12px;}
+  }
 </style>
 </head>
 <body>
@@ -428,12 +463,7 @@
     <div class="call-counter" id="callCounter">📞 <span id="callCountNum">0</span> Incoming</div>
     <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
     <div class="counter"><span class="dot"></span><span id="queueCount">0 waiting</span></div>
-    <input class="search" id="searchInput" placeholder="Search name, city, song…">
-    <select id="filterSelect">
-      <option value="pending">Pending only</option>
-      <option value="all">All messages</option>
-      <option value="approved">Approved only</option>
-    </select>
+    <input class="search" id="searchInput" placeholder="Search name, city, song…" inputmode="search" enterkeyhint="search">
     <a class="home-btn" href="home.html">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
       Home
@@ -466,9 +496,23 @@
 <main>
   <!-- QUEUE TAB -->
   <div class="tab-content" id="tab-queue">
+    <div class="queue-toolbar">
+      <div class="filter-seg" role="tablist" aria-label="Message filter">
+        <button type="button" class="seg-btn active" data-filter="pending" role="tab" aria-selected="true">
+          Pending <span class="seg-count" id="countPending">0</span>
+        </button>
+        <button type="button" class="seg-btn" data-filter="all" role="tab" aria-selected="false">
+          All <span class="seg-count" id="countAll">0</span>
+        </button>
+        <button type="button" class="seg-btn" data-filter="approved" role="tab" aria-selected="false">
+          Approved <span class="seg-count" id="countApproved">0</span>
+        </button>
+      </div>
+      <input type="hidden" id="filterSelect" value="pending">
+    </div>
     <div id="emptyState" class="empty" style="display:none;">
       <div class="ic">📭</div>
-      <div>No messages waiting. The queue's clear.</div>
+      <div id="emptyStateText">No pending messages. The queue is clear.</div>
     </div>
     <div class="queue" id="queue"></div>
   </div>
@@ -844,6 +888,18 @@ const queueCount = document.getElementById('queueCount');
 const alertBanner = document.getElementById('alertBanner');
 const searchInput = document.getElementById('searchInput');
 const filterSelect = document.getElementById('filterSelect');
+document.querySelectorAll('.seg-btn[data-filter]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const val = btn.dataset.filter;
+    filterSelect.value = val;
+    document.querySelectorAll('.seg-btn[data-filter]').forEach(b=>{
+      const on = b.dataset.filter === val;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    render();
+  });
+});
 const hiddenPlayer = document.getElementById('hiddenPlayer');
 
 function updatePreviewBar(msg){
@@ -1195,7 +1251,21 @@ function render(){
   });
 
   const pendingCount = allMessages.filter(m=>m.status==='pending').length;
+  const approvedCount = allMessages.filter(m=>m.status==='approved').length;
+  const allCount = allMessages.length;
   queueCount.textContent = `${pendingCount} waiting`;
+  const cp = document.getElementById('countPending');
+  const ca = document.getElementById('countAll');
+  const cap = document.getElementById('countApproved');
+  if(cp) cp.textContent = String(pendingCount);
+  if(ca) ca.textContent = String(allCount);
+  if(cap) cap.textContent = String(approvedCount);
+  const emptyText = document.getElementById('emptyStateText');
+  if(emptyText){
+    if(filter === 'pending') emptyText.textContent = "No pending messages. The queue is clear.";
+    else if(filter === 'approved') emptyText.textContent = "No approved messages yet.";
+    else emptyText.textContent = "No messages in the queue.";
+  }
 
   if(list.length === 0){
     emptyState.style.display = 'block';
