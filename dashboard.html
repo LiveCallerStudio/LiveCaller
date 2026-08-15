@@ -551,14 +551,44 @@
   font-variant-numeric:tabular-nums; font-size:28px; font-weight:900; color:var(--g);
 }
 .ps-stage .preview-video-wrap{
-  border-radius:16px; overflow:hidden; background:#000;
+  /* Front-camera friendly frame — not full-bleed wide */
+  border-radius:18px; overflow:hidden; background:#000;
   border:2px solid rgba(83,252,24,.35);
-  aspect-ratio:16/10; max-height:360px; position:relative;
+  position:relative;
+  width:min(100%, 320px);
+  margin:12px auto 8px;
+  aspect-ratio:3/4;           /* phone front cam portrait */
+  max-height:min(52vh, 420px);
+  box-shadow:0 8px 28px rgba(0,0,0,.45);
 }
-.ps-stage .preview-video-wrap video{ width:100%; height:100%; object-fit:cover; display:block; }
+.ps-stage .preview-video-wrap video{
+  width:100%; height:100%;
+  object-fit:contain;         /* fit full frame, no crop/stretch */
+  object-position:center;
+  display:block;
+  background:#000;
+  /* Front cam often feels natural mirrored for producer preview */
+  transform: scaleX(-1);
+}
+.ps-stage .preview-video-wrap.is-landscape{
+  aspect-ratio:4/3;
+  width:min(100%, 420px);
+  max-height:min(40vh, 320px);
+}
+.ps-stage .preview-video-wrap.is-landscape video{
+  transform:none;             /* landscape guest / rear cam: no mirror */
+}
 .ps-stage .preview-video-status{
   position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
   background:rgba(0,0,0,.55); color:#ccc; font-size:13px; text-align:center; padding:16px;
+  z-index:1;
+}
+#previewVideo{
+  width:100% !important;
+  height:100% !important;
+  max-height:none !important;
+  border-radius:0 !important;
+  object-fit:contain !important;
 }
 
 /* Broadcast control pad — iPhone-like control row */
@@ -2899,6 +2929,7 @@ function stopVideoPreview(){
   if(previewMicStream){ previewMicStream.getTracks().forEach(t => t.stop()); previewMicStream = null; }
   previewMicMuted = false;
   previewVideo.srcObject = null;
+  document.querySelector('.preview-video-wrap')?.classList.remove('is-landscape');
   previewCallId = null;
   videoPreviewPanel.style.display = 'none';
   // Re-evaluate ring + incoming overlay now that this guest is no longer "handled"
@@ -2942,6 +2973,24 @@ async function startVideoPreview(callId){
       previewVideo.play().catch(()=>{});
       previewVideoStatus.style.display = 'none';
       startNetStats(() => previewPc);
+      // Fit frame to front-cam aspect (portrait default; landscape if track reports it)
+      try{
+        const wrap = previewVideo.closest('.preview-video-wrap');
+        const track = event.streams[0]?.getVideoTracks?.()[0];
+        const s = track?.getSettings?.() || {};
+        const w = s.width || 0, h = s.height || 0;
+        if(wrap){
+          if(w > h && w > 0) wrap.classList.add('is-landscape');
+          else wrap.classList.remove('is-landscape');
+        }
+        previewVideo.onloadedmetadata = ()=>{
+          const vw = previewVideo.videoWidth, vh = previewVideo.videoHeight;
+          if(wrap && vw && vh){
+            if(vw > vh) wrap.classList.add('is-landscape');
+            else wrap.classList.remove('is-landscape');
+          }
+        };
+      }catch(e){}
       previewStatus.textContent = previewMicStream
         ? 'Previewing — two-way audio, not on air yet'
         : 'Previewing — not on air yet';
