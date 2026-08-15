@@ -418,6 +418,40 @@
     .filter-seg{max-width:420px;}
     .seg-btn{font-size:13px;padding:10px 12px;}
   }
+
+  /* Header queue chips */
+  .queue-chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .qchip{
+    display:none;align-items:center;gap:5px;
+    background:var(--panel);border:1px solid var(--line);color:var(--sub);
+    padding:6px 10px;border-radius:20px;font-size:12px;font-weight:800;
+    font-variant-numeric:tabular-nums;
+  }
+  .qchip.show{display:inline-flex;}
+  .qchip.hot{
+    background:var(--g-dim);border-color:var(--g-line);color:var(--g);
+  }
+  .qchip-ic{font-size:12px;}
+
+  .wait-queue-head{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    margin:4px 0 12px;padding:12px 14px;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  }
+  .wait-queue-title{font-size:13px;font-weight:800;letter-spacing:.3px;}
+  .wait-queue-count{
+    font-size:12px;font-weight:800;color:var(--g);
+    background:var(--g-dim);border:1px solid var(--g-line);
+    padding:5px 10px;border-radius:20px;font-variant-numeric:tabular-nums;
+  }
+  .queue-pos{
+    width:28px;height:28px;border-radius:8px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--g-dim);border:1px solid var(--g-line);
+    color:var(--g);font-size:12px;font-weight:900;
+  }
+  .call-card{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .call-card-body{flex:1;min-width:120px;}
 </style>
 </head>
 <body>
@@ -460,9 +494,14 @@
         <span id="videoToggleText">Video Open</span>
       </button>
     </div>
-    <div class="call-counter" id="callCounter">📞 <span id="callCountNum">0</span> Incoming</div>
+    <div class="queue-chips" id="queueChips">
+      <div class="qchip" id="chipVoice" title="Pending voice messages"><span class="qchip-ic">🎤</span><span id="queueCount">0</span></div>
+      <div class="qchip" id="chipAudio" title="Waiting audio calls"><span class="qchip-ic">📞</span><span id="callCountNum">0</span></div>
+      <div class="qchip" id="chipVideo" title="Waiting video guests"><span class="qchip-ic">🎥</span><span id="videoCountNum">0</span></div>
+      <div class="qchip" id="chipSongs" title="Pending song requests"><span class="qchip-ic">🎵</span><span id="songCountNum">0</span></div>
+    </div>
+    <div class="call-counter" id="callCounter" style="display:none">📞 <span>0</span> Incoming</div>
     <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
-    <div class="counter"><span class="dot"></span><span id="queueCount">0 waiting</span></div>
     <input class="search" id="searchInput" placeholder="Search name, city, song…" inputmode="search" enterkeyhint="search">
     <a class="home-btn" href="home.html">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
@@ -480,6 +519,7 @@
   <button class="tab-btn active" data-tab="queue">📥 Queue</button>
   <button class="tab-btn" data-tab="calls">📞 Calls</button>
   <button class="tab-btn" data-tab="video">🎥 Video</button>
+  <button class="tab-btn" data-tab="songs">🎵 Songs</button>
   <button class="tab-btn" data-tab="history">📋 History</button>
   <button class="tab-btn" data-tab="analytics">📊 Stats</button>
 </nav>
@@ -489,6 +529,7 @@
   <button class="tab-btn active" data-tab="queue"><span class="nav-ic">📥</span>Queue</button>
   <button class="tab-btn" data-tab="calls"><span class="nav-ic">📞</span>Calls</button>
   <button class="tab-btn" data-tab="video"><span class="nav-ic">🎥</span>Video</button>
+  <button class="tab-btn" data-tab="songs"><span class="nav-ic">🎵</span>Songs</button>
   <button class="tab-btn" data-tab="history"><span class="nav-ic">📋</span>History</button>
   <button class="tab-btn" data-tab="analytics"><span class="nav-ic">📊</span>Stats</button>
 </nav>
@@ -542,12 +583,13 @@
     </div>
 
     <!-- Incoming calls queue -->
-    <div class="calls-section-title" id="incomingCallsTitle" style="display:none;">
-      Incoming Calls
+    <div class="wait-queue-head" id="incomingCallsTitle" style="display:none;">
+      <div class="wait-queue-title">📞 Call Waiting Queue</div>
+      <div class="wait-queue-count"><span id="audioQueueCount">0</span> waiting</div>
     </div>
     <div class="empty" id="callsEmpty">
       <div class="ic">📞</div>
-      <div>No incoming calls right now.</div>
+      <div>No callers waiting. Lines are clear.</div>
     </div>
     <div class="queue" id="callsQueue"></div>
 
@@ -597,14 +639,33 @@
     </div>
 
     <!-- Incoming video guest requests -->
-    <div class="calls-section-title" id="incomingVideoTitle" style="display:none;">
-      Waiting to Join
+    <div class="wait-queue-head" id="incomingVideoTitle" style="display:none;">
+      <div class="wait-queue-title">🎥 Video Guest Queue</div>
+      <div class="wait-queue-count"><span id="videoQueueCount">0</span> waiting</div>
     </div>
     <div class="empty" id="videoEmpty">
       <div class="ic">🎥</div>
-      <div>No video guests waiting right now.</div>
+      <div>No video guests in queue.</div>
     </div>
     <div class="queue" id="videoQueue"></div>
+  </div>
+
+
+  <!-- SONG REQUESTS TAB -->
+  <div class="tab-content" id="tab-songs" style="display:none;">
+    <div class="wait-queue-head" id="songQueueHead" style="display:none;">
+      <div class="wait-queue-title">🎵 Song Request Queue</div>
+      <div class="wait-queue-count"><span id="songQueueCount">0</span> pending</div>
+    </div>
+    <div class="empty" id="songsEmpty">
+      <div class="ic">🎵</div>
+      <div>No text song requests waiting.</div>
+    </div>
+    <div class="queue" id="songsQueue"></div>
+    <p style="margin-top:16px;font-size:12px;color:#666;line-height:1.4;">
+      Text-only requests from <code>songrequest.html</code>. Use <strong>On Overlay</strong> to show on the dedicated
+      <code>song-overlay.html</code> OBS source (separate from voice / call overlay).
+    </p>
   </div>
 
   <!-- ANALYTICS TAB -->
@@ -777,6 +838,7 @@ onAuthStateChanged(auth, (user)=>{
       startLinesToggleListener();
       startVideoToggleListener();
       startVideoCallsListener();
+      startSongRequestsListener();
     }
   } else {
     loginScreen.style.display = 'flex';
@@ -793,6 +855,7 @@ signOutBtn.addEventListener('click', ()=>{
 // Instead, the dashboard writes "now playing" state to this Firestore doc,
 // and overlay.html listens to it live. This works no matter where each page runs.
 const liveStateRef = doc(db, 'hotlineLive', 'nowPlaying');
+const songRequestLiveRef = doc(db, 'songRequestLive', 'now');
 
 // ── Phone lines open/closed ──
 // Controls whether call.html will let listeners call in, and whether home.html
@@ -1253,7 +1316,12 @@ function render(){
   const pendingCount = allMessages.filter(m=>m.status==='pending').length;
   const approvedCount = allMessages.filter(m=>m.status==='approved').length;
   const allCount = allMessages.length;
-  queueCount.textContent = `${pendingCount} waiting`;
+  queueCount.textContent = String(pendingCount);
+  const chipVoice = document.getElementById('chipVoice');
+  if(chipVoice){
+    chipVoice.classList.toggle('show', pendingCount > 0);
+    chipVoice.classList.toggle('hot', pendingCount > 0);
+  }
   const cp = document.getElementById('countPending');
   const ca = document.getElementById('countAll');
   const cap = document.getElementById('countApproved');
@@ -2061,8 +2129,15 @@ function startCallsListener(){
       const ringing = calls.filter(c => c.status === 'waiting' && c.id !== connectingCallId);
       const count = ringing.length;
 
-      // Header counter
+      // Header + queue counters
       callCountNum.textContent = count;
+      const chipAudio = document.getElementById('chipAudio');
+      if(chipAudio){
+        chipAudio.classList.toggle('show', count > 0);
+        chipAudio.classList.toggle('hot', count > 0);
+      }
+      const aqc = document.getElementById('audioQueueCount');
+      if(aqc) aqc.textContent = String(count);
       count > 0 ? callCounter.classList.add('show') : callCounter.classList.remove('show');
 
       // Phone ring — start when there are waiting calls, stop when queue is clear.
@@ -2117,6 +2192,9 @@ function renderCallsQueue(){
   const calls = latestAudioCalls;
   const ringing = calls.filter(c => c.status === 'waiting' && c.id !== connectingCallId);
 
+  const aqc = document.getElementById('audioQueueCount');
+  if(aqc) aqc.textContent = String(ringing.length);
+
   if(ringing.length === 0 && !activePc){
     callsEmpty.style.display = 'block';
     callsQueue.innerHTML = '';
@@ -2124,15 +2202,11 @@ function renderCallsQueue(){
     return;
   }
   callsEmpty.style.display = 'none';
-  incomingCallsTitle.style.display = ringing.length > 0 ? 'block' : 'none';
+  incomingCallsTitle.style.display = ringing.length > 0 ? 'flex' : 'none';
 
-  callsQueue.innerHTML = ringing.map(c=>`
+  callsQueue.innerHTML = ringing.map((c, i)=>`
     <div class="call-card" data-id="${c.id}">
-      <div class="call-ring-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-        </svg>
-      </div>
+      <div class="queue-pos">${i + 1}</div>
       <div class="call-card-body">
         <div class="call-card-name">${escapeHtml(c.callerName || 'Anonymous Caller')}</div>
         <div class="call-card-city">${c.callerCity ? escapeHtml(c.callerCity) : ''}</div>
@@ -2241,6 +2315,17 @@ function startVideoCallsListener(){
         currentLiveVideoId = null;
       }
 
+      // Header video chip
+      const vChip = document.getElementById('chipVideo');
+      const vCount = waiting.length;
+      if(vChip){
+        document.getElementById('videoCountNum').textContent = String(vCount);
+        vChip.classList.toggle('show', vCount > 0);
+        vChip.classList.toggle('hot', vCount > 0);
+      }
+      const vqc = document.getElementById('videoQueueCount');
+      if(vqc) vqc.textContent = String(vCount);
+
       // Waiting queue
       if(waiting.length === 0){
         videoEmpty.style.display = 'block';
@@ -2249,15 +2334,11 @@ function startVideoCallsListener(){
         return;
       }
       videoEmpty.style.display = 'none';
-      incomingVideoTitle.style.display = 'block';
+      incomingVideoTitle.style.display = 'flex';
 
-      videoQueue.innerHTML = waiting.map(c=>`
+      videoQueue.innerHTML = waiting.map((c, i)=>`
         <div class="call-card" data-id="${c.id}">
-          <div class="call-ring-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
-            </svg>
-          </div>
+          <div class="queue-pos">${i + 1}</div>
           <div class="call-card-body">
             <div class="call-card-name">${escapeHtml(c.callerName || 'Guest')}</div>
             <div class="call-card-city">${c.callerCity ? escapeHtml(c.callerCity) : ''}</div>
@@ -2632,6 +2713,101 @@ function formatDur(s){
   if(h > 0) return `${h}:${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
   return `${m}:${sec.toString().padStart(2,'0')}`;
 }
+
+
+// ── Text song requests queue ──
+let latestSongRequests = [];
+function startSongRequestsListener(){
+  onSnapshot(
+    query(collection(db, 'songRequests'), orderBy('createdAt', 'desc')),
+    (snap)=>{
+      latestSongRequests = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      renderSongsQueue();
+    },
+    (err)=>{
+      console.warn('songRequests listener', err);
+      const el = document.getElementById('songsEmpty');
+      if(el) el.innerHTML = `<div class="ic">⚠️</div><div>Could not load song requests: ${err.message}</div>`;
+    }
+  );
+}
+
+function renderSongsQueue(){
+  const list = latestSongRequests.filter(s => s.status === 'pending');
+  const n = list.length;
+  const chip = document.getElementById('chipSongs');
+  const num = document.getElementById('songCountNum');
+  const head = document.getElementById('songQueueHead');
+  const countEl = document.getElementById('songQueueCount');
+  const empty = document.getElementById('songsEmpty');
+  const queue = document.getElementById('songsQueue');
+  if(num) num.textContent = String(n);
+  if(countEl) countEl.textContent = String(n);
+  if(chip){
+    chip.classList.toggle('show', n > 0);
+    chip.classList.toggle('hot', n > 0);
+  }
+  if(!queue) return;
+  if(n === 0){
+    if(empty) empty.style.display = 'block';
+    if(head) head.style.display = 'none';
+    queue.innerHTML = '';
+    return;
+  }
+  if(empty) empty.style.display = 'none';
+  if(head) head.style.display = 'flex';
+  queue.innerHTML = list.map((s, i)=>`
+    <div class="call-card" data-songid="${s.id}">
+      <div class="queue-pos">${i + 1}</div>
+      <div class="call-card-body">
+        <div class="call-card-name">${escapeHtml(s.songTitle || '—')}</div>
+        <div class="call-card-city">${escapeHtml(s.artist || '')}</div>
+        <div class="call-card-time">${escapeHtml([s.name, s.city].filter(Boolean).join(' · ') || 'Anonymous')}${s.createdAt ? ' · ' + timeAgo(s.createdAt) : ''}</div>
+      </div>
+      <div class="call-card-actions">
+        <button class="ibtn ibtn-answer" data-action="song-air" data-id="${s.id}">🎵 On Overlay</button>
+        <button class="ibtn" data-action="song-played" data-id="${s.id}">✓ Played</button>
+        <button class="ibtn ibtn-reject" data-action="song-dismiss" data-id="${s.id}">✕ Dismiss</button>
+      </div>
+    </div>`).join('');
+}
+
+document.getElementById('songsQueue')?.addEventListener('click', async (e)=>{
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+  const item = latestSongRequests.find(s => s.id === id);
+  if(!item) return;
+
+  if(action === 'song-air'){
+    await setDoc(songRequestLiveRef, {
+      active: true,
+      songTitle: item.songTitle || '',
+      artist: item.artist || '',
+      name: item.name || null,
+      city: item.city || null,
+      requestId: id,
+      updatedAt: Date.now()
+    });
+    // Keep status pending until explicitly played/dismissed so queue stays visible
+  }
+  if(action === 'song-played'){
+    await updateDoc(doc(db, 'songRequests', id), { status: 'played' }).catch(()=>{});
+    // Clear overlay if this request was showing
+    const live = await getDoc(songRequestLiveRef).catch(()=>null);
+    if(live && live.exists() && live.data().requestId === id){
+      await setDoc(songRequestLiveRef, { active: false, updatedAt: Date.now() }, { merge: true });
+    }
+  }
+  if(action === 'song-dismiss'){
+    await updateDoc(doc(db, 'songRequests', id), { status: 'dismissed' }).catch(()=>{});
+    const live = await getDoc(songRequestLiveRef).catch(()=>null);
+    if(live && live.exists() && live.data().requestId === id){
+      await setDoc(songRequestLiveRef, { active: false, updatedAt: Date.now() }, { merge: true });
+    }
+  }
+});
 
 function startQueueListener(){
   if(queueListenerStarted) return;

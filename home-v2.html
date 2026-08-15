@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="description" content="Live Caller Studio — Network-grade broadcast call-in system for urban radio and live entertainment.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Live Caller">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152.png">
+<link rel="apple-touch-icon" sizes="167x167" href="apple-touch-icon-167.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<title>Live Caller Studio — Home v2</title>
+<style>
+  :root{
+    --accent:#53FC18;
+    --accent-soft:rgba(83,252,24,0.14);
+    --accent-line:rgba(83,252,24,0.32);
+    --gold:#d4af37;
+    --gold-soft:rgba(212,175,55,0.12);
+    --red:#e63939;
+    --bg:#050505;
+    --surface:#0c0c0c;
+    --surface-2:#111111;
+    --surface-3:#161616;
+    --border:#1a1a1a;
+    --border-2:#252525;
+    --text:#f5f5f5;
+    --text-2:#a0a0a0;
+    --text-3:#5c5c5c;
+    --text-4:#3a3a3a;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;}
+  button,a{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    min-height:100vh;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    overflow-x:hidden;
+  }
+
+  /* ── Atmosphere ── */
+  .atmosphere{
+    position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(ellipse 100% 55% at 50% -15%, rgba(83,252,24,0.07) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 40% at 100% 100%, rgba(212,175,55,0.03) 0%, transparent 50%);
+  }
+  .scanlines{
+    position:fixed;inset:0;pointer-events:none;z-index:0;opacity:0.4;
+    background:repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+  }
+
+  .shell{
+    position:relative;z-index:1;
+    min-height:100vh;
+    max-width:720px;
+    margin:0 auto;
+    padding:0 22px 56px;
+    display:flex;flex-direction:column;
+  }
+
+  /* ── Network bar ── */
+  .network-bar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 0 0;
+    gap:16px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:16px;
+    margin-bottom:8px;
+  }
+  .network-left{
+    display:flex;align-items:center;gap:12px;
+  }
+  .logo-mark{
+    width:40px;height:40px;border-radius:11px;
+    background:linear-gradient(145deg, #141414 0%, #0a0a0a 100%);
+    border:1px solid var(--accent-line);
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.5),
+      0 0 24px rgba(83,252,24,0.12),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;color:var(--accent);
+  }
+  .network-identity h1{
+    font-size:14px;font-weight:800;letter-spacing:2.5px;
+    text-transform:uppercase;line-height:1.15;
+  }
+  .network-identity h1 span{color:var(--accent);}
+  .network-identity p{
+    font-size:10px;letter-spacing:1.8px;text-transform:uppercase;
+    color:var(--text-3);font-weight:600;margin-top:2px;
+  }
+
+  .line-status{
+    display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;
+  }
+  .line-chip{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:7px 12px;border-radius:100px;
+    font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;
+    background:var(--surface);border:1px solid var(--border-2);
+    color:var(--text-3);
+    transition:all 0.25s ease;
+  }
+  .line-chip .led{
+    width:7px;height:7px;border-radius:50%;
+    background:#444;
+    transition:all 0.25s ease;
+  }
+  .line-chip.live{
+    color:var(--accent);
+    border-color:var(--accent-line);
+    background:var(--accent-soft);
+  }
+  .line-chip.live .led{
+    background:var(--accent);
+    box-shadow:0 0 10px rgba(83,252,24,0.85);
+    animation:pulse-led 1.8s ease-in-out infinite;
+  }
+  .line-chip.offline{
+    color:var(--text-3);
+    border-color:var(--border);
+    background:rgba(255,255,255,0.015);
+  }
+  .line-chip.offline .led{background:#3a3a3a;box-shadow:none;animation:none;}
+  @keyframes pulse-led{
+    0%,100%{opacity:1;transform:scale(1);}
+    50%{opacity:0.4;transform:scale(0.85);}
+  }
+
+  /* ── Masthead ── */
+  .masthead{
+    padding:40px 0 32px;
+  }
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:10px;
+    font-size:11px;font-weight:700;letter-spacing:2.4px;text-transform:uppercase;
+    color:var(--accent);margin-bottom:16px;
+  }
+  .eyebrow::before{
+    content:'';
+    width:24px;height:1.5px;
+    background:var(--accent);
+    box-shadow:0 0 10px rgba(83,252,24,0.5);
+  }
+  .masthead h2{
+    font-size:clamp(32px,7.5vw,48px);
+    font-weight:800;
+    letter-spacing:-1.2px;
+    line-height:1.05;
+    margin-bottom:16px;
+    color:var(--text);
+  }
+  .masthead h2 .accent{color:var(--accent);}
+  .masthead-lead{
+    font-size:16px;line-height:1.65;
+    color:var(--text-2);
+    max-width:520px;
+    font-weight:400;
+  }
+
+  /* Capability strip */
+  .capability-strip{
+    display:flex;flex-wrap:wrap;gap:10px;
+    margin-top:28px;
+    padding-top:24px;
+    border-top:1px solid var(--border);
+  }
+  .cap{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:8px 14px;
+    border-radius:8px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    font-size:12px;font-weight:600;color:var(--text-2);
+    letter-spacing:0.2px;
+  }
+  .cap-dot{
+    width:5px;height:5px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 6px rgba(83,252,24,0.6);
+  }
+
+  /* ── Division header ── */
+  .division{
+    display:flex;align-items:center;justify-content:space-between;
+    margin:12px 0 16px;
+    gap:12px;
+  }
+  .division-label{
+    font-size:11px;font-weight:700;letter-spacing:2.2px;text-transform:uppercase;
+    color:var(--text-3);
+  }
+  .division-rule{
+    flex:1;height:1px;background:var(--border);margin-left:14px;
+  }
+
+  /* ── Entry cards ── */
+  .entries{display:flex;flex-direction:column;gap:12px;}
+
+  .entry{
+    display:grid;
+    grid-template-columns:64px 1fr auto;
+    align-items:center;
+    gap:0;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    text-decoration:none;color:inherit;
+    overflow:hidden;
+    transition:
+      border-color 0.2s ease,
+      background 0.2s ease,
+      box-shadow 0.2s ease,
+      transform 0.15s ease;
+  }
+  .entry:hover{
+    border-color:var(--accent-line);
+    background:var(--surface-2);
+    box-shadow:
+      0 12px 40px rgba(0,0,0,0.5),
+      0 0 0 1px rgba(83,252,24,0.06);
+    transform:translateY(-2px);
+  }
+  .entry:active{transform:translateY(0);}
+  .entry.priority:hover{
+    border-color:rgba(230,57,57,0.4);
+    box-shadow:
+      0 12px 40px rgba(0,0,0,0.5),
+      0 0 0 1px rgba(230,57,57,0.08);
+  }
+
+  .entry-icon-wrap{
+    width:64px;height:100%;min-height:88px;
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(180deg, rgba(83,252,24,0.05) 0%, transparent 100%);
+    border-right:1px solid var(--border);
+  }
+  .entry.priority .entry-icon-wrap{
+    background:linear-gradient(180deg, rgba(230,57,57,0.06) 0%, transparent 100%);
+  }
+  .entry-icon{
+    width:40px;height:40px;border-radius:11px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:20px;
+    background:rgba(83,252,24,0.1);
+    border:1px solid rgba(83,252,24,0.22);
+  }
+  .entry.priority .entry-icon{
+    background:rgba(230,57,57,0.1);
+    border-color:rgba(230,57,57,0.25);
+  }
+
+  .entry-content{
+    padding:18px 16px 18px 18px;
+    min-width:0;
+  }
+  .entry-tag{
+    display:inline-block;
+    font-size:9px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;
+    color:var(--accent);
+    background:var(--accent-soft);
+    padding:3px 8px;border-radius:4px;
+    margin-bottom:6px;
+  }
+  .entry.priority .entry-tag{
+    color:var(--red);
+    background:rgba(230,57,57,0.12);
+  }
+  .entry-title{
+    font-size:16px;font-weight:800;letter-spacing:-0.2px;
+    line-height:1.2;margin-bottom:4px;
+  }
+  .entry-copy{
+    font-size:13px;line-height:1.5;color:var(--text-2);
+    max-width:380px;
+  }
+
+  .entry-arrow{
+    padding:0 20px 0 8px;
+    font-size:18px;color:var(--text-4);
+    transition:color 0.2s, transform 0.2s;
+  }
+  .entry:hover .entry-arrow{
+    color:var(--accent);
+    transform:translateX(4px);
+  }
+  .entry.priority:hover .entry-arrow{color:var(--red);}
+
+  /* Offline state */
+  .entry-offline{
+    display:none;
+    grid-template-columns:64px 1fr auto;
+    align-items:center;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    opacity:0.78;
+  }
+  .entry-offline .entry-icon-wrap{
+    background:transparent;
+  }
+  .entry-offline .entry-icon{
+    background:rgba(255,255,255,0.03);
+    border-color:var(--border);
+    color:#555;font-size:18px;
+  }
+  .entry-offline .entry-title{color:#888;}
+  .entry-offline .entry-copy{color:var(--text-3);}
+  .offline-badge{
+    margin-right:18px;
+    font-size:9px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;
+    color:var(--text-3);
+    border:1px solid var(--border-2);
+    padding:6px 12px;border-radius:100px;
+  }
+
+  /* ── Trust panel ── */
+  .trust{
+    margin-top:32px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .trust-item{
+    padding:16px 18px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+  }
+  .trust-item h3{
+    font-size:12px;font-weight:700;letter-spacing:0.3px;
+    color:var(--text);margin-bottom:4px;
+  }
+  .trust-item p{
+    font-size:12px;line-height:1.5;color:var(--text-3);
+  }
+  @media(max-width:480px){
+    .trust{grid-template-columns:1fr;}
+  }
+
+  /* ── Footer ── */
+  .site-footer{
+    margin-top:auto;
+    padding-top:48px;
+    text-align:center;
+  }
+  .footer-nav{
+    display:flex;justify-content:center;flex-wrap:wrap;gap:22px;
+    margin-bottom:20px;
+  }
+  .footer-nav a{
+    font-size:12px;color:var(--text-4);text-decoration:none;
+    letter-spacing:0.4px;transition:color 0.15s;
+  }
+  .footer-nav a:hover{color:var(--accent);}
+  .footer-brand{
+    font-size:10px;letter-spacing:2.5px;text-transform:uppercase;
+    color:#2a2a2a;font-weight:600;
+  }
+  .footer-brand span{color:var(--accent);}
+
+  @media(max-width:420px){
+    .shell{padding:0 16px 48px;}
+    .entry{grid-template-columns:56px 1fr auto;}
+    .entry-icon-wrap{width:56px;min-height:80px;}
+    .entry-content{padding:14px 12px 14px 14px;}
+    .entry-title{font-size:15px;}
+    .line-chip{padding:6px 10px;font-size:9px;}
+    .network-bar{flex-wrap:wrap;}
+  }
+</style>
+</head>
+<body>
+
+<div class="atmosphere"></div>
+<div class="scanlines"></div>
+
+<div class="shell">
+
+  <!-- Network identity bar -->
+  <header class="network-bar">
+    <div class="network-left">
+      <div class="logo-mark">⚡</div>
+      <div class="network-identity">
+        <h1>LIVE <span>CALLER</span></h1>
+        <p>Broadcast Operations</p>
+      </div>
+    </div>
+    <div class="line-status">
+      <div class="line-chip" id="phoneChip">
+        <span class="led"></span>
+        <span id="phoneChipLabel">Phone</span>
+      </div>
+      <div class="line-chip" id="videoChip">
+        <span class="led"></span>
+        <span id="videoChipLabel">Video</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Masthead -->
+  <section class="masthead">
+    <div class="eyebrow">Audience engagement platform</div>
+    <h2>Join the <span class="accent">show</span></h2>
+    <p class="masthead-lead">
+      The official call-in hub for live radio and stream. Leave a message, request a record, or connect with the studio for a screened appearance.
+    </p>
+    <div class="capability-strip">
+      <div class="cap"><span class="cap-dot"></span> Producer screened</div>
+      <div class="cap"><span class="cap-dot"></span> Voice &amp; video</div>
+      <div class="cap"><span class="cap-dot"></span> Real-time queue</div>
+      <div class="cap"><span class="cap-dot"></span> Mobile ready</div>
+    </div>
+  </section>
+
+  <!-- Division -->
+  <div class="division">
+    <div class="division-label">Select your path</div>
+    <div class="division-rule"></div>
+  </div>
+
+  <!-- Entries -->
+  <div class="entries">
+
+
+    <!-- Song request text -->
+    <a class="entry" href="songrequest.html">
+      <div class="entry-icon-wrap">
+        <div class="entry-icon">🎵</div>
+      </div>
+      <div class="entry-content">
+        <span class="entry-tag">Text only</span>
+        <div class="entry-title">Song Request</div>
+        <div class="entry-copy">Artist + song title only. No mic — goes straight to the song request queue.</div>
+      </div>
+      <div class="entry-arrow">→</div>
+    </a>
+
+    <!-- Voice -->
+    <a class="entry" href="voicemessage.html">
+      <div class="entry-icon-wrap">
+        <div class="entry-icon">🎤</div>
+      </div>
+      <div class="entry-content">
+        <span class="entry-tag">Always available</span>
+        <div class="entry-title">Voice Message</div>
+        <div class="entry-copy">Song requests, shout-outs, dedications, and birthday messages — recorded in under 30 seconds.</div>
+      </div>
+      <div class="entry-arrow">→</div>
+    </a>
+
+    <!-- Phone -->
+    <a class="entry priority" href="call.html" id="callOpen">
+      <div class="entry-icon-wrap">
+        <div class="entry-icon">📞</div>
+      </div>
+      <div class="entry-content">
+        <span class="entry-tag">Live audio line</span>
+        <div class="entry-title">Call the Studio</div>
+        <div class="entry-copy">Two-way audio with the producer. Screened first — then ready for air.</div>
+      </div>
+      <div class="entry-arrow">→</div>
+    </a>
+
+    <div class="entry-offline" id="callClosed">
+      <div class="entry-icon-wrap">
+        <div class="entry-icon">📞</div>
+      </div>
+      <div class="entry-content">
+        <div class="entry-title">Phone lines closed</div>
+        <div class="entry-copy">Live call-ins are not being accepted. Leave a voice message instead.</div>
+      </div>
+      <div class="offline-badge">Offline</div>
+    </div>
+
+    <!-- Video -->
+    <a class="entry" href="videocall.html" id="videoOpen">
+      <div class="entry-icon-wrap">
+        <div class="entry-icon">🎥</div>
+      </div>
+      <div class="entry-content">
+        <span class="entry-tag">Camera + mic</span>
+        <div class="entry-title">Video Guest</div>
+        <div class="entry-copy">Appear on stream with camera and microphone after producer approval.</div>
+      </div>
+      <div class="entry-arrow">→</div>
+    </a>
+
+    <div class="entry-offline" id="videoClosed">
+      <div class="entry-icon-wrap">
+        <div class="entry-icon">🎥</div>
+      </div>
+      <div class="entry-content">
+        <div class="entry-title">Video guests closed</div>
+        <div class="entry-copy">Video appearances are paused. Check back during the live broadcast.</div>
+      </div>
+      <div class="offline-badge">Offline</div>
+    </div>
+
+  </div>
+
+  <!-- Trust / operations -->
+  <div class="trust">
+    <div class="trust-item">
+      <h3>Studio controlled</h3>
+      <p>Phone and video lines are managed live from the control room. Voice messages stay open to the queue.</p>
+    </div>
+    <div class="trust-item">
+      <h3>Screened for air</h3>
+      <p>Every live connection is previewed by the producer before it reaches the broadcast path.</p>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <nav class="footer-nav">
+      <a href="home-v2.html">Home</a>
+      <a href="songrequest.html">Song Request</a>
+      <a href="voicemessage.html">Voice Message</a>
+      <a href="call.html">Call the Studio</a>
+      <a href="videocall.html">Video Guest</a>
+    </nav>
+    <div class="footer-brand">
+      <span>⚡</span> Live Caller Studio · Network Operations
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey:            "AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc",
+    authDomain:        "djdeeze-hotline.firebaseapp.com",
+    projectId:         "djdeeze-hotline",
+    storageBucket:     "djdeeze-hotline.firebasestorage.app",
+    messagingSenderId: "663942225296",
+    appId:             "1:663942225296:web:c6117cf6c23656b9842715"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  const callOpen   = document.getElementById('callOpen');
+  const callClosed = document.getElementById('callClosed');
+  const videoOpen  = document.getElementById('videoOpen');
+  const videoClosed= document.getElementById('videoClosed');
+  const phoneChip  = document.getElementById('phoneChip');
+  const phoneLabel = document.getElementById('phoneChipLabel');
+  const videoChip  = document.getElementById('videoChip');
+  const videoLabel = document.getElementById('videoChipLabel');
+
+  function setEntry(openEl, closedEl, isOpen){
+    openEl.style.display = isOpen ? 'grid' : 'none';
+    closedEl.style.display = isOpen ? 'none' : 'grid';
+  }
+
+  function setChip(chip, labelEl, isOpen, onText, offText){
+    chip.classList.toggle('live', isOpen);
+    chip.classList.toggle('offline', !isOpen);
+    labelEl.textContent = isOpen ? onText : offText;
+  }
+
+  onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
+    const d = snap.data();
+    const phoneOpen = d ? d.open !== false : true;
+    const videoOpen = d ? d.videoOpen !== false : true;
+
+    setEntry(callOpen, callClosed, phoneOpen);
+    setEntry(videoOpen, videoClosed, videoOpen);
+    setChip(phoneChip, phoneLabel, phoneOpen, 'Phone live', 'Phone offline');
+    setChip(videoChip, videoLabel, videoOpen, 'Video live', 'Video offline');
+  }, ()=>{
+    setEntry(callOpen, callClosed, true);
+    setEntry(videoOpen, videoClosed, true);
+    setChip(phoneChip, phoneLabel, true, 'Phone live', 'Phone offline');
+    setChip(videoChip, videoLabel, true, 'Video live', 'Video offline');
+  });
+</script>
+</body>
+</html>
