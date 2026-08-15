@@ -769,7 +769,6 @@
   <button class="tab-btn active" data-tab="queue">📥 Queue</button>
   <button class="tab-btn" data-tab="calls">📞 Phone System</button>
   <button class="tab-btn" data-tab="songs">🎵 Songs</button>
-  <button class="tab-btn" data-tab="history">📋 History</button>
   <button class="tab-btn" data-tab="analytics">📊 Stats</button>
 </nav>
 
@@ -778,7 +777,6 @@
   <button class="tab-btn active" data-tab="queue"><span class="nav-ic">📥</span>Queue</button>
   <button class="tab-btn" data-tab="calls"><span class="nav-ic">📞</span>Calls</button>
   <button class="tab-btn" data-tab="songs"><span class="nav-ic">🎵</span>Songs</button>
-  <button class="tab-btn" data-tab="history"><span class="nav-ic">📋</span>History</button>
   <button class="tab-btn" data-tab="analytics"><span class="nav-ic">📊</span>Stats</button>
 </nav>
 
@@ -847,6 +845,21 @@
             <div class="queue" id="videoQueue"></div>
           </div>
         </div>
+
+        <div class="ps-panel">
+          <div class="ps-panel-h"><span>Waiting</span></div>
+          <div class="ps-panel-body" style="padding:12px 14px;">
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;">
+              <span style="color:#888;">Audio</span>
+              <strong id="audioQueueCount" style="color:var(--g);">0</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;">
+              <span style="color:#888;">Video</span>
+              <strong id="videoWaitingSide" style="color:var(--g);">0</strong>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <!-- CENTER: stage + controls -->
@@ -924,42 +937,17 @@
       <!-- RIGHT: tips / status (desktop) -->
       <div class="ps-col ps-right">
         <div class="ps-panel">
-          <div class="ps-panel-h"><span>Board</span></div>
-          <div class="ps-panel-body tall" style="padding:14px;font-size:12px;color:#888;line-height:1.5;">
-            <p style="margin:0 0 10px;"><strong style="color:#ccc;">Audio</strong> — Answer from Audio Queue. Hold, mute, record, then On Air.</p>
-            <p style="margin:0 0 10px;"><strong style="color:#ccc;">Video</strong> — Preview guest camera, then Send On Air to the OBS overlay.</p>
-            <p style="margin:0;"><strong style="color:#ccc;">Overlay</strong> — Master On/Off, List, and Auto/Manual stay in the top console.</p>
-          </div>
-        </div>
-        <div class="ps-panel">
-          <div class="ps-panel-h">
-            <span>Waiting</span>
-          </div>
-          <div class="ps-panel-body" style="padding:12px 14px;">
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;">
-              <span style="color:#888;">Audio</span>
-              <strong id="audioQueueCount" style="color:var(--g);">0</strong>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;">
-              <span style="color:#888;">Video</span>
-              <strong id="videoWaitingSide" style="color:var(--g);">0</strong>
-            </div>
-          </div>
-        </div>
-
-        <div class="ps-panel">
           <div class="ps-panel-h">
             <span>📋 Call History</span>
             <span class="ps-count zero" id="phoneHistCount">0</span>
           </div>
-          <div class="ps-panel-body tall" style="max-height:420px;padding:8px;" id="phoneHistBody">
+          <div class="ps-panel-body tall" style="max-height:min(70vh,560px);padding:8px;" id="phoneHistBody">
             <div class="hist-strip" id="phoneHistStrip" style="display:none;"></div>
             <div id="phoneHistList">
               <div class="empty" style="display:block;"><div class="ic">📋</div><div>No call history yet</div></div>
             </div>
           </div>
         </div>
-
       </div>
     </div>
 
@@ -1030,7 +1018,7 @@
   </div>
 
   <!-- CALL HISTORY TAB -->
-  <div class="tab-content" id="tab-history" style="display:none;">
+  <div class="tab-content" id="tab-history" style="display:none;" hidden aria-hidden="true">
     <div class="analytics-grid" style="margin-bottom:20px;">
       <div class="stat-card">
         <div class="stat-value" id="histTotal">—</div>
@@ -1990,7 +1978,7 @@ filterSelect.addEventListener('change', render);
 const tabBtns = document.querySelectorAll('.tab-btn');
 const tabContents = document.querySelectorAll('.tab-content');
 function switchTab(target){
-  if(target === 'video') target = 'calls'; // unified phone system
+  if(target === 'video' || target === 'history') target = 'calls'; // phone system holds calls + history
   tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === target));
   tabContents.forEach(c =>{
     c.style.display = c.id === 'tab-' + target ? 'block' : 'none';
@@ -2719,20 +2707,26 @@ function startCallsListener(){
 }
 
 function renderCallsQueue(){
-  const calls = latestAudioCalls;
+  const calls = latestAudioCalls || [];
   const ringing = calls.filter(c => c.status === 'waiting' && c.id !== connectingCallId);
 
   const aqc = document.getElementById('audioQueueCount');
   if(aqc) aqc.textContent = String(ringing.length);
+  const badge = document.getElementById('audioQueueCountBadge');
+  if(badge){
+    badge.textContent = String(ringing.length);
+    badge.classList.toggle('zero', ringing.length === 0);
+  }
 
+  if(!callsQueue) return;
   if(ringing.length === 0 && !activePc){
-    callsEmpty.style.display = 'block';
+    if(callsEmpty) callsEmpty.style.display = 'block';
     callsQueue.innerHTML = '';
-    incomingCallsTitle.style.display = 'none';
+    if(incomingCallsTitle) incomingCallsTitle.style.display = 'none';
     return;
   }
-  callsEmpty.style.display = 'none';
-  incomingCallsTitle.style.display = ringing.length > 0 ? 'flex' : 'none';
+  if(callsEmpty) callsEmpty.style.display = 'none';
+  if(incomingCallsTitle) incomingCallsTitle.style.display = ringing.length > 0 ? 'flex' : 'none';
 
   callsQueue.innerHTML = ringing.map((c, i)=>`
     <div class="call-card" data-id="${c.id}">
@@ -2856,16 +2850,19 @@ function startVideoCallsListener(){
       }
       const vqc = document.getElementById('videoQueueCount');
       if(vqc) vqc.textContent = String(vCount);
+      const vSide = document.getElementById('videoWaitingSide');
+      if(vSide) vSide.textContent = String(vCount);
 
       // Waiting queue
       if(waiting.length === 0){
-        videoEmpty.style.display = 'block';
-        videoQueue.innerHTML = '';
-        incomingVideoTitle.style.display = 'none';
+        if(videoEmpty) videoEmpty.style.display = 'block';
+        if(videoQueue) videoQueue.innerHTML = '';
+        if(incomingVideoTitle) incomingVideoTitle.style.display = 'none';
         return;
       }
-      videoEmpty.style.display = 'none';
-      incomingVideoTitle.style.display = 'flex';
+      if(videoEmpty) videoEmpty.style.display = 'none';
+      if(incomingVideoTitle) incomingVideoTitle.style.display = 'flex';
+      if(!videoQueue) return;
 
       videoQueue.innerHTML = waiting.map((c, i)=>`
         <div class="call-card" data-id="${c.id}">
@@ -2968,33 +2965,48 @@ async function startVideoPreview(callId){
   previewPc = new RTCPeerConnection(buildIceConfig(false));
 
   previewPc.ontrack = (event) => {
-    if(event.streams && event.streams[0]){
-      previewVideo.srcObject = event.streams[0];
-      previewVideo.play().catch(()=>{});
+    try{
+      const incoming = event.streams && event.streams[0]
+        ? event.streams[0]
+        : new MediaStream([event.track]);
+      // Merge tracks if audio/video arrive separately
+      if(!previewVideo.srcObject){
+        previewVideo.srcObject = incoming;
+      } else {
+        const existing = previewVideo.srcObject;
+        incoming.getTracks().forEach(tr=>{
+          if(!existing.getTracks().some(t => t.id === tr.id)) existing.addTrack(tr);
+        });
+        if(event.track && !existing.getTracks().some(t => t.id === event.track.id)){
+          existing.addTrack(event.track);
+        }
+      }
+      previewVideo.setAttribute('playsinline', '');
+      previewVideo.playsInline = true;
+      previewVideo.autoplay = true;
+      // Autoplay policies: try unmuted (so producer hears guest); fall back to muted video still showing
+      const playAttempt = previewVideo.play();
+      if(playAttempt && playAttempt.catch){
+        playAttempt.catch(()=>{
+          previewVideo.muted = true;
+          previewVideo.play().catch(()=>{});
+        });
+      }
       previewVideoStatus.style.display = 'none';
       startNetStats(() => previewPc);
-      // Fit frame to front-cam aspect (portrait default; landscape if track reports it)
-      try{
-        const wrap = previewVideo.closest('.preview-video-wrap');
-        const track = event.streams[0]?.getVideoTracks?.()[0];
-        const s = track?.getSettings?.() || {};
-        const w = s.width || 0, h = s.height || 0;
-        if(wrap){
-          if(w > h && w > 0) wrap.classList.add('is-landscape');
-          else wrap.classList.remove('is-landscape');
-        }
-        previewVideo.onloadedmetadata = ()=>{
-          const vw = previewVideo.videoWidth, vh = previewVideo.videoHeight;
-          if(wrap && vw && vh){
-            if(vw > vh) wrap.classList.add('is-landscape');
-            else wrap.classList.remove('is-landscape');
-          }
-        };
-      }catch(e){}
+      const wrap = previewVideo.closest('.preview-video-wrap');
+      const applyAspect = ()=>{
+        const vw = previewVideo.videoWidth || 0, vh = previewVideo.videoHeight || 0;
+        if(!wrap || !vw || !vh) return;
+        if(vw > vh) wrap.classList.add('is-landscape');
+        else wrap.classList.remove('is-landscape');
+      };
+      previewVideo.onloadedmetadata = applyAspect;
+      applyAspect();
       previewStatus.textContent = previewMicStream
         ? 'Previewing — two-way audio, not on air yet'
         : 'Previewing — not on air yet';
-    }
+    }catch(err){ console.warn('ontrack preview', err); }
   };
 
   previewPc.onicecandidate = (e) => {
@@ -3021,10 +3033,7 @@ async function startVideoPreview(callId){
   };
 
   try{
-    await previewPc.setRemoteDescription(new RTCSessionDescription(call.screenOffer));
-
-    // Try to grab the producer's own mic so they can talk back to the guest during
-    // screening. If denied or unavailable, the preview still works — just one-way.
+    // Producer mic BEFORE setRemoteDescription so answer SDP includes sendrecv audio
     try{
       previewMicStream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation:true, noiseSuppression:true }
@@ -3032,15 +3041,11 @@ async function startVideoPreview(callId){
       previewMicStream.getAudioTracks().forEach(track => previewPc.addTrack(track, previewMicStream));
     }catch(micErr){
       previewMicStream = null;
-      console.warn('Producer mic unavailable — preview will be one-way (you can see/hear the guest, but they can\'t hear you).', micErr);
+      console.warn('Producer mic unavailable — preview will be one-way.', micErr);
     }
     updatePreviewMicBtn();
-    if(previewVideo.srcObject){
-      previewStatus.textContent = previewMicStream
-        ? 'Previewing — two-way audio, not on air yet'
-        : 'Previewing — not on air yet';
-    }
 
+    await previewPc.setRemoteDescription(new RTCSessionDescription(call.screenOffer));
     const answer = await previewPc.createAnswer();
     await previewPc.setLocalDescription(answer);
     await setDoc(doc(db, 'videoCalls', callId), {
@@ -3255,6 +3260,7 @@ function startCallHistoryListener(){
               <div class="ph-right">
                 <div class="ph-time">${escapeHtml(timeLabel)}</div>
                 <div class="ph-dur">${missed ? '—' : formatDur(c.duration || 0)}</div>
+                <button type="button" class="hist-delete" data-action="delete-history" data-id="${c.id}" title="Delete" style="margin-top:4px;">🗑</button>
               </div>
             </div>`;
           }).join('');
