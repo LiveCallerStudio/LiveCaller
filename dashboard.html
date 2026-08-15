@@ -493,6 +493,18 @@
         <span class="console-led"></span>
         <span id="videoToggleText">Video Open</span>
       </button>
+      <button class="console-toggle open" id="overlayToggleBtn" type="button" title="Master switch: hide or show all OBS overlay graphics">
+        <span class="console-led"></span>
+        <span id="overlayToggleText">Overlay On</span>
+      </button>
+      <button class="console-toggle open" id="overlayListToggleBtn" type="button" title="Show or hide waiting-list panel on the OBS overlay">
+        <span class="console-led"></span>
+        <span id="overlayListToggleText">List Open</span>
+      </button>
+      <button class="console-toggle open" id="overlayModeToggleBtn" type="button" title="Auto: queue badges + alerts. Manual: only live lower-thirds">
+        <span class="console-led"></span>
+        <span id="overlayModeToggleText">Auto</span>
+      </button>
     </div>
     <div class="queue-chips" id="queueChips">
       <div class="qchip" id="chipVoice" title="Pending voice messages"><span class="qchip-ic">🎤</span><span id="queueCount">0</span></div>
@@ -550,6 +562,10 @@
         </button>
       </div>
       <input type="hidden" id="filterSelect" value="pending">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
+        <button type="button" class="ibtn ibtn-reject" id="clearVoiceBtn">Clear pending voice</button>
+        <button type="button" class="ibtn ibtn-reject" id="clearPendingSongsBtn" title="Mark all pending text song requests as played">Clear pending songs</button>
+      </div>
     </div>
     <div id="emptyState" class="empty" style="display:none;">
       <div class="ic">📭</div>
@@ -655,7 +671,11 @@
   <div class="tab-content" id="tab-songs" style="display:none;">
     <div class="wait-queue-head" id="songQueueHead" style="display:none;">
       <div class="wait-queue-title">🎵 Song Request Queue</div>
-      <div class="wait-queue-count"><span id="songQueueCount">0</span> pending</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div class="wait-queue-count"><span id="songQueueCount">0</span> pending</div>
+        <button type="button" class="ibtn ibtn-reject" id="clearSongsBtn" title="Mark all pending song requests as played">Clear pending songs</button>
+        <button type="button" class="ibtn" id="clearSongOverlayBtn" title="Hide song plate on OBS">Clear overlay</button>
+      </div>
     </div>
     <div class="empty" id="songsEmpty">
       <div class="ic">🎵</div>
@@ -837,6 +857,7 @@ onAuthStateChanged(auth, (user)=>{
       startCallHistoryListener();
       startLinesToggleListener();
       startVideoToggleListener();
+      startOverlayToggleListener();
       startVideoCallsListener();
       startSongRequestsListener();
     }
@@ -938,6 +959,79 @@ videoToggleBtn.addEventListener('click', async()=>{
   }
   videoToggleBtn.disabled = false;
 });
+
+// ── OBS overlay master on/off (graphics only — does not close phone/video lines) ──
+const overlaySettingsRef = doc(db, 'hotlineSettings', 'overlay');
+const overlayToggleBtn = document.getElementById('overlayToggleBtn');
+const overlayToggleText = document.getElementById('overlayToggleText');
+let overlayOn = true;
+
+let overlayListOpen = true;
+let overlayMode = 'auto'; // auto | manual
+const overlayListToggleBtn = document.getElementById('overlayListToggleBtn');
+const overlayListToggleText = document.getElementById('overlayListToggleText');
+const overlayModeToggleBtn = document.getElementById('overlayModeToggleBtn');
+const overlayModeToggleText = document.getElementById('overlayModeToggleText');
+
+function renderOverlayToggle(){
+  if(overlayToggleBtn){
+    overlayToggleBtn.classList.toggle('open', overlayOn);
+    overlayToggleBtn.classList.toggle('closed', !overlayOn);
+    overlayToggleText.textContent = overlayOn ? 'Overlay On' : 'Overlay Off';
+  }
+  if(overlayListToggleBtn){
+    overlayListToggleBtn.classList.toggle('open', overlayListOpen);
+    overlayListToggleBtn.classList.toggle('closed', !overlayListOpen);
+    overlayListToggleText.textContent = overlayListOpen ? 'List Open' : 'List Closed';
+  }
+  if(overlayModeToggleBtn){
+    const isAuto = overlayMode === 'auto';
+    overlayModeToggleBtn.classList.toggle('open', isAuto);
+    overlayModeToggleBtn.classList.toggle('closed', !isAuto);
+    overlayModeToggleText.textContent = isAuto ? 'Auto' : 'Manual';
+  }
+}
+
+function startOverlayToggleListener(){
+  onSnapshot(overlaySettingsRef, (snap)=>{
+    const d = snap.data() || {};
+    overlayOn = d.enabled !== false;
+    overlayListOpen = d.listOpen !== false;
+    overlayMode = d.mode === 'manual' ? 'manual' : 'auto';
+    renderOverlayToggle();
+  });
+}
+
+async function saveOverlaySettings(patch){
+  try{
+    await setDoc(overlaySettingsRef, { ...patch, updatedAt: Date.now() }, { merge: true });
+  }catch(err){
+    alert('Could not update overlay setting: ' + (err.message || err));
+    throw err;
+  }
+}
+
+overlayToggleBtn?.addEventListener('click', async()=>{
+  overlayOn = !overlayOn;
+  renderOverlayToggle();
+  try{ await saveOverlaySettings({ enabled: overlayOn }); }
+  catch(e){ overlayOn = !overlayOn; renderOverlayToggle(); }
+});
+
+overlayListToggleBtn?.addEventListener('click', async()=>{
+  overlayListOpen = !overlayListOpen;
+  renderOverlayToggle();
+  try{ await saveOverlaySettings({ listOpen: overlayListOpen }); }
+  catch(e){ overlayListOpen = !overlayListOpen; renderOverlayToggle(); }
+});
+
+overlayModeToggleBtn?.addEventListener('click', async()=>{
+  overlayMode = overlayMode === 'auto' ? 'manual' : 'auto';
+  renderOverlayToggle();
+  try{ await saveOverlaySettings({ mode: overlayMode }); }
+  catch(e){ overlayMode = overlayMode === 'auto' ? 'manual' : 'auto'; renderOverlayToggle(); }
+});
+
 
 let allMessages = [];
 let knownIds = new Set();
@@ -2806,6 +2900,34 @@ document.getElementById('songsQueue')?.addEventListener('click', async (e)=>{
     if(live && live.exists() && live.data().requestId === id){
       await setDoc(songRequestLiveRef, { active: false, updatedAt: Date.now() }, { merge: true });
     }
+  }
+});
+
+
+async function clearPendingSongRequests(asPlayed){
+  const pending = latestSongRequests.filter(s => s.status === 'pending');
+  if(pending.length === 0){ alert('No pending song requests.'); return; }
+  const label = asPlayed ? 'mark as played' : 'clear';
+  if(!confirm(label.charAt(0).toUpperCase() + label.slice(1) + ' all ' + pending.length + ' pending song request(s)?')) return;
+  const status = asPlayed ? 'played' : 'dismissed';
+  for(const s of pending){
+    await updateDoc(doc(db, 'songRequests', s.id), { status }).catch(()=>{});
+  }
+  await setDoc(songRequestLiveRef, { active: false, updatedAt: Date.now() }, { merge: true }).catch(()=>{});
+}
+document.getElementById('clearSongsBtn')?.addEventListener('click', ()=> clearPendingSongRequests(true));
+document.getElementById('clearPendingSongsBtn')?.addEventListener('click', ()=> clearPendingSongRequests(true));
+document.getElementById('clearSongOverlayBtn')?.addEventListener('click', async()=>{
+  await setDoc(songRequestLiveRef, { active: false, updatedAt: Date.now() }, { merge: true }).catch(()=>{});
+});
+
+
+document.getElementById('clearVoiceBtn')?.addEventListener('click', async()=>{
+  const pending = allMessages.filter(m => m.status === 'pending');
+  if(pending.length === 0){ alert('No pending voice messages.'); return; }
+  if(!confirm('Dismiss all ' + pending.length + ' pending voice message(s)?')) return;
+  for(const m of pending){
+    await updateDoc(doc(db, 'hotlineMessages', m.id), { status: 'approved' }).catch(()=>{});
   }
 });
 
