@@ -1774,6 +1774,28 @@ async function answerCall(callId, callerName, callerCity){
     }
   };
 
+  // If the guest's peer disappears (browser closed, network drop) without writing
+  // status:'ended' to Firestore, still tear down the producer side.
+  activePc.onconnectionstatechange = ()=>{
+    if(!activePc) return;
+    const st = activePc.connectionState;
+    if(st === 'failed' || st === 'closed'){
+      if(activeCallRef){
+        setDoc(activeCallRef, { status: 'ended' }, { merge: true }).catch(()=>{});
+      }
+      stopHoldMusic();
+      if(isRecording){
+        stopCallRecording().then(url => saveCallHistory(url)).catch(()=>{});
+      } else {
+        saveCallHistory(null).catch(()=>{});
+      }
+      if(callIsOnAir){
+        setDoc(liveStateRef, { active: false, updatedAt: Date.now() }).catch(()=>{});
+      }
+      cleanupActiveCall();
+    }
+  };
+
   // 5. Get caller's offer and set remote description
   const callSnap = await getDoc(activeCallRef);
   const callData = callSnap.data();
@@ -2111,6 +2133,26 @@ function startCallsListener(){
       }
 
       updateIncomingOverlay();
+
+      // Guest hung up (or was rejected elsewhere) while we still have an active call —
+      // mirror their hang-up on the producer side so the panel, timer, mic, and WebRTC
+      // connection all tear down instead of staying "live" with silence.
+      if(activeCallId){
+        const active = calls.find(c => c.id === activeCallId);
+        if(!active || active.status === 'ended' || active.status === 'rejected'){
+          stopHoldMusic();
+          stopPhoneRing();
+          if(isRecording){
+            stopCallRecording().then(url => saveCallHistory(url)).catch(()=>{});
+          } else {
+            saveCallHistory(null).catch(()=>{});
+          }
+          if(callIsOnAir){
+            setDoc(liveStateRef, { active: false, updatedAt: Date.now() }).catch(()=>{});
+          }
+          cleanupActiveCall();
+        }
+      }
 
       // Missed calls — rejected, or ended without ever being answered
       calls.forEach(c=>{
