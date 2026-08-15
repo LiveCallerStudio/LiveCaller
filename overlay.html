@@ -166,6 +166,18 @@
   .qn{font-size:18px;font-weight:900;color:#555;font-variant-numeric:tabular-nums;min-width:24px;text-align:right;}
   .qrow.hot .ql{color:#fff;}
   .qrow.hot .qn{color:var(--green);text-shadow:0 0 12px rgba(83,252,24,.5);}
+
+  body.overlay-off .lt,
+  body.overlay-off .notif,
+  body.overlay-off .qpanel,
+  body.overlay-off .qbadge,
+  body.overlay-off .guestbox,
+  body.overlay-off .linesbadge{opacity:0 !important;pointer-events:none !important;transform:none !important;}
+  body.mode-manual .qpanel,
+  body.mode-manual .notif,
+  body.list-closed .qpanel,
+  body.list-closed .notif{opacity:0 !important;pointer-events:none !important;}
+
 </style>
 </head>
 <body>
@@ -246,6 +258,7 @@
 <!-- Plays a phone caller's voice once they're on air — this is what actually
      gets their voice onto the broadcast, since this page is what OBS captures. -->
 <audio id="callerAirAudio" autoplay playsinline style="display:none;"></audio>
+</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
@@ -275,6 +288,39 @@ const qbadge  = document.getElementById('qbadge');
 const qnumEl  = document.getElementById('qnum');
 const linesbadge = document.getElementById('linesbadge');
 const linesbadgeLabel = document.getElementById('linesbadgeLabel');
+
+// ── Master / mode / list from producer dashboard (hotlineSettings/overlay) ──
+let overlayEnabled = true;
+let overlayMode = 'auto';   // auto | manual
+let listOpen = true;        // waiting list panel on/off
+
+function applyOverlayVisibility(){
+  document.body.classList.toggle('overlay-off', !overlayEnabled);
+  document.body.classList.toggle('mode-manual', overlayMode === 'manual');
+  document.body.classList.toggle('mode-auto', overlayMode === 'auto');
+  document.body.classList.toggle('list-closed', !listOpen);
+  if(typeof refreshQueuePanel === 'function') refreshQueuePanel();
+}
+
+onSnapshot(doc(db, 'hotlineSettings', 'overlay'), (snap)=>{
+  const d = snap.data() || {};
+  overlayEnabled = d.enabled !== false;
+  overlayMode = d.mode === 'manual' ? 'manual' : 'auto';
+  listOpen = d.listOpen !== false;
+  applyOverlayVisibility();
+});
+
+applyOverlayVisibility();
+
+function showNotif(label, text){
+  if(!overlayEnabled || overlayMode !== 'auto' || !listOpen) return;
+  ncountEl.textContent = text;
+  notif.querySelector('.nlabel').textContent = label;
+  notif.classList.add('show');
+  clearTimeout(notifTimer);
+  notifTimer = setTimeout(() => notif.classList.remove('show'), 4500);
+}
+
 const guestbox = document.getElementById('guestbox');
 const guestVideo = document.getElementById('guestVideo');
 const guestName = document.getElementById('guestName');
@@ -329,7 +375,8 @@ onSnapshot(doc(db, 'hotlineLive', 'nowPlaying'), (snap) => {
     // Live calls: audioUrl set by dashboard when Send Call On Air is pressed
     if(d.audioUrl) playAudio(d.audioUrl);
 
-    ltEl.classList.add('show');
+    if(overlayEnabled) ltEl.classList.add('show');
+    else ltEl.classList.remove('show');
 
   } else {
     ltEl.classList.remove('show');
@@ -360,9 +407,11 @@ function refreshQueuePanel(){
   qrowAudio.classList.toggle('hot', audio > 0);
   qrowVideo.classList.toggle('hot', video > 0);
   const any = voice + audio + video > 0;
-  qpanel.classList.toggle('show', any);
+  // Queue panel only in Auto + master on
+  const showPanel = overlayEnabled && overlayMode === 'auto' && listOpen && any;
+  qpanel.classList.toggle('show', showPanel);
   if(qnumEl) qnumEl.textContent = voice + audio + video;
-  if(qbadge) qbadge.classList.toggle('show', any);
+  if(qbadge) qbadge.classList.toggle('show', showPanel);
 }
 
 onSnapshot(
@@ -372,11 +421,7 @@ onSnapshot(
     queueState.voice = count;
     refreshQueuePanel();
     if(count > prevVoice) {
-      ncountEl.textContent = `${count} voice waiting`;
-      notif.querySelector('.nlabel').textContent = 'Incoming Message';
-      notif.classList.add('show');
-      clearTimeout(notifTimer);
-      notifTimer = setTimeout(() => notif.classList.remove('show'), 4500);
+      showNotif('Incoming Message', `${count} voice waiting`);
     }
     prevVoice = count;
   }
@@ -389,11 +434,7 @@ onSnapshot(
     queueState.audio = count;
     refreshQueuePanel();
     if(count > prevAudio) {
-      ncountEl.textContent = `${count} call${count === 1 ? '' : 's'} waiting`;
-      notif.querySelector('.nlabel').textContent = 'Incoming Call';
-      notif.classList.add('show');
-      clearTimeout(notifTimer);
-      notifTimer = setTimeout(() => notif.classList.remove('show'), 4500);
+      showNotif('Incoming Call', `${count} call${count === 1 ? '' : 's'} waiting`);
     }
     prevAudio = count;
   }
@@ -406,11 +447,7 @@ onSnapshot(
     queueState.video = count;
     refreshQueuePanel();
     if(count > prevVideo) {
-      ncountEl.textContent = `${count} video waiting`;
-      notif.querySelector('.nlabel').textContent = 'Video Guest';
-      notif.classList.add('show');
-      clearTimeout(notifTimer);
-      notifTimer = setTimeout(() => notif.classList.remove('show'), 4500);
+      showNotif('Video Guest', `${count} video waiting`);
     }
     prevVideo = count;
   }
@@ -441,6 +478,7 @@ onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap) => {
 // ICE config — multi-STUN pool + multi-path TURN fallback for NAT / mobile / strict firewalls
 // Order: fast STUN first, then UDP TURN, TCP TURN, TLS TURNS (last resort)
 const ICE_SERVERS = [
+  // STUN first (lowest latency) — US-friendly public pool
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
@@ -448,7 +486,7 @@ const ICE_SERVERS = [
   { urls: 'stun:stun4.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
   { urls: 'stun:stun.stunprotocol.org:3478' },
-  // Open Relay TURN — free public relay (no account)
+  // Free Open Relay TURN (Metered) — UDP then TCP then TLS; used only when direct/STUN fails
   { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
   { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
   { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
@@ -458,8 +496,10 @@ const ICE_SERVERS = [
 function buildIceConfig(forceRelay){
   return {
     iceServers: ICE_SERVERS,
-    iceCandidatePoolSize: 16,
-    iceTransportPolicy: forceRelay ? 'relay' : 'all'
+    iceCandidatePoolSize: 8,           // enough pre-gather without long delay
+    iceTransportPolicy: forceRelay ? 'relay' : 'all',
+    bundlePolicy: 'max-bundle',
+    rtcpMuxPolicy: 'require'
   };
 }
 
