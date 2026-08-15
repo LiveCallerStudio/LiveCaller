@@ -563,7 +563,6 @@
       </div>
       <input type="hidden" id="filterSelect" value="pending">
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
-        <button type="button" class="ibtn ibtn-reject" id="clearVoiceBtn">Clear pending voice</button>
         <button type="button" class="ibtn ibtn-reject" id="clearPendingSongsBtn" title="Mark all pending text song requests as played">Clear pending songs</button>
       </div>
     </div>
@@ -1436,6 +1435,7 @@ function render(){
   }
   emptyState.style.display = 'none';
 
+  bindQueueDrag(queueEl, 'voice');
   queueEl.innerHTML = list.map(m=>{
     const isNew = m.status === 'pending';
     const previewing = currentlyPlayingId === m.id;
@@ -1452,12 +1452,17 @@ function render(){
           ${m.city ? `<span class="card-city">· ${escapeHtml(m.city)}</span>` : ''}
           <span class="badge type-badge">${typeLabel(m.messageType)}</span>
           <span class="badge ${m.status==='approved' ? 'approved' : ''}">${m.status === 'approved' ? 'Played' : 'New'}</span>
+          ${m.onHold ? '<span class="badge-hold">HOLD</span>' : ''}
+          ${(m.priority||0)>0 ? `<span class="badge-pri">PRI ${m.priority}</span>` : ''}
           <span class="card-time">${timeAgo(m.createdAt)}</span>
         </div>
         ${typeDetail(m)}
         <div class="waveform ${previewing || isLive ? 'active' : ''}">${buildWaveformBars()}</div>
       </div>
       <div class="card-actions">
+        ${m.status==='pending' ? `<button class="ibtn" data-action="hold" data-id="${m.id}">${m.onHold ? '▶ Unhold' : '⏸ Hold'}</button>
+        <button class="ibtn" data-action="priority" data-id="${m.id}">⬆ Priority</button>
+        <button class="ibtn" data-action="priority-clear" data-id="${m.id}">Clear pri</button>` : ''}
         <button class="ibtn approve" data-action="approve" data-id="${m.id}">✓ Approve</button>
         <button class="ibtn favorite ${m.favorited ? 'active' : ''}" data-action="favorite" data-id="${m.id}">⭐ ${m.favorited ? 'Saved' : 'Favorite'}</button>
         <button class="ibtn on-air-btn ${isLive ? 'live' : ''}" data-action="golive" data-id="${m.id}">${isLive ? '⏹ Stop Live' : '🔴 Send Live On Air'}</button>
@@ -1588,7 +1593,23 @@ queueEl.addEventListener('click', async (e)=>{
     render();
   }
 
-  if(action === 'approve'){
+  
+  if(action === 'hold'){
+    const msg = allMessages.find(x=>x.id===id);
+    await updateDoc(doc(db,'hotlineMessages',id), { onHold: !(msg && msg.onHold) });
+    return;
+  }
+  if(action === 'priority'){
+    const msg = allMessages.find(x=>x.id===id);
+    const next = Math.min(9, Number(msg?.priority||0) + 1);
+    await updateDoc(doc(db,'hotlineMessages',id), { priority: next });
+    return;
+  }
+  if(action === 'priority-clear'){
+    await updateDoc(doc(db,'hotlineMessages',id), { priority: 0 });
+    return;
+  }
+if(action === 'approve'){
     await updateDoc(doc(db, 'hotlineMessages', id), { status: 'approved' });
   }
 
@@ -2827,7 +2848,7 @@ function startSongRequestsListener(){
 }
 
 function renderSongsQueue(){
-  const list = latestSongRequests.filter(s => s.status === 'pending');
+  const list = sortQueueItems(latestSongRequests.filter(s => s.status === 'pending'));
   const n = list.length;
   const chip = document.getElementById('chipSongs');
   const num = document.getElementById('songCountNum');
@@ -2850,15 +2871,19 @@ function renderSongsQueue(){
   }
   if(empty) empty.style.display = 'none';
   if(head) head.style.display = 'flex';
+  bindQueueDrag(queue, 'song');
   queue.innerHTML = list.map((s, i)=>`
-    <div class="call-card" data-songid="${s.id}">
+    <div class="call-card ${s.onHold ? 'hold' : ''} ${(s.priority||0)>0 ? 'priority-hi' : ''}" data-songid="${s.id}" draggable="true">
+      <span class="drag-handle" title="Drag to reorder">⠿</span>
       <div class="queue-pos">${i + 1}</div>
       <div class="call-card-body">
-        <div class="call-card-name">${escapeHtml(s.songTitle || '—')}</div>
+        <div class="call-card-name">${escapeHtml(s.songTitle || '—')}${s.onHold ? ' <span class="badge-hold">HOLD</span>' : ''}${(s.priority||0)>0 ? ` <span class="badge-pri">PRI ${s.priority}</span>` : ''}</div>
         <div class="call-card-city">${escapeHtml(s.artist || '')}</div>
         <div class="call-card-time">${escapeHtml([s.name, s.city].filter(Boolean).join(' · ') || 'Anonymous')}${s.createdAt ? ' · ' + timeAgo(s.createdAt) : ''}</div>
       </div>
       <div class="call-card-actions">
+        <button class="ibtn" data-action="song-hold" data-id="${s.id}">${s.onHold ? '▶ Unhold' : '⏸ Hold'}</button>
+        <button class="ibtn" data-action="song-priority" data-id="${s.id}">⬆ Priority</button>
         <button class="ibtn ibtn-answer" data-action="song-air" data-id="${s.id}">🎵 On Overlay</button>
         <button class="ibtn" data-action="song-played" data-id="${s.id}">✓ Played</button>
         <button class="ibtn ibtn-reject" data-action="song-dismiss" data-id="${s.id}">✕ Dismiss</button>
@@ -2874,6 +2899,15 @@ document.getElementById('songsQueue')?.addEventListener('click', async (e)=>{
   const item = latestSongRequests.find(s => s.id === id);
   if(!item) return;
 
+  if(action === 'song-hold'){
+    await updateDoc(doc(db, 'songRequests', id), { onHold: !item.onHold }).catch(()=>{});
+    return;
+  }
+  if(action === 'song-priority'){
+    const next = Math.min(9, Number(item.priority || 0) + 1);
+    await updateDoc(doc(db, 'songRequests', id), { priority: next }).catch(()=>{});
+    return;
+  }
   if(action === 'song-air'){
     await setDoc(songRequestLiveRef, {
       active: true,
@@ -2922,14 +2956,64 @@ document.getElementById('clearSongOverlayBtn')?.addEventListener('click', async(
 });
 
 
-document.getElementById('clearVoiceBtn')?.addEventListener('click', async()=>{
-  const pending = allMessages.filter(m => m.status === 'pending');
-  if(pending.length === 0){ alert('No pending voice messages.'); return; }
-  if(!confirm('Dismiss all ' + pending.length + ' pending voice message(s)?')) return;
-  for(const m of pending){
-    await updateDoc(doc(db, 'hotlineMessages', m.id), { status: 'approved' }).catch(()=>{});
-  }
-});
+
+
+// ── Drag-to-reorder (voice + songs) ──
+let dragId = null;
+let dragKind = null; // 'voice' | 'song'
+
+function bindQueueDrag(container, kind){
+  if(!container || container.dataset.dndBound === '1') return;
+  container.dataset.dndBound = '1';
+  container.addEventListener('dragstart', (e)=>{
+    const card = e.target.closest('[data-qid],[data-songid]');
+    if(!card || e.target.closest('button,a,input')){ e.preventDefault(); return; }
+    dragId = card.dataset.qid || card.dataset.songid;
+    dragKind = kind;
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try{ e.dataTransfer.setData('text/plain', dragId); }catch(_){}
+  });
+  container.addEventListener('dragend', (e)=>{
+    container.querySelectorAll('.dragging,.drag-over').forEach(el=>el.classList.remove('dragging','drag-over'));
+    dragId = null; dragKind = null;
+  });
+  container.addEventListener('dragover', (e)=>{
+    e.preventDefault();
+    const card = e.target.closest('[data-qid],[data-songid]');
+    if(!card) return;
+    container.querySelectorAll('.drag-over').forEach(el=>{ if(el!==card) el.classList.remove('drag-over'); });
+    card.classList.add('drag-over');
+  });
+  container.addEventListener('drop', async (e)=>{
+    e.preventDefault();
+    const target = e.target.closest('[data-qid],[data-songid]');
+    if(!target || !dragId) return;
+    const targetId = target.dataset.qid || target.dataset.songid;
+    if(targetId === dragId) return;
+
+    if(kind === 'voice'){
+      const pending = sortQueueItems(allMessages.filter(m=>m.status==='pending'));
+      const ids = pending.map(m=>m.id);
+      const from = ids.indexOf(dragId);
+      const to = ids.indexOf(targetId);
+      if(from < 0 || to < 0) return;
+      ids.splice(from, 1);
+      ids.splice(to, 0, dragId);
+      await Promise.all(ids.map((id,i)=> updateDoc(doc(db,'hotlineMessages',id), { sortOrder: i }).catch(()=>{})));
+    }
+    if(kind === 'song'){
+      const pending = sortQueueItems(latestSongRequests.filter(s=>s.status==='pending'));
+      const ids = pending.map(s=>s.id);
+      const from = ids.indexOf(dragId);
+      const to = ids.indexOf(targetId);
+      if(from < 0 || to < 0) return;
+      ids.splice(from, 1);
+      ids.splice(to, 0, dragId);
+      await Promise.all(ids.map((id,i)=> updateDoc(doc(db,'songRequests',id), { sortOrder: i }).catch(()=>{})));
+    }
+  });
+}
 
 function startQueueListener(){
   if(queueListenerStarted) return;
