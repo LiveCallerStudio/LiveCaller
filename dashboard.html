@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
 <meta name="theme-color" content="#53FC18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,624 +16,346 @@
 <title>Live Caller Studio — Producer Dashboard</title>
 <style>
   :root{
-    --green:#53FC18;
-    --black:#0a0a0a;
-    --panel:#131313;
-    --panel-2:#181818;
-    --line:#262626;
+    --g:#53FC18;
+    --g-dim:rgba(83,252,24,0.12);
+    --g-line:rgba(83,252,24,0.35);
     --red:#ff3b3b;
-    --text:#f2f2f2;
-    --sub:#8f8f8f;
+    --red-dim:rgba(255,59,59,0.12);
+    --bk:#060606;
+    --panel:#0e0e0e;
+    --panel2:#141414;
+    --line:#1c1c1c;
+    --line2:#2a2a2a;
+    --tx:#f4f4f4;
+    --sub:#8a8a8a;
+    --muted:#555;
+    --safe-top:env(safe-area-inset-top,0px);
+    --safe-bot:env(safe-area-inset-bottom,0px);
+    --header-h:56px;
+    --tab-h:52px;
+    --bot-nav-h:64px;
   }
-  *{box-sizing:border-box;}
-  body{
-    margin:0; background:var(--black); color:var(--text);
-    font-family:Arial,Helvetica,sans-serif;
-    min-height:100vh;
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;background:var(--bk);color:var(--tx);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+    min-height:100%;min-height:100dvh;
     overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  button,a,input,select{font-family:inherit;touch-action:manipulation;}
+
+  .bolt-wrap,.ambient{display:none;} /* cleaner pro surface */
+
+  #dashboardApp{position:relative;z-index:1;min-height:100dvh;padding-bottom:calc(var(--bot-nav-h) + var(--safe-bot));}
+  @media(min-width:900px){
+    #dashboardApp{padding-bottom:24px;}
   }
 
-  /* ── Lightning bolt decorations (matches voicemessage.html / call.html) ── */
-  .bolt-wrap{
-    position:fixed;top:0;left:0;right:0;bottom:0;
-    pointer-events:none;z-index:0;overflow:hidden;
-  }
-  .bolt-tl,.bolt-tr{
-    position:absolute;top:-20px;
-    font-size:120px;line-height:1;
-    color:var(--green);opacity:.09;
-    filter:drop-shadow(0 0 20px rgba(83,252,24,0.5));
-    animation:boltpulse 3s ease-in-out infinite;
-  }
-  .bolt-tl{left:-20px;transform:rotate(-15deg);}
-  .bolt-tr{right:-20px;transform:rotate(15deg);animation-delay:1.5s;}
-  @keyframes boltpulse{0%,100%{opacity:.09;}50%{opacity:.16;}}
-
-  .ambient{
-    position:fixed;top:0;left:0;right:0;height:40vh;
-    pointer-events:none;z-index:0;
-    background:radial-gradient(ellipse 80% 60% at 50% 0%, rgba(83,252,24,0.08) 0%, transparent 70%);
-  }
-
-  #dashboardApp{position:relative;z-index:1;}
+  /* ── Header ── */
   header{
-    display:flex; align-items:center; justify-content:space-between;
-    padding:18px 26px; border-bottom:1px solid var(--line);
-    background:linear-gradient(180deg, #111, #0a0a0a);
-    position:sticky; top:0; z-index:5;
-    flex-wrap:wrap; gap:14px;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:calc(10px + var(--safe-top)) 14px 10px;
+    border-bottom:1px solid var(--line);
+    background:rgba(10,10,10,0.92);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    position:sticky;top:0;z-index:50;
+    gap:10px;flex-wrap:wrap;
   }
-  .brand{display:flex; align-items:center; gap:10px;}
-  .brand .bolt{color:var(--green); font-size:22px;}
-  .brand h1{font-size:16px; letter-spacing:1.5px; margin:0; text-transform:uppercase; font-weight:800;}
-  .brand h1 span{color:var(--green);}
-  .brand small{display:block; color:var(--sub); font-size:11px; letter-spacing:1px;}
+  .brand{display:flex;align-items:center;gap:10px;min-width:0;}
+  .brand .bolt{
+    width:34px;height:34px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--g-dim);border:1px solid var(--g-line);
+    color:var(--g);font-size:16px;flex-shrink:0;
+  }
+  .brand h1{font-size:13px;letter-spacing:1.2px;margin:0;text-transform:uppercase;font-weight:800;line-height:1.15;}
+  .brand h1 span{color:var(--g);}
+  .brand small{display:block;color:var(--muted);font-size:9px;letter-spacing:1.4px;text-transform:uppercase;margin-top:2px;}
 
-  .header-right{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
-
+  .header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex:1;}
+  .broadcast-controls{display:flex;align-items:center;gap:6px;}
   .console-toggle{
-    display:flex;align-items:center;gap:10px;
-    padding:9px 15px;border-radius:6px;
-    border:1px solid #2a2a2a;
-    background:linear-gradient(180deg,#1c1c1c,#0d0d0d);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 5px rgba(0,0,0,0.5);
-    font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:800;
-    letter-spacing:1.2px;text-transform:uppercase;color:#666;
-    cursor:pointer;transition:all .15s ease;
+    display:inline-flex;align-items:center;gap:7px;
+    padding:8px 11px;border-radius:20px;
+    border:1px solid var(--line2);background:var(--panel);
+    font-size:10px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);
+    cursor:pointer;transition:all .15s;
   }
-  .console-toggle:hover{border-color:#3a3a3a;}
-  .console-toggle:active{transform:translateY(1px);}
-  .console-led{
-    width:9px;height:9px;border-radius:50%;flex-shrink:0;
-    background:#232323;
-    box-shadow:inset 0 0 2px rgba(0,0,0,0.9);
-    transition:all .2s ease;
-  }
-  .console-toggle.open{
-    color:var(--green);
-    border-color:rgba(83,252,24,0.45);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), 0 0 14px rgba(83,252,24,0.18), 0 2px 5px rgba(0,0,0,0.5);
-  }
-  .console-toggle.open .console-led{
-    background:var(--green);
-    box-shadow:0 0 8px rgba(83,252,24,0.9), 0 0 3px rgba(83,252,24,1);
-    animation:ledpulse 1.6s ease-in-out infinite;
-  }
-  .console-toggle.closed{ color:#555; }
-  .console-toggle.closed .console-led{ background:#232323; box-shadow:inset 0 0 2px rgba(0,0,0,0.9); }
-  @keyframes ledpulse{0%,100%{opacity:1;}50%{opacity:.65;}}
-  .broadcast-controls{display:flex;align-items:center;gap:8px;}
+  .console-led{width:7px;height:7px;border-radius:50%;background:#333;flex-shrink:0;}
+  .console-toggle.open{color:var(--g);border-color:var(--g-line);background:var(--g-dim);}
+  .console-toggle.open .console-led{background:var(--g);box-shadow:0 0 8px rgba(83,252,24,.8);animation:ledpulse 1.6s ease-in-out infinite;}
+  .console-toggle.closed{color:#666;}
+  @keyframes ledpulse{0%,100%{opacity:1}50%{opacity:.5}}
 
-  /* ── Incoming Call / Video overlay — iOS/FaceTime-style ── */
-  .incoming-overlay{
-    display:none;
-    position:fixed;inset:0;z-index:300;
-    background:radial-gradient(ellipse at 50% 30%, #1a2e12 0%, #050505 75%);
-    flex-direction:column;align-items:center;justify-content:center;
-    gap:6px;padding:40px 20px;
-    animation:incomingFadeIn .25s ease;
-  }
-  .incoming-overlay.show{display:flex;}
-  @keyframes incomingFadeIn{from{opacity:0;}to{opacity:1;}}
-  .incoming-kind{
-    color:var(--green);font-size:13px;font-weight:800;letter-spacing:3px;
-    text-transform:uppercase;margin-bottom:18px;
-    text-shadow:0 0 16px rgba(83,252,24,0.6);
-  }
-  .incoming-avatar{
-    width:120px;height:120px;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;
-    font-size:44px;font-weight:900;color:#0a0a0a;
-    background:linear-gradient(135deg,var(--green),#2fa60d);
-    box-shadow:0 0 0 6px rgba(83,252,24,0.12), 0 0 40px rgba(83,252,24,0.35);
-    margin-bottom:22px;
-    animation:incomingPulse 1.8s ease-in-out infinite;
-  }
-  @keyframes incomingPulse{
-    0%,100%{box-shadow:0 0 0 6px rgba(83,252,24,0.12), 0 0 40px rgba(83,252,24,0.35);}
-    50%{box-shadow:0 0 0 14px rgba(83,252,24,0.05), 0 0 55px rgba(83,252,24,0.5);}
-  }
-  .incoming-name{color:#fff;font-size:28px;font-weight:800;margin-bottom:8px;text-align:center;}
-  .incoming-sub{color:var(--sub);font-size:14px;font-family:Arial,Helvetica,sans-serif;margin-bottom:6px;}
-  .incoming-dots{display:inline-flex;gap:5px;}
-  .incoming-dots span{
-    width:6px;height:6px;border-radius:50%;background:var(--green);
-    animation:dotbounce 1.2s ease-in-out infinite;
-  }
-  .incoming-dots span:nth-child(2){animation-delay:.15s;}
-  .incoming-dots span:nth-child(3){animation-delay:.3s;}
-  @keyframes dotbounce{0%,60%,100%{opacity:.3;}30%{opacity:1;}}
-  .incoming-more{
-    color:#555;font-size:12.5px;font-family:Arial,Helvetica,sans-serif;
-    margin-top:8px;letter-spacing:.3px;
-  }
-  .incoming-actions{display:flex;gap:64px;margin-top:48px;}
-  .incoming-btn{
-    width:74px;height:74px;border-radius:50%;border:none;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;
-    transition:transform .12s ease,filter .15s ease;
-    box-shadow:0 4px 18px rgba(0,0,0,0.5);
-  }
-  .incoming-btn:active{transform:scale(.93);}
-  .incoming-btn svg{width:30px;height:30px;}
-  .incoming-btn.decline{background:var(--red);color:#fff;}
-  .incoming-btn.decline:hover{filter:brightness(1.1);}
-  .incoming-btn.accept{background:var(--green);color:#0a0a0a;animation:acceptPulse 1.4s ease-in-out infinite;}
-  .incoming-btn.accept:hover{filter:brightness(1.1);}
-  @keyframes acceptPulse{0%,100%{box-shadow:0 4px 18px rgba(0,0,0,0.5),0 0 0 0 rgba(83,252,24,.5);}50%{box-shadow:0 4px 18px rgba(0,0,0,0.5),0 0 0 12px rgba(83,252,24,0);}}
-  .incoming-labels{
-    display:flex;gap:64px;margin-top:12px;
-    font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;
-    color:#888;letter-spacing:.3px;
-  }
-  .incoming-labels span{width:74px;text-align:center;}
-  .counter{
-    background:var(--panel-2); border:1px solid var(--green); color:var(--green);
-    padding:7px 14px; border-radius:20px; font-size:13px; font-weight:700; letter-spacing:.5px;
-    display:flex; align-items:center; gap:8px;
-  }
-  .counter .dot{width:8px; height:8px; border-radius:50%; background:var(--green); animation:blink 1.4s infinite;}
-  @keyframes blink{0%,100%{opacity:1;} 50%{opacity:.25;}}
-
-  .search{
-    background:var(--panel); border:1px solid var(--line); border-radius:8px;
-    padding:9px 12px; color:var(--text); font-size:13px; width:200px;
-  }
-  .search:focus{outline:none; border-color:var(--green);}
-
-  select{
-    background:var(--panel); border:1px solid var(--line); color:var(--text);
-    padding:9px 10px; border-radius:8px; font-size:13px;
-  }
-
-  .alert-banner{
-    display:none; max-width:1100px; margin:16px auto 0; padding:13px 18px;
-    background:rgba(83,252,24,0.12); border:1px solid var(--green); border-radius:10px;
-    color:var(--green); font-weight:700; font-size:14px; letter-spacing:.5px;
-    text-align:center; animation:flash 1s infinite;
-  }
-  .alert-banner.show{display:block;}
-  @keyframes flash{0%,100%{background:rgba(83,252,24,0.12);} 50%{background:rgba(83,252,24,0.28);}}
-
-  main{max-width:1100px; margin:0 auto; padding:0;}
-  .tab-content{padding:24px 18px 60px;}
-
-  .empty{
-    text-align:center; color:var(--sub); padding:80px 20px; font-size:14px;
-  }
-  .empty .ic{font-size:40px; margin-bottom:14px; opacity:.5;}
-
-  .queue{display:flex; flex-direction:column; gap:12px;}
-
-  .card{
-    background:var(--panel); border:1px solid var(--line); border-radius:12px;
-    padding:16px 18px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
-    transition:border-color .15s ease;
-  }
-  .card.new{border-color:var(--green); box-shadow:0 0 0 1px rgba(83,252,24,0.25);}
-  .card.approved{opacity:.55;}
-
-  .play-btn{
-    width:46px; height:46px; min-width:46px; border-radius:50%; border:2px solid var(--green);
-    background:transparent; color:var(--green); cursor:pointer; display:flex; align-items:center; justify-content:center;
-    transition:background .15s ease;
-  }
-  .play-btn:hover{background:rgba(83,252,24,0.12);}
-  .play-btn.playing{background:var(--green); color:#0a0a0a;}
-  .play-btn svg{width:18px; height:18px;}
-
-  .card-body{flex:1; min-width:200px;}
-  .card-top{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px;}
-  .card-name{font-weight:800; font-size:15px;}
-  .card-city{color:var(--sub); font-size:12px;}
-  .card-time{color:#5a5a5a; font-size:11px; margin-left:auto;}
-  .card-song{color:var(--green); font-size:12.5px; margin-bottom:6px;}
-  .card-song::before{content:"♪ ";}
-
-  .waveform{
-    display:flex; align-items:center; gap:2px; height:24px; margin:6px 0;
-  }
-  .waveform span{
-    width:3px; background:#3a3a3a; border-radius:2px;
-  }
-  .waveform.active span{background:var(--green);}
-
-  .duration{color:var(--sub); font-size:11px; font-variant-numeric:tabular-nums;}
-
-  .card-actions{display:flex; gap:8px; flex-wrap:wrap;}
-  .ibtn{
-    padding:9px 14px; border-radius:7px; border:1px solid var(--line); background:var(--panel-2);
-    color:var(--text); cursor:pointer; font-size:12px; font-weight:700; letter-spacing:.3px;
-    display:flex; align-items:center; gap:6px; transition:filter .15s ease;
-  }
-  .ibtn:hover{filter:brightness(1.3);}
-  .ibtn.approve{border-color:var(--green); color:var(--green);}
-  .ibtn.delete{border-color:var(--red); color:var(--red);}
-  .ibtn.download{color:var(--sub);}
-  .ibtn.favorite{color:#f5c518;}
-  .ibtn.favorite.active{background:#f5c518; color:#0a0a0a; border-color:#f5c518;}
-  .ibtn.on-air{color:var(--red); border-color:var(--red); animation:pulse-red 1.5s infinite;}
-  .ibtn.on-air-btn{color:var(--red); border-color:var(--red); font-weight:900;}
-  .ibtn.on-air-btn:hover{background:var(--red); color:#fff;}
-  .ibtn.on-air-btn.live{background:var(--red); color:#fff; animation:pulse-red 1.5s infinite;}
-  @keyframes pulse-red{0%,100%{box-shadow:0 0 0 0 rgba(255,59,59,0.4);} 50%{box-shadow:0 0 0 6px rgba(255,59,59,0);}}
-
-  .on-air-badge{
-    display:none; align-items:center; gap:6px; background:var(--red); color:#fff;
-    font-size:11px; font-weight:900; letter-spacing:1.5px; padding:5px 10px; border-radius:4px;
-    text-transform:uppercase;
-  }
-  .on-air-badge.show{display:flex;}
-  .on-air-dot{width:8px; height:8px; border-radius:50%; background:#fff; animation:blink 1s infinite;}
-
-  .signout-btn{
-    background:transparent; border:1px solid var(--line); color:var(--sub);
-    padding:8px 14px; border-radius:8px; font-size:12px; font-weight:700;
-    cursor:pointer; letter-spacing:.3px; transition:color .15s ease, border-color .15s ease;
-  }
-  .signout-btn:hover{color:var(--red); border-color:var(--red);}
-
-  .home-btn{
-    display:inline-flex; align-items:center; gap:6px;
-    background:transparent; border:1px solid var(--line); color:var(--sub);
-    padding:8px 14px; border-radius:8px; font-size:12px; font-weight:700;
-    text-decoration:none; letter-spacing:.3px; transition:color .15s ease, border-color .15s ease;
-  }
-  .home-btn:hover{color:var(--green); border-color:var(--green);}
-
-  /* ── Live Call Cards ── */
-  .call-card{
-    background:var(--panel); border:2px solid var(--green); border-radius:12px;
-    padding:18px; margin-bottom:12px;
-  }
-  .call-card.on-hold{ border-color:var(--gold,#f5a623); }
-  .call-card.ended{ border-color:var(--line); opacity:.5; }
-  .call-card-top{
-    display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;
-  }
-  .call-card-ring{
-    width:46px; height:46px; border-radius:50%; border:2px solid var(--green);
-    display:flex; align-items:center; justify-content:center; color:var(--green);
-    animation:callring 1.2s ease-in-out infinite; flex-shrink:0;
-  }
-  .call-card-ring.active{ animation:none; border-color:var(--green); }
-  .call-card-ring.on-hold{ border-color:var(--gold,#f5a623); color:var(--gold,#f5a623); animation:none; }
-  .call-card-ring.ended{ border-color:var(--sub); color:var(--sub); animation:none; }
-  @keyframes callring{
-    0%,100%{box-shadow:0 0 0 0 rgba(83,252,24,.5);}
-    50%{box-shadow:0 0 0 8px rgba(83,252,24,0);}
-  }
-  .call-card-ring svg{ width:20px; height:20px; }
-  .call-card-info{ flex:1; }
-  .call-card-name{ font-size:16px; font-weight:900; }
-  .call-card-city{ color:var(--sub); font-size:12px; margin-top:2px; }
-  .call-card-status{
-    font-size:11px; letter-spacing:1px; text-transform:uppercase;
-    color:var(--green); font-weight:700; margin-top:4px;
-  }
-  .call-card-timer{ font-size:22px; font-weight:900; font-variant-numeric:tabular-nums; color:var(--text); }
-  .call-card-actions{ display:flex; gap:8px; flex-wrap:wrap; }
-  .cbtn{
-    flex:1; padding:11px 10px; border-radius:8px; border:1px solid var(--line);
-    background:var(--panel-2); color:var(--text); cursor:pointer;
-    font-size:12px; font-weight:700; letter-spacing:.3px; min-width:80px;
-    transition:filter .15s ease;
-  }
-  .cbtn:hover{ filter:brightness(1.3); }
-  .cbtn.answer{ border-color:var(--green); color:var(--green); }
-  .cbtn.end{ border-color:var(--red); color:var(--red); }
-  .cbtn.hold{ border-color:#f5a623; color:#f5a623; }
-  .cbtn.live{ background:var(--red); border-color:var(--red); color:#fff; font-weight:900; animation:pulse-red 1.5s infinite; }
-  .badge{
-    font-size:10px; padding:3px 8px; border-radius:10px; text-transform:uppercase; letter-spacing:.5px;
-    background:rgba(83,252,24,0.15); color:var(--green); font-weight:700;
-  }
-  .badge.approved{background:rgba(255,255,255,0.08); color:var(--sub);}
-
-  audio.hiddenplayer{display:none;}
-
-  .on-air-badge{
-    display:none; align-items:center; gap:7px; padding:7px 14px; border-radius:20px;
-    background:rgba(255,59,59,0.15); border:1px solid var(--red); color:var(--red);
-    font-size:13px; font-weight:700; letter-spacing:.5px;
-  }
-  .on-air-badge.show{display:flex;}
-  .on-air-badge .dot{width:8px; height:8px; border-radius:50%; background:var(--red); animation:blink 1s infinite;}
-  .signout-btn{
-    background:transparent; border:1px solid var(--line); color:var(--sub);
-    padding:7px 12px; border-radius:8px; font-size:12px; cursor:pointer; font-weight:700;
-  }
-  .signout-btn:hover{border-color:var(--red); color:var(--red);}
-  .ibtn.favorite{color:#f5a623; border-color:#f5a623;}
-  .ibtn.favorite.active{background:#f5a623; color:#0a0a0a;}
-  .ibtn.skip{color:var(--sub);}
-  .card.favorited{border-left:3px solid #f5a623;}
-
-  /* ── Call Center ── */
-  .active-call-panel{
-    background:linear-gradient(135deg, rgba(83,252,24,0.06), rgba(10,10,10,0));
-    border:1px solid var(--green); border-radius:14px; padding:20px; margin-bottom:20px;
-    box-shadow:0 0 30px rgba(83,252,24,0.1);
-  }
-  .active-call-header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:8px;}
-  .active-call-badge{font-size:11px; color:var(--green); letter-spacing:2px;
-    text-transform:uppercase; font-weight:900; margin-bottom:4px;}
-  .active-call-name{font-size:22px; font-weight:900; color:var(--text);}
-  .active-call-city{font-size:12px; color:var(--sub);}
-  .active-call-timer{font-size:36px; font-weight:900; color:var(--green);
-    font-variant-numeric:tabular-nums; flex-shrink:0;}
-  .active-call-status{
-    font-size:12px; color:var(--sub); letter-spacing:1.5px; text-transform:uppercase;
-    margin-bottom:16px; font-family:Arial,Helvetica,sans-serif;
-  }
-  .active-call-status.on-air{color:var(--red); font-weight:900;}
-  .active-call-status.on-hold{color:#f5a623;}
-
-  .preview-video-wrap{
-    position:relative; width:100%; max-width:360px; aspect-ratio:4/3;
-    background:#050505; border-radius:12px; overflow:hidden;
-    border:1px solid var(--line); margin-bottom:14px;
-  }
-  .preview-video-wrap video{ width:100%; height:100%; object-fit:cover; }
-  .preview-video-status{
-    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-    text-align:center; padding:16px; color:var(--sub); font-size:12.5px;
-    font-family:Arial,Helvetica,sans-serif;
-  }
-
-  .active-call-controls{display:flex; gap:10px; flex-wrap:wrap;}
-  .cbtn{
-    flex:1; min-width:100px; padding:12px 10px; border-radius:8px; border:1px solid var(--line);
-    background:var(--panel-2); color:var(--text); cursor:pointer; font-size:13px;
-    font-weight:700; letter-spacing:.3px; transition:all .15s ease;
-  }
-  .cbtn:hover{filter:brightness(1.3);}
-  .cbtn:disabled{opacity:.3; cursor:not-allowed;}
-  .cbtn-hold{border-color:#f5a623; color:#f5a623;}
-  .cbtn-hold.on-hold{background:#f5a623; color:#0a0a0a;}
-  .cbtn-mute{border-color:var(--sub); color:var(--sub);}
-  .cbtn-mute.muted{background:var(--red); border-color:var(--red); color:#fff;}
-  .cbtn-record{border-color:#e74c3c; color:#e74c3c;}
-  .cbtn-record.recording{background:#e74c3c; color:#fff; animation:pulse-red 1.2s infinite;}
-  .cbtn-air{border-color:var(--red); color:var(--red); font-weight:900;}
-  .cbtn-air.live{background:var(--red); color:#fff; animation:pulse-red 1.5s infinite;}
-  .cbtn-end{border-color:var(--red); color:var(--red);}
-  .record-status{
-    font-family:Arial,sans-serif; font-size:12px; color:var(--sub);
-    text-align:center; min-height:18px; margin-top:8px; letter-spacing:.5px;
-  }
-  .record-status.saved{color:var(--green);}
-
-  /* History cards */
-  .hist-card{
-    background:linear-gradient(180deg,#141414,#0a0a0a); border:1px solid #262626; border-radius:12px;
-    padding:14px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
-    margin-bottom:10px;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
-  }
-  .hist-card.missed{border-color:rgba(255,59,59,0.3); background:linear-gradient(180deg,#1a0e0e,#0a0a0a);}
-  .hist-missed-badge{
-    display:inline-block; margin-left:8px; padding:2px 8px; border-radius:8px;
-    background:rgba(255,59,59,0.15); color:var(--red); font-size:10px; font-weight:800;
-    letter-spacing:.5px; text-transform:uppercase; vertical-align:middle;
-  }
-  .hist-icon{font-size:22px; min-width:28px;}
-  .hist-body{flex:1; min-width:160px;}
-  .hist-name{font-weight:800; font-size:14px;}
-  .hist-meta{font-size:12px; color:var(--sub); margin-top:2px; font-family:Arial,sans-serif;}
-  .hist-right{display:flex; flex-direction:column; align-items:flex-end; gap:6px;}
-  .hist-dur{font-family:'Courier New',monospace; font-size:13px; color:var(--green); font-weight:700; font-variant-numeric:tabular-nums; text-shadow:0 0 8px rgba(83,252,24,0.4);}
-  .hist-time{font-size:11px; color:#5a5a5a;}
-  .hist-play{
-    padding:6px 12px; border-radius:6px; border:1px solid var(--green); background:transparent;
-    color:var(--green); font-size:11px; font-weight:700; cursor:pointer; text-decoration:none;
-    display:inline-block; transition:background .15s, color .15s;
-  }
-  .hist-play:hover{background:var(--green); color:#0a0a0a;}
-  .hist-delete{
-    padding:6px 10px; border-radius:6px; border:1px solid var(--red); background:transparent;
-    color:var(--red); font-size:11px; cursor:pointer; transition:background .15s, color .15s;
-  }
-  .hist-delete:hover{background:var(--red); color:#fff;}
-
-  /* ── Recordings Section ── */
-  .rec-card{
-    background:var(--panel); border:1px solid var(--line); border-radius:12px;
-    padding:16px 18px; display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap;
-    margin-bottom:10px;
-  }
-  .rec-icon{ font-size:24px; padding-top:2px; }
-  .rec-body{ flex:1; min-width:160px; }
-  .rec-name{ font-weight:800; font-size:14px; margin-bottom:3px; }
-  .rec-meta{ font-size:12px; color:var(--sub); font-family:Arial,sans-serif; }
-  .rec-actions{ width:100%; display:flex; flex-direction:column; gap:8px; }
-  .rec-audio{ width:100%; height:36px; margin-top:4px; filter:invert(1) hue-rotate(70deg); }
-  .rec-btns{ display:flex; gap:8px; }
-  .rbtn{
-    padding:8px 14px; border-radius:7px; font-size:12px; font-weight:700;
-    cursor:pointer; text-decoration:none; display:inline-block;
-    border:1px solid var(--line); background:var(--panel-2); color:var(--text);
-    transition:filter .15s, border-color .15s;
-  }
-  .rbtn:hover{ filter:brightness(1.3); }
-  .rbtn-save{ border-color:var(--green); color:var(--green); }
-  .rbtn-save:hover{ background:var(--green); color:#0a0a0a; }
-  .rbtn-del{ border-color:var(--red); color:var(--red); }
-  .rbtn-del:hover{ background:var(--red); color:#fff; }
-  .cbtn-end:hover{background:var(--red); color:#fff;}
-
-  .calls-section-title{
-    display:flex;align-items:center;gap:8px;
-    font-size:11px; color:var(--sub); text-transform:uppercase;
-    letter-spacing:1.5px; margin-bottom:10px;
-  }
-  .calls-section-title::before{
-    content:'';width:6px;height:6px;border-radius:50%;background:var(--green);
-    box-shadow:0 0 6px rgba(83,252,24,0.8);flex-shrink:0;
-  }
-
-  .call-card{
-    background:var(--panel); border:1px solid var(--green); border-radius:12px;
-    padding:16px 18px; display:flex; align-items:center; gap:16px;
-    flex-wrap:wrap; margin-bottom:12px;
-    box-shadow:0 0 18px rgba(83,252,24,0.12); animation:flash-new 2s ease;
-  }
-  @keyframes flash-new{
-    0%,100%{box-shadow:0 0 18px rgba(83,252,24,.12);}
-    50%{box-shadow:0 0 30px rgba(83,252,24,.4);}
-  }
-  .call-ring-icon{
-    width:46px; height:46px; min-width:46px; border-radius:50%;
-    border:2px solid var(--green); display:flex; align-items:center; justify-content:center;
-    color:var(--green); animation:ringpulse 1.2s ease-in-out infinite;
-  }
-  @keyframes ringpulse{
-    0%,100%{box-shadow:0 0 0 0 rgba(83,252,24,.5);}
-    50%{box-shadow:0 0 0 8px rgba(83,252,24,0);}
-  }
-  .call-card-body{flex:1; min-width:160px;}
-  .call-card-name{font-size:16px; font-weight:800; margin-bottom:2px;}
-  .call-card-city{font-size:12px; color:var(--sub);}
-  .call-card-time{font-size:11px; color:#555; margin-top:3px;}
-  .call-card-actions{display:flex; gap:8px;}
-  .ibtn-answer{background:var(--green); color:#0a0a0a; border:none; font-weight:900;}
-  .ibtn-reject{border-color:var(--red); color:var(--red);}
-
-  /* incoming call notification in header */
   .call-counter{
-    display:none; align-items:center; gap:8px; background:rgba(83,252,24,0.12);
-    border:1px solid var(--green); color:var(--green); padding:6px 12px;
-    border-radius:20px; font-size:13px; font-weight:700; animation:blink-border 1s infinite;
+    display:none;align-items:center;gap:6px;
+    background:var(--g-dim);border:1px solid var(--g-line);color:var(--g);
+    padding:6px 10px;border-radius:20px;font-size:11px;font-weight:700;
   }
   .call-counter.show{display:flex;}
-  @keyframes blink-border{0%,100%{border-color:var(--green);}50%{border-color:transparent;}}
-
-  @media(max-width:640px){
-    header{padding:14px 16px;}
-    .brand h1{font-size:14px;}
-    .header-right{gap:10px;}
-    .search{width:100%;order:10;}
-    .card{flex-direction:column; align-items:stretch;}
-    .card-actions{justify-content:stretch;}
-    .ibtn{flex:1; justify-content:center;}
-    .tab-nav{padding:0 12px; overflow-x:auto; -webkit-overflow-scrolling:touch;}
-    .tab-btn{padding:12px 12px; font-size:12px; white-space:nowrap;}
-    .call-card-actions, .active-call-controls{flex-direction:column;}
-    .active-call-controls .cbtn{width:100%;}
-    .analytics-grid{grid-template-columns:repeat(2,1fr);}
-    .console-toggle{padding:8px 11px;font-size:10px;}
+  .on-air-badge{
+    display:none;align-items:center;gap:6px;
+    background:var(--red-dim);border:1px solid rgba(255,59,59,.4);color:var(--red);
+    padding:6px 10px;border-radius:20px;font-size:10px;font-weight:800;letter-spacing:1px;
   }
+  .on-air-badge.show{display:flex;}
+  .on-air-dot{width:7px;height:7px;border-radius:50%;background:var(--red);animation:ledpulse 1s infinite;}
+  .counter{
+    display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);
+    background:var(--panel);border:1px solid var(--line);padding:6px 10px;border-radius:20px;
+  }
+  .counter .dot{width:6px;height:6px;border-radius:50%;background:var(--g);}
 
-  /* ── Tab Navigation ── */
+  .search{
+    background:var(--panel);border:1px solid var(--line);color:var(--tx);
+    border-radius:10px;padding:9px 12px;font-size:14px;min-width:0;width:140px;
+  }
+  .search:focus{outline:none;border-color:var(--g-line);}
+  #filterSelect{
+    background:var(--panel);border:1px solid var(--line);color:var(--tx);
+    border-radius:10px;padding:9px 10px;font-size:12px;
+  }
+  .home-btn,.signout-btn{
+    background:var(--panel);border:1px solid var(--line);color:var(--sub);
+    border-radius:10px;padding:8px 12px;font-size:12px;font-weight:600;
+    text-decoration:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  }
+  .signout-btn:hover,.home-btn:hover{border-color:var(--line2);color:var(--tx);}
+
+  /* ── Desktop top tabs / Mobile bottom nav ── */
   .tab-nav{
-    display:flex; gap:0; border-bottom:1px solid var(--line);
-    background:var(--panel); padding:0 24px; position:sticky; top:73px; z-index:4;
+    display:none;
+    gap:0;border-bottom:1px solid var(--line);
+    background:var(--panel);padding:0 8px;
+    position:sticky;top:0;z-index:40;
+    overflow-x:auto;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .tab-nav::-webkit-scrollbar{display:none;}
+  @media(min-width:900px){
+    .tab-nav{display:flex;top:auto;}
   }
   .tab-btn{
-    background:transparent; border:none; border-bottom:2px solid transparent;
-    color:var(--sub); font-size:13px; font-weight:700; padding:14px 18px;
-    cursor:pointer; letter-spacing:.5px; transition:color .15s ease, border-color .15s ease;
-    margin-bottom:-1px;
+    background:transparent;border:none;border-bottom:2px solid transparent;
+    color:var(--sub);font-size:12px;font-weight:700;padding:14px 14px;
+    cursor:pointer;letter-spacing:.3px;white-space:nowrap;flex-shrink:0;
   }
-  .tab-btn:hover{color:var(--text);}
-  .tab-btn.active{color:var(--green); border-bottom-color:var(--green);}
+  .tab-btn.active{color:var(--g);border-bottom-color:var(--g);}
 
-  /* ── Analytics ── */
-  .analytics-grid{
-    display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
-    gap:12px; margin-bottom:24px;
+  .bot-nav{
+    display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;
+    background:rgba(10,10,10,0.94);
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    border-top:1px solid var(--line);
+    padding:6px 4px calc(6px + var(--safe-bot));
+    justify-content:space-around;align-items:stretch;
   }
+  @media(min-width:900px){ .bot-nav{display:none;} }
+  .bot-nav .tab-btn{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:3px;padding:8px 4px;border:none;border-bottom:none;border-radius:12px;
+    font-size:10px;font-weight:700;color:var(--muted);letter-spacing:0;
+  }
+  .bot-nav .tab-btn .nav-ic{font-size:18px;line-height:1;}
+  .bot-nav .tab-btn.active{color:var(--g);background:var(--g-dim);}
+
+  main{padding:14px 14px 28px;max-width:1100px;margin:0 auto;}
+  @media(min-width:900px){ main{padding:20px 24px 40px;} }
+
+  .alert-banner{
+    display:none;text-align:center;padding:10px 14px;
+    background:var(--g-dim);color:var(--g);font-weight:700;font-size:13px;
+    border-bottom:1px solid var(--g-line);
+  }
+  .alert-banner.show{display:block;}
+
+  /* ── Cards / queue ── */
+  .empty{text-align:center;padding:48px 20px;color:var(--sub);font-size:14px;}
+  .empty .ic{font-size:36px;margin-bottom:12px;}
+  .queue{display:flex;flex-direction:column;gap:10px;}
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px;display:flex;gap:12px;align-items:flex-start;
+  }
+  .card-main{flex:1;min-width:0;}
+  .card-name{font-weight:800;font-size:15px;}
+  .card-city{color:var(--sub);font-size:12px;}
+  .card-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .ibtn{
+    border:1px solid var(--line2);background:var(--panel2);color:var(--tx);
+    border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;
+  }
+  .ibtn-play{border-color:var(--g-line);color:var(--g);}
+  .ibtn-approve{border-color:var(--g-line);background:var(--g-dim);color:var(--g);}
+  .ibtn-reject{border-color:rgba(255,59,59,.35);color:var(--red);}
+
+  /* ── Active call ── */
+  .active-call-panel{
+    background:linear-gradient(180deg,#121812,#0a0a0a);
+    border:1px solid var(--g-line);border-radius:16px;padding:16px;margin-bottom:14px;
+  }
+  .active-call-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+  .active-call-badge{font-size:10px;font-weight:800;letter-spacing:1.5px;color:var(--g);margin-bottom:4px;}
+  .active-call-name{font-size:20px;font-weight:800;}
+  .active-call-city{font-size:13px;color:var(--sub);}
+  .active-call-timer{font-variant-numeric:tabular-nums;font-size:22px;font-weight:700;color:var(--g);font-family:ui-monospace,monospace;}
+  .active-call-status{margin:10px 0;font-size:13px;color:var(--sub);}
+  .active-call-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  @media(min-width:600px){ .active-call-controls{grid-template-columns:repeat(3,1fr);} }
+  .cbtn{
+    border:1px solid var(--line2);background:var(--panel2);color:var(--tx);
+    border-radius:12px;padding:12px 10px;font-size:13px;font-weight:700;cursor:pointer;
+    min-height:48px;
+  }
+  .cbtn-end{border-color:rgba(255,59,59,.4);color:var(--red);grid-column:1 / -1;}
+  .cbtn-air{border-color:rgba(255,59,59,.35);background:var(--red-dim);color:#ff8a8a;}
+  .cbtn-air.live{background:rgba(255,59,59,.25);color:#fff;}
+  .cbtn-hold.on-hold{border-color:#e6b800;color:#e6b800;}
+  .cbtn-mute.muted,.cbtn-record.recording{border-color:var(--g-line);color:var(--g);}
+
+  .call-card,.video-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px;margin-bottom:10px;
+  }
+  .call-card-name,.video-card-name{font-weight:800;font-size:15px;}
+  .call-card-city{font-size:12px;color:var(--sub);}
+  .call-card-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+
+  /* Video preview */
+  #videoPreviewPanel{
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px;
+  }
+  #previewVideo{width:100%;max-height:280px;border-radius:12px;background:#000;object-fit:contain;}
+
+  /* History */
+  .hist-card{
+    display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px;margin-bottom:8px;
+  }
+  .hist-card.missed{border-color:rgba(255,59,59,.25);}
+  .hist-missed-badge{font-size:10px;color:var(--red);margin-left:6px;font-weight:700;}
+  .hist-body{flex:1;min-width:120px;}
+  .hist-name{font-weight:800;font-size:14px;}
+  .hist-meta{font-size:12px;color:var(--sub);margin-top:2px;}
+  .hist-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+  .hist-dur{font-variant-numeric:tabular-nums;font-size:14px;font-weight:700;color:var(--g);}
+  .hist-time{font-size:11px;color:var(--muted);text-align:right;max-width:160px;}
+  .hist-play{
+    display:inline-block;padding:6px 10px;border-radius:8px;font-size:11px;font-weight:700;
+    text-decoration:none;border:1px solid var(--g-line);color:var(--g);
+  }
+  .hist-delete{
+    border:1px solid var(--line2);background:transparent;color:var(--muted);
+    border-radius:8px;padding:6px 8px;cursor:pointer;
+  }
+
+  .rec-card{
+    display:flex;flex-wrap:wrap;gap:12px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:8px;
+  }
+  .rec-audio{width:100%;max-width:280px;height:36px;}
+  .rbtn{display:inline-block;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;border:1px solid var(--line2);color:var(--tx);background:var(--panel2);cursor:pointer;}
+
+  .analytics-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px;}
+  @media(min-width:700px){ .analytics-grid{grid-template-columns:repeat(4,1fr);} }
   .stat-card{
-    position:relative;overflow:hidden;
-    background:linear-gradient(180deg,#161616,#0a0a0a);
-    border:1px solid #262626; border-radius:10px;
-    padding:20px 16px 16px; text-align:center;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 6px rgba(0,0,0,0.4);
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;
   }
-  .stat-card::before{
-    content:'';position:absolute;top:0;left:0;right:0;height:2px;
-    background:linear-gradient(90deg,transparent,var(--green),transparent);
-    opacity:.6;
-  }
-  .stat-value{
-    font-family:'Courier New',monospace;
-    font-size:34px; font-weight:900; color:var(--green); letter-spacing:-1px; line-height:1;
-    margin-bottom:8px;
-    text-shadow:0 0 12px rgba(83,252,24,0.5);
-  }
-  .stat-label{
-    font-size:10.5px; color:#666; text-transform:uppercase; letter-spacing:1.5px;
-  }
-  .analytics-section{
-    background:linear-gradient(180deg,#141414,#0a0a0a); border:1px solid #262626; border-radius:10px;
-    padding:18px; margin-bottom:16px;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
-  }
-  .section-title{
-    display:flex;align-items:center;gap:8px;
-    margin:0 0 14px; font-size:11.5px; color:var(--green); text-transform:uppercase; letter-spacing:2px;
-  }
-  .section-title::before{
-    content:'';width:6px;height:6px;border-radius:50%;background:var(--green);
-    box-shadow:0 0 6px rgba(83,252,24,0.8);flex-shrink:0;
-  }
-  .breakdown-list{display:flex; flex-direction:column; gap:8px;}
-  .breakdown-row{
-    display:flex; align-items:center; gap:10px;
-  }
-  .breakdown-label{font-size:13px; flex:1; color:var(--text);}
-  .breakdown-bar-wrap{flex:2; background:var(--black); border-radius:4px; height:6px; overflow:hidden;}
-  .breakdown-bar{height:100%; background:var(--green); border-radius:4px; transition:width .4s ease;}
-  .breakdown-count{font-size:12px; color:var(--sub); font-variant-numeric:tabular-nums; min-width:24px; text-align:right;}
+  .stat-card .stat-val{font-size:24px;font-weight:800;color:var(--g);}
+  .stat-card .stat-label{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.8px;margin-top:4px;}
 
-  /* ── Tips ── */
-  .tips-header{margin-bottom:16px;}
-  .tips-log{display:flex; flex-direction:column; gap:10px;}
-  .tip-card{
-    background:var(--panel); border:1px solid var(--line); border-radius:10px;
-    padding:14px 16px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
-  }
-  .tip-method{
-    font-size:20px; line-height:1; min-width:28px; text-align:center;
-  }
-  .tip-body{flex:1;}
-  .tip-name{font-weight:700; font-size:14px;}
-  .tip-note{font-size:12px; color:var(--sub); margin-top:2px;}
-  .tip-time{font-size:11px; color:#5a5a5a; margin-left:auto;}
-  .tip-amount{
-    font-size:13px; font-weight:700; color:var(--green); background:rgba(83,252,24,0.1);
-    padding:4px 10px; border-radius:6px;
-  }
-
+  /* Login */
   .login-screen{
-    position:fixed; inset:0; background:var(--black); z-index:100;
-    display:flex; align-items:center; justify-content:center; padding:20px;
+    min-height:100dvh;display:flex;align-items:center;justify-content:center;
+    padding:24px;padding-top:calc(24px + var(--safe-top));
+    background:radial-gradient(ellipse 80% 50% at 50% 0%, rgba(83,252,24,0.08), transparent 60%), var(--bk);
   }
   .login-box{
-    width:100%; max-width:340px; background:var(--panel); border:1px solid var(--line);
-    border-radius:14px; padding:32px 26px; text-align:center;
+    width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);
+    border-radius:18px;padding:28px 22px;text-align:center;
   }
-  .login-brand{
-    color:var(--green); font-weight:900; font-size:18px; letter-spacing:1.5px; margin-bottom:4px;
-  }
-  .login-sub{
-    color:var(--sub); font-size:12.5px; margin-bottom:22px;
-  }
+  .login-brand{font-weight:900;letter-spacing:2px;font-size:14px;margin-bottom:6px;}
+  .login-sub{font-size:12px;color:var(--sub);margin-bottom:22px;}
   .login-box input{
-    width:100%; background:var(--black); border:1px solid var(--line); border-radius:8px;
-    padding:12px 14px; color:var(--text); font-size:14px; margin-bottom:12px;
-    box-sizing:border-box;
+    width:100%;margin:0 0 10px;padding:14px 14px;border-radius:12px;
+    border:1px solid var(--line2);background:#0a0a0a;color:var(--tx);font-size:16px;
   }
-  .login-box input:focus{outline:none; border-color:var(--green);}
   .login-box button{
-    width:100%; padding:13px; border-radius:8px; border:none; background:var(--green);
-    color:#0a0a0a; font-weight:700; font-size:13px; text-transform:uppercase; letter-spacing:.5px;
-    cursor:pointer; margin-top:4px;
+    width:100%;padding:14px;border:none;border-radius:12px;margin-top:6px;
+    background:var(--g);color:#0a0a0a;font-weight:800;font-size:15px;cursor:pointer;
   }
-  .login-box button:hover{filter:brightness(1.1);}
-  .login-error{
-    color:var(--red); font-size:12.5px; margin-top:12px; min-height:16px;
+  .login-error{color:var(--red);font-size:13px;margin-top:12px;min-height:18px;}
+
+  /* Incoming overlay — mobile friendly */
+  .incoming-overlay{
+    display:none;position:fixed;inset:0;z-index:300;
+    background:radial-gradient(ellipse at 50% 30%, #142010 0%, #050505 75%);
+    flex-direction:column;align-items:center;justify-content:center;
+    gap:8px;padding:40px 20px;padding-bottom:calc(40px + var(--safe-bot));
   }
+  .incoming-overlay.show{display:flex;}
+  .incoming-kind{color:var(--g);font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;}
+  .incoming-avatar{
+    width:96px;height:96px;border-radius:50%;background:var(--g-dim);border:2px solid var(--g-line);
+    display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:var(--g);
+    margin:12px 0;
+  }
+  .incoming-name{font-size:24px;font-weight:800;text-align:center;}
+  .incoming-more{font-size:13px;color:var(--sub);}
+  .incoming-actions{display:flex;gap:28px;margin-top:28px;}
+  .incoming-actions button{
+    width:72px;height:72px;border-radius:50%;border:none;font-size:28px;cursor:pointer;
+  }
+  #incomingDeclineBtn{background:#3a1515;color:var(--red);}
+  #incomingAcceptBtn{background:var(--g);color:#0a0a0a;}
+  .incoming-labels{display:flex;gap:28px;font-size:12px;color:var(--sub);}
+  .incoming-labels span{width:72px;text-align:center;}
+
+  /* Hide bulky header chrome on small phones */
+  @media(max-width:700px){
+    .search,#filterSelect{width:100%;}
+    .header-right .home-btn span,.signout-btn{font-size:11px;}
+    .brand h1{font-size:12px;}
+    header{gap:8px;}
+    .console-toggle{padding:7px 9px;font-size:9px;}
+  }
+  @media(max-width:420px){
+    .header-right .home-btn{padding:8px;}
+  }
+
+  /* Queue card details */
+  .card{flex-wrap:wrap;}
+  .card .play-btn,.card > button:first-child{
+    width:44px;height:44px;border-radius:50%;border:1px solid var(--g-line);
+    background:var(--g-dim);color:var(--g);display:flex;align-items:center;justify-content:center;
+    cursor:pointer;flex-shrink:0;padding:0;
+  }
+  .card .play-btn svg,.card > button:first-child svg{width:18px;height:18px;fill:currentColor;}
+  .card-body{flex:1;min-width:180px;}
+  .card-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;}
+  .badge{font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px;background:var(--panel2);color:var(--sub);border:1px solid var(--line);}
+  .badge.approved{color:var(--g);border-color:var(--g-line);background:var(--g-dim);}
+  .type-badge{color:#ccc;}
+  .card-time{font-size:11px;color:var(--muted);margin-left:auto;}
+  .card-song{font-size:13px;color:var(--sub);margin:4px 0 8px;}
+  .waveform{display:flex;align-items:flex-end;gap:2px;height:28px;opacity:.35;margin-top:6px;}
+  .waveform span{width:3px;background:var(--g);border-radius:1px;display:block;}
+  .waveform.active{opacity:1;}
+  .card.new{border-color:var(--g-line);}
+  .card.approved{opacity:.85;}
+  .card.favorited{border-color:rgba(255,200,50,.3);}
+  .ibtn.favorite.active{color:#e6b800;border-color:rgba(230,184,0,.4);}
+  .ibtn.on-air-btn.live{background:var(--red-dim);color:var(--red);border-color:rgba(255,59,59,.4);}
+  .ibtn.delete{color:var(--red);}
+  .breakdown-list{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
+  .breakdown-row{display:grid;grid-template-columns:100px 1fr 28px;gap:8px;align-items:center;font-size:12px;}
+  .breakdown-label{color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .breakdown-bar-wrap{height:6px;background:var(--line);border-radius:4px;overflow:hidden;}
+  .breakdown-bar{height:100%;background:var(--g);border-radius:4px;}
+  .breakdown-count{color:var(--muted);text-align:right;}
+  .section-title{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:18px 0 10px;}
 </style>
 </head>
 <body>
@@ -661,8 +383,8 @@
   <div class="brand">
     <span class="bolt">⚡</span>
     <div>
-      <h1>LIVE <span>CALLER</span> STUDIO</h1>
-      <small>PRODUCER DASHBOARD</small>
+      <h1>LIVE <span>CALLER</span></h1>
+      <small>Producer Console</small>
     </div>
   </div>
   <div class="header-right">
@@ -696,13 +418,22 @@
 
 <div class="alert-banner" id="alertBanner">🎤 Incoming Voice Message</div>
 
-<!-- Tab Navigation -->
-<nav class="tab-nav">
+<!-- Tab Navigation (desktop) -->
+<nav class="tab-nav" id="topTabNav">
   <button class="tab-btn active" data-tab="queue">📥 Queue</button>
   <button class="tab-btn" data-tab="calls">📞 Calls</button>
-  <button class="tab-btn" data-tab="video">🎥 Video Guests</button>
+  <button class="tab-btn" data-tab="video">🎥 Video</button>
   <button class="tab-btn" data-tab="history">📋 History</button>
-  <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
+  <button class="tab-btn" data-tab="analytics">📊 Stats</button>
+</nav>
+
+<!-- Bottom nav (mobile / tablet) -->
+<nav class="bot-nav" id="botTabNav" aria-label="Main">
+  <button class="tab-btn active" data-tab="queue"><span class="nav-ic">📥</span>Queue</button>
+  <button class="tab-btn" data-tab="calls"><span class="nav-ic">📞</span>Calls</button>
+  <button class="tab-btn" data-tab="video"><span class="nav-ic">🎥</span>Video</button>
+  <button class="tab-btn" data-tab="history"><span class="nav-ic">📋</span>History</button>
+  <button class="tab-btn" data-tab="analytics"><span class="nav-ic">📊</span>Stats</button>
 </nav>
 
 <main>
@@ -1328,7 +1059,7 @@ incomingAcceptBtn.addEventListener('click', ()=>{
     answerCall(item.id, item.callerName, item.callerCity);
   } else {
     startVideoPreview(item.id);
-    document.querySelector('.tab-btn[data-tab="video"]')?.click();
+    if(typeof switchTab === 'function') switchTab('video'); else document.querySelector('.tab-btn[data-tab="video"]')?.click();
   }
 });
 
@@ -1343,14 +1074,41 @@ incomingDeclineBtn.addEventListener('click', async()=>{
   }
 });
 
+function parseTs(ts){
+  if(ts == null || ts === '') return null;
+  if(typeof ts.toDate === 'function') return ts.toDate();
+  if(typeof ts === 'number') return new Date(ts < 1e12 ? ts * 1000 : ts);
+  if(typeof ts === 'string'){
+    const d = new Date(ts);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if(typeof ts === 'object' && typeof ts.seconds === 'number'){
+    return new Date(ts.seconds * 1000 + Math.floor((ts.nanoseconds || 0) / 1e6));
+  }
+  const d = new Date(ts);
+  return isNaN(d.getTime()) ? null : d;
+}
+function formatWhen(ts){
+  const d = parseTs(ts);
+  if(!d) return '—';
+  const now = new Date();
+  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const sameDay = d.toDateString() === now.toDateString();
+  if(sameDay) return time;
+  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+  if(d.toDateString() === yesterday.toDateString()) return 'Yesterday · ' + time;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' · ' + time;
+}
 function timeAgo(ts){
-  if(!ts) return '';
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
-  const diff = Math.floor((Date.now() - d.getTime())/1000);
-  if(diff < 60) return 'just now';
-  if(diff < 3600) return Math.floor(diff/60) + 'm ago';
-  if(diff < 86400) return Math.floor(diff/3600) + 'h ago';
-  return d.toLocaleDateString();
+  const d = parseTs(ts);
+  if(!d) return '';
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  if(diff < 0) return formatWhen(ts);
+  if(diff < 45) return 'just now';
+  if(diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if(diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  if(diff < 86400 * 7) return Math.floor(diff / 86400) + 'd ago';
+  return formatWhen(ts);
 }
 
 function buildWaveformBars(count=40){
@@ -1558,16 +1316,15 @@ filterSelect.addEventListener('change', render);
 // ── Tab switching ──
 const tabBtns = document.querySelectorAll('.tab-btn');
 const tabContents = document.querySelectorAll('.tab-content');
-tabBtns.forEach(btn =>{
-  btn.addEventListener('click', ()=>{
-    tabBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const target = btn.dataset.tab;
-    tabContents.forEach(c =>{
-      c.style.display = c.id === 'tab-' + target ? 'block' : 'none';
-    });
-    if(target === 'analytics') renderAnalytics();
+function switchTab(target){
+  tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+  tabContents.forEach(c =>{
+    c.style.display = c.id === 'tab-' + target ? 'block' : 'none';
   });
+  if(target === 'analytics') renderAnalytics();
+}
+tabBtns.forEach(btn =>{
+  btn.addEventListener('click', ()=> switchTab(btn.dataset.tab));
 });
 
 // ── Analytics ──
@@ -1637,30 +1394,39 @@ let queueListenerStarted = false;
 // ═══════════════════════════════════════════════════════
 //  LIVE CALLS — WebRTC via Firestore signaling
 // ═══════════════════════════════════════════════════════
-// ICE config — STUN for direct connections + TURN relay for cross-network/NAT traversal
-// Open Relay Project is free, no account required — handles symmetric NAT and mobile networks
-const iceConfig = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    {
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    }
-  ],
-  iceCandidatePoolSize: 10
-};
+
+// ── Production TURN (recommended) ──
+// Replace Open Relay with your own Metered/Twilio/coturn credentials.
+// Prefer short-lived credentials from a backend; never commit long-lived secrets.
+// Example:
+// { urls: 'turn:your-turn.example.com:3478', username: '…', credential: '…' },
+// { urls: 'turns:your-turn.example.com:5349', username: '…', credential: '…' },
+// ICE config — multi-STUN pool + multi-path TURN fallback for NAT / mobile / strict firewalls
+// Order: fast STUN first, then UDP TURN, TCP TURN, TLS TURNS (last resort)
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+  { urls: 'stun:stun.stunprotocol.org:3478' },
+  // Open Relay TURN — free public relay (no account)
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turns:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+];
+function buildIceConfig(forceRelay){
+  return {
+    iceServers: ICE_SERVERS,
+    iceCandidatePoolSize: 16,
+    iceTransportPolicy: forceRelay ? 'relay' : 'all'
+  };
+}
+
+const iceConfig = buildIceConfig(false);
 
 let activePc = null;         // RTCPeerConnection for current call
 let activeCallId = null;     // current call Firestore ID
@@ -1755,7 +1521,7 @@ async function answerCall(callId, callerName, callerCity){
   }
 
   // 2. Create peer connection and add local tracks
-  activePc = new RTCPeerConnection(iceConfig);
+  activePc = new RTCPeerConnection(buildIceConfig(false));
   producerStream.getTracks().forEach(track => activePc.addTrack(track, producerStream));
 
   // 3. Play caller audio when remote track arrives
@@ -1774,26 +1540,35 @@ async function answerCall(callId, callerName, callerCity){
     }
   };
 
-  // If the guest's peer disappears (browser closed, network drop) without writing
-  // status:'ended' to Firestore, still tear down the producer side.
+  // WebRTC error handling — peer drop, ICE failure, or closed connection
+  let _activePcFailHandled = false;
+  const handleActivePcFail = (reason) => {
+    if(_activePcFailHandled || !activePc) return;
+    _activePcFailHandled = true;
+    console.warn('[WebRTC] active call failed:', reason);
+    setCallStatus('Connection lost — call ended');
+    if(activeCallRef){
+      setDoc(activeCallRef, { status: 'ended' }, { merge: true }).catch(()=>{});
+    }
+    stopHoldMusic();
+    if(isRecording){
+      stopCallRecording().then(url => saveCallHistory(url)).catch(()=>{});
+    } else {
+      saveCallHistory(null).catch(()=>{});
+    }
+    if(callIsOnAir){
+      setDoc(liveStateRef, { active: false, updatedAt: Date.now() }).catch(()=>{});
+    }
+    cleanupActiveCall();
+  };
   activePc.onconnectionstatechange = ()=>{
     if(!activePc) return;
     const st = activePc.connectionState;
-    if(st === 'failed' || st === 'closed'){
-      if(activeCallRef){
-        setDoc(activeCallRef, { status: 'ended' }, { merge: true }).catch(()=>{});
-      }
-      stopHoldMusic();
-      if(isRecording){
-        stopCallRecording().then(url => saveCallHistory(url)).catch(()=>{});
-      } else {
-        saveCallHistory(null).catch(()=>{});
-      }
-      if(callIsOnAir){
-        setDoc(liveStateRef, { active: false, updatedAt: Date.now() }).catch(()=>{});
-      }
-      cleanupActiveCall();
-    }
+    if(st === 'failed' || st === 'closed') handleActivePcFail('connectionState=' + st);
+  };
+  activePc.oniceconnectionstatechange = ()=>{
+    if(!activePc) return;
+    if(activePc.iceConnectionState === 'failed') handleActivePcFail('iceConnectionState=failed');
   };
 
   // 5. Get caller's offer and set remote description
@@ -1806,17 +1581,24 @@ async function answerCall(callId, callerName, callerCity){
     return;
   }
 
-  await activePc.setRemoteDescription(new RTCSessionDescription(callData.offer));
-
-  // 6. Create answer and set local description — ICE gathering starts here (handler already wired)
-  const answer = await activePc.createAnswer();
-  await activePc.setLocalDescription(answer);
-
-  // 7. Save answer to Firestore
-  await setDoc(activeCallRef, {
-    answer: { type: answer.type, sdp: answer.sdp },
-    status: 'answered'
-  }, { merge: true });
+  try{
+    await activePc.setRemoteDescription(new RTCSessionDescription(callData.offer));
+    // 6. Create answer and set local description — ICE gathering starts here
+    const answer = await activePc.createAnswer();
+    await activePc.setLocalDescription(answer);
+    // 7. Save answer to Firestore
+    await setDoc(activeCallRef, {
+      answer: { type: answer.type, sdp: answer.sdp },
+      status: 'answered'
+    }, { merge: true });
+  }catch(err){
+    console.error('[WebRTC] answerCall SDP/signaling failed:', err);
+    alert('Could not complete the WebRTC handshake with this caller. Ask them to call in again.');
+    connectingCallId = null;
+    if(activeCallRef) setDoc(activeCallRef, { status: 'ended' }, { merge: true }).catch(()=>{});
+    cleanupActiveCall();
+    return;
+  }
 
   // 8. Listen for caller ICE candidates — start immediately, Firestore delivers existing docs too
   // No buffering needed on this side because setRemoteDescription already happened above
@@ -1853,10 +1635,11 @@ async function answerCall(callId, callerName, callerCity){
   connectingCallId = null; // fully connected now — safe for the ring/incoming logic to resume normally
 
   // Switch to Calls tab if not already there
-  document.querySelectorAll('.tab-btn').forEach(b=> b.classList.remove('active'));
-  document.querySelector('[data-tab="calls"]').classList.add('active');
-  document.querySelectorAll('.tab-content').forEach(c=> c.style.display = 'none');
-  document.getElementById('tab-calls').style.display = 'block';
+  if(typeof switchTab === 'function') switchTab('calls');
+  else {
+    document.querySelectorAll('.tab-btn').forEach(b=> b.classList.toggle('active', b.dataset.tab === 'calls'));
+    document.querySelectorAll('.tab-content').forEach(c=> c.style.display = c.id === 'tab-calls' ? 'block' : 'none');
+  }
 }
 
 // ── Hold music via WebRTC track replacement ──
@@ -1987,8 +1770,10 @@ recordBtn.addEventListener('click', ()=>{
 
 // ── Save call to history ──
 async function saveCallHistory(recordingUrl = null){
-  const endTime = Date.now();
-  const duration = callStartTime ? Math.floor((endTime - callStartTime) / 1000) : 0;
+  // Prefer live timer seconds; fall back to wall-clock from answer moment
+  let duration = (typeof callSeconds === 'number' && callSeconds > 0)
+    ? callSeconds
+    : (callStartTime ? Math.max(0, Math.floor((Date.now() - callStartTime) / 1000)) : 0);
   try{
     await addDoc(collection(db, 'callHistory'), {
       callerName: document.getElementById('activeCallerName').textContent || 'Unknown',
@@ -1997,6 +1782,7 @@ async function saveCallHistory(recordingUrl = null){
       recordingUrl: recordingUrl || null,
       status: 'completed',
       type: 'audio',
+      endedAt: Date.now(),
       createdAt: serverTimestamp()
     });
   }catch(e){ console.warn('Could not save call history:', e); }
@@ -2024,7 +1810,13 @@ async function logMissedCall(item, kind){
 async function saveVideoCallHistory(item){
   if(loggedVideoHistoryIds.has(item.id)) return;
   loggedVideoHistoryIds.add(item.id);
-  const duration = item.liveSince ? Math.floor((Date.now() - item.liveSince) / 1000) : 0;
+  let liveMs = item.liveSince;
+  if(liveMs && typeof liveMs.toDate === 'function') liveMs = liveMs.toDate().getTime();
+  else if(liveMs && typeof liveMs.seconds === 'number') liveMs = liveMs.seconds * 1000;
+  else if(typeof liveMs === 'string') liveMs = new Date(liveMs).getTime();
+  const duration = (typeof liveMs === 'number' && liveMs > 0)
+    ? Math.max(0, Math.floor((Date.now() - liveMs) / 1000))
+    : 0;
   try{
     await addDoc(collection(db, 'callHistory'), {
       callerName: item.callerName || 'Video Guest',
@@ -2033,6 +1825,7 @@ async function saveVideoCallHistory(item){
       recordingUrl: null,
       status: 'completed',
       type: 'video',
+      endedAt: Date.now(),
       createdAt: serverTimestamp()
     });
   }catch(e){ console.warn('Could not save video call history:', e); }
@@ -2404,7 +2197,7 @@ async function startVideoPreview(callId){
   updatePreviewMicBtn();
   updatePreviewPanelForStatus(call.status);
 
-  previewPc = new RTCPeerConnection(iceConfig);
+  previewPc = new RTCPeerConnection(buildIceConfig(false));
 
   previewPc.ontrack = (event) => {
     if(event.streams && event.streams[0]){
@@ -2419,7 +2212,24 @@ async function startVideoPreview(callId){
 
   previewPc.onicecandidate = (e) => {
     if(e.candidate && previewCallId){
-      addDoc(collection(db, 'videoCalls', previewCallId, 'screenDashboardCandidates'), e.candidate.toJSON()).catch(()=>{});
+      addDoc(collection(db, 'videoCalls', previewCallId, 'screenDashboardCandidates'), e.candidate.toJSON())
+        .catch((err)=> console.warn('[WebRTC] preview ICE upload failed:', err));
+    }
+  };
+  previewPc.onconnectionstatechange = () => {
+    if(!previewPc) return;
+    if(previewPc.connectionState === 'failed'){
+      console.warn('[WebRTC] preview connection failed');
+      previewVideoStatus.style.display = 'flex';
+      previewVideoStatus.textContent = 'Preview connection failed — try again.';
+      previewStatus.textContent = 'Connection failed';
+    }
+  };
+  previewPc.oniceconnectionstatechange = () => {
+    if(previewPc && previewPc.iceConnectionState === 'failed'){
+      console.warn('[WebRTC] preview ICE failed');
+      previewVideoStatus.style.display = 'flex';
+      previewVideoStatus.textContent = 'Preview ICE failed — try again.';
     }
   };
 
@@ -2450,8 +2260,10 @@ async function startVideoPreview(callId){
       screenAnswer: { type: answer.type, sdp: answer.sdp }
     }, { merge: true });
   }catch(err){
+    previewVideoStatus.style.display = 'flex';
     previewVideoStatus.textContent = 'Could not connect to preview.';
-    console.error(err);
+    previewStatus.textContent = 'Handshake failed';
+    console.error('[WebRTC] startVideoPreview failed:', err);
     return;
   }
 
@@ -2615,7 +2427,7 @@ function startCallHistoryListener(){
           </div>
           <div class="hist-right">
             <div class="hist-dur">${formatDur(c.duration || 0)}</div>
-            <div class="hist-time">${timeAgo(c.createdAt)}</div>
+            <div class="hist-time" title="${escapeHtml(formatWhen(c.createdAt))}">${formatWhen(c.createdAt)} · ${timeAgo(c.createdAt)}</div>
             <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
               ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" target="_blank" rel="noopener">▶ Play</a>` : ''}
               ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}
@@ -2642,7 +2454,7 @@ function startCallHistoryListener(){
               <div class="rec-icon">🎙️</div>
               <div class="rec-body">
                 <div class="rec-name">${escapeHtml(c.callerName || 'Unknown')}</div>
-                <div class="rec-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${formatDur(c.duration || 0)} · ${timeAgo(c.createdAt)}</div>
+                <div class="rec-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${formatDur(c.duration || 0)} · ${formatWhen(c.createdAt)}</div>
               </div>
               <div class="rec-actions">
                 <audio class="rec-audio" src="${c.recordingUrl}" controls preload="none"></audio>
@@ -2659,11 +2471,12 @@ function startCallHistoryListener(){
 }
 
 function formatDur(s){
-  s = Math.max(0, Math.floor(s));
+  s = Math.max(0, Math.floor(Number(s) || 0));
   const h = Math.floor(s/3600);
   const m = Math.floor((s%3600)/60);
   const sec = s%60;
-  return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+  if(h > 0) return `${h}:${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+  return `${m}:${sec.toString().padStart(2,'0')}`;
 }
 
 function startQueueListener(){

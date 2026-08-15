@@ -338,17 +338,55 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 
-// ICE config — STUN + free TURN relay for NAT traversal (same as the audio call-in feature)
-const STUN = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-  ],
-  iceCandidatePoolSize: 10
-};
+
+// ── Production TURN (recommended) ──
+// Replace Open Relay with your own Metered/Twilio/coturn credentials.
+// Prefer short-lived credentials from a backend; never commit long-lived secrets.
+// Example:
+// { urls: 'turn:your-turn.example.com:3478', username: '…', credential: '…' },
+// { urls: 'turns:your-turn.example.com:5349', username: '…', credential: '…' },
+// ICE config — multi-STUN pool + multi-path TURN fallback for NAT / mobile / strict firewalls
+// Order: fast STUN first, then UDP TURN, TCP TURN, TLS TURNS (last resort)
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+  { urls: 'stun:stun.stunprotocol.org:3478' },
+  // Open Relay TURN — free public relay (no account)
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turns:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+];
+function buildIceConfig(forceRelay){
+  return {
+    iceServers: ICE_SERVERS,
+    iceCandidatePoolSize: 16,
+    iceTransportPolicy: forceRelay ? 'relay' : 'all'
+  };
+}
+
+const STUN = buildIceConfig(false);
+
+// ── Client-side rate limit (spam / accidental double-submit) ──
+// Server-side enforcement still requires App Check + Cloud Functions for hard limits.
+const RATE_LIMIT_MS = 15000;
+function allowCallAttempt(key){
+  try{
+    const now = Date.now();
+    const last = Number(localStorage.getItem(key) || 0);
+    if(now - last < RATE_LIMIT_MS) return false;
+    localStorage.setItem(key, String(now));
+    return true;
+  }catch(e){
+    return true; // private mode / blocked storage — do not block legitimate callers
+  }
+}
+
 
 let pc = null;          // "air" connection — straight to overlay.html once live
 let screenPc = null;    // screening connection — lets the producer preview before air
@@ -509,21 +547,22 @@ async function joinCall(){
   const name = callerNameInput.value.trim();
   if(!name){ showError('Please enter your name before joining.'); return; }
   if(!videoOpen){ showError('Video guests are currently closed — please check back soon.'); return; }
+  if(!allowCallAttempt('lcs_last_video_call')){
+    showError('Please wait a few seconds before joining again.');
+    return;
+  }
 
   joinBtn.disabled = true;
   joinBtn.textContent = 'Connecting…';
 
   // "Air" connection — goes straight to overlay.html once the producer sends this call live.
-  pc = new RTCPeerConnection(STUN);
+  pc = new RTCPeerConnection(buildIceConfig(false));
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
   const pendingCandidates = [];
   let remoteDescSet = false;
-  const offer = await pc.createOffer();
 
   // "Screening" connection — lets the producer preview video/audio in the dashboard
-  // before deciding to send this guest on air. Fully separate signaling from the air connection.
-  // This connection is two-way for audio: the producer can talk back through it too.
-  screenPc = new RTCPeerConnection(STUN);
+  screenPc = new RTCPeerConnection(buildIceConfig(false));
   localStream.getTracks().forEach(track => screenPc.addTrack(track, localStream));
   screenPc.ontrack = (event) => {
     if(event.streams && event.streams[0]){
@@ -534,30 +573,87 @@ async function joinCall(){
   };
   const screenPendingCandidates = [];
   let screenRemoteDescSet = false;
-  const screenOffer = await screenPc.createOffer();
 
-  callDocRef = await addDoc(collection(db, 'videoCalls'), {
-    callerName: name,
-    callerCity: callerCityInput.value.trim() || null,
-    offer: { type: offer.type, sdp: offer.sdp },
-    screenOffer: { type: screenOffer.type, sdp: screenOffer.sdp },
-    status: 'waiting',
-    createdAt: serverTimestamp()
-  });
+  // WebRTC error handling for both peer connections
+  let _vcFailHandled = false;
+  const handleVcFail = (reason) => {
+    if(_vcFailHandled) return;
+    _vcFailHandled = true;
+    console.warn('[WebRTC] video call connection failed:', reason);
+    stopWaitingRing();
+    setStatus('ended', 'Connection lost — please try joining again.');
+    showError('The video connection failed. Check your network and try again.');
+    if(callDocRef) updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
+    cleanup(false);
+    endOfCallScreen('Connection Lost', 'Please try joining again when ready.');
+  };
+  const wirePcErrors = (peer, label) => {
+    if(!peer) return;
+    peer.onconnectionstatechange = () => {
+      if(peer.connectionState === 'failed') handleVcFail(label + ' connectionState=failed');
+    };
+    peer.oniceconnectionstatechange = () => {
+      if(peer.iceConnectionState === 'failed') handleVcFail(label + ' iceConnectionState=failed');
+    };
+  };
+  wirePcErrors(pc, 'air');
+  wirePcErrors(screenPc, 'screen');
+
+  let offer, screenOffer;
+  try{
+    offer = await pc.createOffer();
+    screenOffer = await screenPc.createOffer();
+  }catch(err){
+    console.error('[WebRTC] createOffer failed:', err);
+    showError('Could not start the video connection. Refresh and try again.');
+    joinBtn.disabled = false;
+    joinBtn.textContent = 'Join as Video Guest';
+    cleanup(false);
+    return;
+  }
+
+  try{
+    callDocRef = await addDoc(collection(db, 'videoCalls'), {
+      callerName: name,
+      callerCity: callerCityInput.value.trim() || null,
+      offer: { type: offer.type, sdp: offer.sdp },
+      screenOffer: { type: screenOffer.type, sdp: screenOffer.sdp },
+      status: 'waiting',
+      createdAt: serverTimestamp()
+    });
+  }catch(err){
+    console.error('[WebRTC] Firestore addDoc failed:', err);
+    showError('Could not reach the studio queue. Check your connection and try again.');
+    joinBtn.disabled = false;
+    joinBtn.textContent = 'Join as Video Guest';
+    cleanup(false);
+    return;
+  }
 
   pc.onicecandidate = (e) => {
     if(e.candidate){
-      addDoc(collection(db, 'videoCalls', callDocRef.id, 'callerCandidates'), e.candidate.toJSON()).catch(()=>{});
+      addDoc(collection(db, 'videoCalls', callDocRef.id, 'callerCandidates'), e.candidate.toJSON())
+        .catch((err)=> console.warn('[WebRTC] ICE upload failed:', err));
     }
   };
   screenPc.onicecandidate = (e) => {
     if(e.candidate){
-      addDoc(collection(db, 'videoCalls', callDocRef.id, 'screenCallerCandidates'), e.candidate.toJSON()).catch(()=>{});
+      addDoc(collection(db, 'videoCalls', callDocRef.id, 'screenCallerCandidates'), e.candidate.toJSON())
+        .catch((err)=> console.warn('[WebRTC] screen ICE upload failed:', err));
     }
   };
 
-  await pc.setLocalDescription(offer);
-  await screenPc.setLocalDescription(screenOffer);
+  try{
+    await pc.setLocalDescription(offer);
+    await screenPc.setLocalDescription(screenOffer);
+  }catch(err){
+    console.error('[WebRTC] setLocalDescription failed:', err);
+    showError('Could not finalize video setup. Please try again.');
+    if(callDocRef) updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
+    cleanup(false);
+    joinBtn.disabled = false;
+    return;
+  }
 
   onSnapshot(callDocRef, async (snap) => {
     const data = snap.data();
@@ -569,7 +665,7 @@ async function joinCall(){
         remoteDescSet = true;
         for(const c of pendingCandidates){ await pc.addIceCandidate(c).catch(()=>{}); }
         pendingCandidates.length = 0;
-      }catch(e){ console.error('setRemoteDescription failed:', e); }
+      }catch(e){ console.error('[WebRTC] setRemoteDescription failed:', e); showError('Handshake failed — stay on this screen while we wait for the host.'); }
     }
 
     if(data.screenAnswer && screenPc && !screenPc.currentRemoteDescription){
@@ -578,7 +674,7 @@ async function joinCall(){
         screenRemoteDescSet = true;
         for(const c of screenPendingCandidates){ await screenPc.addIceCandidate(c).catch(()=>{}); }
         screenPendingCandidates.length = 0;
-      }catch(e){ console.error('screen setRemoteDescription failed:', e); }
+      }catch(e){ console.error('[WebRTC] screen setRemoteDescription failed:', e); }
     }
 
     if(data.status === 'waiting'){
@@ -637,19 +733,32 @@ async function joinCall(){
   setStatus('waiting', "You're in the green room — waiting for the host to bring you on air.");
 }
 
+let _exitStarted = false;
 function endOfCallScreen(title, sub){
+  // Run once — status snapshots can fire multiple times with status "ended"
+  if(_exitStarted) return;
+  _exitStarted = true;
+
+  // Immediate teardown already done by caller; show exit UI then leave
   setTimeout(()=>{
-    window.close();
+    // Try close (only works if this tab was opened by script)
+    try{ window.close(); }catch(e){}
+
     document.body.innerHTML = `
       <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;
-        justify-content:center;background:#000;color:#f2f2f2;font-family:Arial,sans-serif;
+        justify-content:center;background:#0a0a0a;color:#f2f2f2;font-family:Arial,sans-serif;
         text-align:center;padding:40px 20px;gap:16px;">
         <div style="font-size:48px;">🎥</div>
         <div style="font-size:22px;font-weight:900;">${title}</div>
         <div style="font-size:14px;color:#888;">${sub}</div>
-        <div style="font-size:12px;color:#555;margin-top:8px;">You can close this window.</div>
+        <div style="font-size:12px;color:#555;margin-top:8px;">Returning home…</div>
       </div>`;
-  }, 2500);
+
+    // Reliable exit — browsers block window.close() on normal tabs
+    setTimeout(()=>{
+      window.location.href = 'home.html';
+    }, 1200);
+  }, 1200);
 }
 
 function cleanup(updateFirestore){
