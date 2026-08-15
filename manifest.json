@@ -15,6 +15,7 @@
   "categories": ["entertainment", "music"],
   "shortcuts": [
     { "name": "Leave a Voice Message", "url": "https://livecallerstudio.github.io/LiveCaller/voicemessage.html", "description": "Tap to leave a voice message" },
-    { "name": "Call In Live", "url": "https://livecallerstudio.github.io/LiveCaller/call.html", "description": "Tap to call in live" }
+    { "name": "Call In Live", "url": "https://livecallerstudio.github.io/LiveCaller/call.html", "description": "Tap to call in live" },
+    { "name": "Join as Video Guest", "url": "https://livecallerstudio.github.io/LiveCaller/videocall.html", "description": "Tap to join as a video guest" }
   ]
 }

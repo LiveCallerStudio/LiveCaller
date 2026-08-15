@@ -362,7 +362,13 @@ async function connectToGuest(callId, data){
   guestPc.ontrack = (event) => {
     if(event.streams && event.streams[0]){
       guestVideo.srcObject = event.streams[0];
-      guestVideo.play().catch(()=>{});
+      // Muted-then-unmute bypasses OBS CEF autoplay restrictions
+      guestVideo.muted = true;
+      const p = guestVideo.play();
+      if(p) p.then(()=>{ guestVideo.muted = false; }).catch(()=>{
+        guestVideo.muted = false;
+        guestVideo.play().catch(()=>{});
+      });
       guestbox.classList.add('show');
     }
   };

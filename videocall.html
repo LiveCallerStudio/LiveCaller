@@ -26,6 +26,7 @@
     --sub:#888;
   }
   *{ box-sizing:border-box; margin:0; padding:0; }
+  button,a,input{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
   html,body{
     min-height:100vh;
     background:var(--black);
@@ -256,35 +257,37 @@
 
       <div class="error-banner" id="errorBanner"></div>
 
-      <div class="cam-wrap" id="camWrap">
-        <video id="localVideo" autoplay playsinline muted></video>
-        <div class="cam-placeholder" id="camPlaceholder">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-          <span>Tap "Start Camera" to preview yourself before joining</span>
+      <div id="videoFormFields">
+        <div class="cam-wrap" id="camWrap">
+          <video id="localVideo" autoplay playsinline muted></video>
+          <div class="cam-placeholder" id="camPlaceholder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            <span>Tap "Start Camera" to preview yourself before joining</span>
+          </div>
+          <div class="cam-badge" id="camBadge" style="display:none;"><span class="dot"></span>Preview</div>
         </div>
-        <div class="cam-badge" id="camBadge" style="display:none;"><span class="dot"></span>Preview</div>
+
+        <button class="cam-toggle" id="startCamBtn" type="button" style="margin-bottom:14px;width:100%;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          Start Camera &amp; Mic
+        </button>
+
+        <div class="field">
+          <label>Name</label>
+          <input type="text" id="callerName" maxlength="40" autocomplete="name" required>
+        </div>
+        <div class="field">
+          <label>City, State</label>
+          <input type="text" id="callerCity" maxlength="40" autocomplete="address-level2">
+        </div>
+
+        <p class="disclaimer">By joining, you agree your camera and microphone may be broadcast on-air or on stream.</p>
+
+        <button class="call-btn" id="joinBtn" disabled>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          Join as Video Guest
+        </button>
       </div>
-
-      <button class="cam-toggle" id="startCamBtn" type="button" style="margin-bottom:14px;width:100%;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-        Start Camera &amp; Mic
-      </button>
-
-      <div class="field">
-        <label>Name</label>
-        <input type="text" id="callerName" maxlength="40" autocomplete="name">
-      </div>
-      <div class="field">
-        <label>City &amp; State</label>
-        <input type="text" id="callerCity" maxlength="40">
-      </div>
-
-      <p class="disclaimer">By joining, you agree your camera and microphone may be broadcast on-air or on stream.</p>
-
-      <button class="call-btn" id="joinBtn" disabled>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-        Join as Video Guest
-      </button>
     </div>
 
     <!-- ── Call / Waiting / Live Screen ── -->
@@ -682,16 +685,20 @@ endBtn.addEventListener('click', ()=>{
 });
 
 joinBtn.addEventListener('click', joinCall);
+callerNameInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && !joinBtn.disabled) joinCall(); });
+callerCityInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && !joinBtn.disabled) joinCall(); });
 
 window.addEventListener('beforeunload', ()=>{ cleanup(true); });
 
 // ── Video guests open/closed — set by the producer in the dashboard ──
 // Missing doc / missing field defaults to OPEN so this never blocks before a
 // producer has ever touched the toggle.
+const videoFormFields = document.getElementById('videoFormFields');
 onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
   const d = snap.data();
   videoOpen = d ? d.videoOpen !== false : true;
   linesClosedBanner.classList.toggle('show', !videoOpen);
+  if(videoFormFields) videoFormFields.style.display = videoOpen ? '' : 'none';
   joinBtn.disabled = !linesOpenAndNamed();
 }, ()=>{ /* leave last known state visible if this ever errors */ });
 

@@ -1287,8 +1287,15 @@ function initialsFor(name){
 }
 
 function updateIncomingOverlay(){
-  const waitingAudio = latestAudioCalls.filter(c => c.status === 'waiting' && c.id !== connectingCallId).map(c => ({ ...c, _kind:'audio' }));
-  const waitingVideo = latestVideoCalls.filter(c => c.status === 'waiting').map(c => ({ ...c, _kind:'video' }));
+  // Exclude the call currently being answered (audio) or previewed (video).
+  // Status stays 'waiting' in Firestore during those moments, so without this
+  // the overlay + ring keep firing even after the producer has already engaged.
+  const waitingAudio = latestAudioCalls
+    .filter(c => c.status === 'waiting' && c.id !== connectingCallId)
+    .map(c => ({ ...c, _kind:'audio' }));
+  const waitingVideo = latestVideoCalls
+    .filter(c => c.status === 'waiting' && c.id !== previewCallId)
+    .map(c => ({ ...c, _kind:'video' }));
   const combined = [...waitingAudio, ...waitingVideo].sort((a, b)=>{
     const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
     const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
@@ -2189,14 +2196,16 @@ function startVideoCallsListener(){
     (snap)=>{
       const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
       latestVideoCalls = calls;
-      const waiting = calls.filter(c => c.status === 'waiting');
+      // Treat the currently-previewed guest as "handled" so the ring and
+      // full-screen incoming overlay stop the moment the producer opens Preview.
+      const waiting = calls.filter(c => c.status === 'waiting' && c.id !== previewCallId);
       const live = calls.find(c => c.status === 'live');
 
-      // FaceTime-style ring — starts the moment a new guest is waiting, keeps
-      // going while any are still waiting, stops once the queue is clear.
+      // FaceTime-style ring — only for guests that are still truly waiting
+      // (not the one the producer is already previewing).
       if(waiting.length > 0){
         snap.docChanges().forEach(change=>{
-          if(change.type === 'added' && change.doc.data().status === 'waiting'){
+          if(change.type === 'added' && change.doc.data().status === 'waiting' && change.doc.id !== previewCallId){
             startVideoRing();
           }
         });
@@ -2320,6 +2329,11 @@ function stopVideoPreview(){
   previewVideo.srcObject = null;
   previewCallId = null;
   videoPreviewPanel.style.display = 'none';
+  // Re-evaluate ring + incoming overlay now that this guest is no longer "handled"
+  updateIncomingOverlay();
+  const stillWaiting = latestVideoCalls.filter(c => c.status === 'waiting');
+  if(stillWaiting.length > 0) startVideoRing();
+  else stopVideoRing();
 }
 
 async function startVideoPreview(callId){
@@ -2334,6 +2348,11 @@ async function startVideoPreview(callId){
   }
 
   previewCallId = callId;
+  // Immediately silence the ring + dismiss the full-screen incoming overlay.
+  // The guest is no longer "waiting" from the producer's point of view.
+  stopVideoRing();
+  updateIncomingOverlay();
+
   previewName.textContent = call.callerName || 'Guest';
   previewCity.textContent = call.callerCity || '';
   previewVideoStatus.style.display = 'flex';

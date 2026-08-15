@@ -28,6 +28,7 @@
     --sub:#888;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
+  button,a,input{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
   html,body{
     min-height:100vh;
     background:var(--bk);
@@ -544,12 +545,12 @@
     <div id="formTypeBadge" class="selected-type-badge">🎙️ General Message</div>
 
     <div class="field">
-      <label>Name</label>
-      <input type="text" id="fName" maxlength="40">
+      <label>Name <span style="color:#555;font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></label>
+      <input type="text" id="fName" maxlength="40" autocomplete="name">
     </div>
     <div class="field">
-      <label>City &amp; State</label>
-      <input type="text" id="fCity" maxlength="60">
+      <label>City, State <span style="color:#555;font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></label>
+      <input type="text" id="fCity" maxlength="60" autocomplete="address-level2">
     </div>
     <div id="typeSpecificFields"></div>
 
@@ -619,6 +620,8 @@
       </div>
 
       <audio id="playback" controls></audio>
+
+      <div id="reviewSummary" style="font-family:Arial,sans-serif;font-size:12.5px;color:#888;line-height:1.55;margin:0 0 16px;padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid #1e1e1e;border-radius:10px;"></div>
 
       <p class="disclaimer">By submitting, you agree your message may be broadcast on-air or on stream.</p>
 
@@ -783,6 +786,28 @@ function onRecordingStop(){
   if(audioBlob.size===0){ showError("No audio captured. Please try recording again."); resetRecordingUI(); return; }
   const url = URL.createObjectURL(audioBlob);
   playback.src = url;
+  // Confirm details before send
+  const bits = [];
+  const n = document.getElementById('fName')?.value.trim();
+  const c = document.getElementById('fCity')?.value.trim();
+  if(n) bits.push('<b style="color:#ccc">Name:</b> ' + n.replace(/</g,'&lt;'));
+  if(c) bits.push('<b style="color:#ccc">Location:</b> ' + c.replace(/</g,'&lt;'));
+  const extraMap = {
+    song: [['fArtist','Artist'],['fTrack','Song']],
+    shoutout: [['fShoutoutName','Shout-out']],
+    birthday: [['fBirthdayName','Birthday for']],
+    dedication: [['fDedicationTo','Dedicated to']]
+  };
+  (extraMap[selectedType]||[]).forEach(([id,lab])=>{
+    const v = document.getElementById(id)?.value.trim();
+    if(v) bits.push('<b style="color:#ccc">' + lab + ':</b> ' + v.replace(/</g,'&lt;'));
+  });
+  const sum = document.getElementById('reviewSummary');
+  if(sum){
+    sum.innerHTML = bits.length
+      ? bits.join('<br>')
+      : '<span style="color:#555">No name or details entered — still fine to send.</span>';
+  }
   recordView.style.display = 'none';
   reviewPanel.classList.add('show');
 }
@@ -870,11 +895,27 @@ formBackBtn.addEventListener('click',()=>{
 });
 
 // STEP 2 → STEP 3: details collected, now record the message
-formNextBtn.addEventListener('click',()=>{
+function goToRecord(){
   formScreen.style.display='none';
   recordView.style.display='flex';
   selectedTypeBadge.textContent = typeLabels[selectedType]||'🎙️ General Message';
+}
+formNextBtn.addEventListener('click', goToRecord);
+['fName','fCity'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('keydown', e=>{
+    if(e.key==='Enter'){ e.preventDefault(); goToRecord(); }
+  });
 });
+// Type-specific fields get Enter handling after they're built
+const _origBuild = buildReviewFields;
+buildReviewFields = function(){
+  _origBuild();
+  typeSpecificFields.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('keydown', e=>{
+      if(e.key==='Enter'){ e.preventDefault(); goToRecord(); }
+    });
+  });
+};
 
 // STEP 3 → STEP 2: change details. If a recording is in progress, abort it
 // without triggering the normal "recording finished" flow (which would jump to review).

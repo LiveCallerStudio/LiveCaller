@@ -27,6 +27,7 @@
     --sub:#888;
   }
   *{ box-sizing:border-box; margin:0; padding:0; }
+  button,a,input{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
   html,body{
     min-height:100vh;
     background:var(--black);
@@ -280,21 +281,23 @@
 
       <div class="error-banner" id="errorBanner"></div>
 
-      <div class="field">
-        <label>Name</label>
-        <input type="text" id="callerName" maxlength="40" autocomplete="name">
-      </div>
-      <div class="field">
-        <label>City &amp; State</label>
-        <input type="text" id="callerCity" maxlength="40">
-      </div>
+      <div id="callFormFields">
+        <div class="field">
+          <label>Name</label>
+          <input type="text" id="callerName" maxlength="40" autocomplete="name" required>
+        </div>
+        <div class="field">
+          <label>City, State</label>
+          <input type="text" id="callerCity" maxlength="40" autocomplete="address-level2">
+        </div>
 
-      <p class="disclaimer">By calling in, you agree your voice may be broadcast on-air or on stream.</p>
+        <p class="disclaimer">By calling in, you agree your voice may be broadcast on-air or on stream.</p>
 
-      <button class="call-btn" id="callBtn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-        Call In Live
-      </button>
+        <button class="call-btn" id="callBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          Call In Live
+        </button>
+      </div>
     </div>
 
     <!-- Call Screen -->
@@ -809,16 +812,19 @@ endBtn.addEventListener('click', async ()=>{
 
 callBtn.addEventListener('click', startCall);
 callerNameInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') startCall(); });
+callerCityInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') startCall(); });
 
 window.addEventListener('beforeunload', ()=>{ stopOutgoingRing(); stopHoldMusicCaller(); cleanup(true); });
 
 // ── Phone lines open/closed ── set by the producer in the dashboard.
 // Missing doc / missing field defaults to OPEN so this never blocks calls
 // before a producer has ever touched the toggle.
+const callFormFields = document.getElementById('callFormFields');
 onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
   const d = snap.data();
   linesOpen = d ? d.open !== false : true;
   linesClosedBanner.classList.toggle('show', !linesOpen);
+  if(callFormFields) callFormFields.style.display = linesOpen ? '' : 'none';
   callBtn.disabled = !linesOpen;
   callBtn.style.opacity = linesOpen ? '' : '.4';
 }, ()=>{ /* if this ever errors, leave calls enabled rather than block listeners */ });
