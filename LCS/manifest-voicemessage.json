@@ -1,0 +1,16 @@
+{
+  "name": "Live Caller — Voice Message",
+  "short_name": "Voice Message",
+  "description": "Leave a voice message for the show — song requests, shoutouts, birthdays, and more.",
+  "start_url": "https://livecallerstudio.github.io/LiveCaller/voicemessage.html",
+  "scope": "https://livecallerstudio.github.io/LiveCaller/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#53FC18",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["entertainment", "music"]
+}
