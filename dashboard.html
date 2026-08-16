@@ -690,72 +690,6 @@
 .net-badge.poor{ color:#ff6b6b; border-color:rgba(255,107,107,0.35); background:rgba(255,107,107,0.1); }
 .net-badge.idle{ color:#666; }
 
-
-/* ═══ Studio mockup chrome (no stream status / no end broadcast / no favorites) ═══ */
-header.studio-top{
-  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
-  padding:10px 14px; padding-top:calc(10px + var(--safe-top));
-  background:rgba(8,8,10,0.85);
-  backdrop-filter:blur(20px);
-  border-bottom:1px solid rgba(255,255,255,0.06);
-  position:sticky; top:0; z-index:50;
-}
-header.studio-top .brand h1{ font-size:13px; letter-spacing:1.5px; margin:0; }
-header.studio-top .brand small{ display:none; }
-.meter-group{
-  display:flex; align-items:center; gap:12px; flex:1; justify-content:center;
-  min-width:200px;
-}
-.meter{
-  display:flex; flex-direction:column; gap:3px; min-width:100px;
-}
-.meter label{
-  font-size:9px; font-weight:800; letter-spacing:1px; color:#666; text-transform:uppercase;
-}
-.meter-bar{
-  height:8px; border-radius:4px; background:#1a1a1a; overflow:hidden;
-  border:1px solid #2a2a2a;
-}
-.meter-bar > i{
-  display:block; height:100%; width:70%;
-  background:linear-gradient(90deg,#53FC18,#c8e600 70%,#ff6b00 92%);
-  border-radius:3px;
-}
-.meter-bar.mix > i{ width:55%; }
-.meter span.db{ font-size:10px; color:#888; font-variant-numeric:tabular-nums; }
-
-/* Bottom nav always on — primary dashboard navigation */
-.bot-nav{
-  display:flex !important;
-  position:fixed; left:0; right:0; bottom:0; z-index:80;
-  height:calc(var(--bot-nav-h) + var(--safe-bot));
-  padding-bottom:var(--safe-bot);
-  background:rgba(6,6,8,0.92);
-  backdrop-filter:blur(24px) saturate(1.3);
-  -webkit-backdrop-filter:blur(24px) saturate(1.3);
-  border-top:1px solid rgba(255,255,255,0.08);
-  justify-content:space-around; align-items:stretch;
-}
-.bot-nav .tab-btn{
-  flex:1; max-width:120px;
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:2px; border:none; background:transparent; color:#777;
-  font-size:10px; font-weight:700; cursor:pointer; padding:6px 4px;
-}
-.bot-nav .tab-btn .nav-ic{ font-size:20px; line-height:1; }
-.bot-nav .tab-btn.active{ color:var(--g); background:transparent; }
-.bot-nav .tab-btn.active .nav-ic{ filter:drop-shadow(0 0 6px rgba(83,252,24,.5)); }
-
-/* Hide top tab strip — bottom nav is primary (matches mockup) */
-.tab-nav{ display:none !important; }
-
-#dashboardApp{ padding-bottom:calc(var(--bot-nav-h) + var(--safe-bot) + 12px) !important; }
-
-/* Left rail panels tighter like mockup */
-.ps-left .ps-panel-h{ font-size:10px; }
-.ps-panel.on-hold-panel .ps-panel-h{ color:#f5a623; }
-.ps-panel.on-air-panel .ps-panel-h{ color:#ff4d4d; }
-
 </style>
 </head>
 <body>
@@ -779,44 +713,33 @@ header.studio-top .brand small{ display:none; }
 
 <div id="dashboardApp" style="display:none;">
 
-<header class="studio-top">
+<header>
   <div class="brand">
     <span class="bolt">⚡</span>
     <div>
-      <h1>LIVE <span>CALLER</span> STUDIO</h1>
-    </div>
-  </div>
-  <div class="meter-group" aria-hidden="true">
-    <div class="meter">
-      <label>Mic level</label>
-      <div class="meter-bar"><i></i></div>
-      <span class="db">— dB</span>
-    </div>
-    <div class="meter">
-      <label>Program mix</label>
-      <div class="meter-bar mix"><i></i></div>
-      <span class="db">— LUFS</span>
+      <h1>LIVE <span>CALLER</span></h1>
+      <small>Producer Console</small>
     </div>
   </div>
   <div class="header-right">
     <div class="broadcast-controls">
-      <button class="console-toggle open" id="linesToggleBtn" type="button" title="Phone lines open/closed">
+      <button class="console-toggle open" id="linesToggleBtn" type="button" title="Toggle whether phone lines are accepting live calls">
         <span class="console-led"></span>
         <span id="linesToggleText">Lines Open</span>
       </button>
-      <button class="console-toggle open" id="videoToggleBtn" type="button" title="Video line open/closed">
+      <button class="console-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video guests can join">
         <span class="console-led"></span>
         <span id="videoToggleText">Video Open</span>
       </button>
-      <button class="console-toggle open" id="overlayToggleBtn" type="button" title="OBS overlay master">
+      <button class="console-toggle open" id="overlayToggleBtn" type="button" title="Master switch: hide or show all OBS overlay graphics">
         <span class="console-led"></span>
         <span id="overlayToggleText">Overlay On</span>
       </button>
-      <button class="console-toggle open" id="overlayListToggleBtn" type="button" title="Overlay list open/closed">
+      <button class="console-toggle open" id="overlayListToggleBtn" type="button" title="Show or hide waiting-list panel on the OBS overlay">
         <span class="console-led"></span>
         <span id="overlayListToggleText">List Open</span>
       </button>
-      <button class="console-toggle open" id="overlayModeToggleBtn" type="button" title="Auto or manual overlay">
+      <button class="console-toggle open" id="overlayModeToggleBtn" type="button" title="Auto: queue badges + alerts. Manual: only live lower-thirds">
         <span class="console-led"></span>
         <span id="overlayModeToggleText">Auto</span>
       </button>
@@ -825,9 +748,17 @@ header.studio-top .brand small{ display:none; }
       <div class="qchip" id="chipVoice" title="Pending voice messages"><span class="qchip-ic">🎤</span><span id="queueCount">0</span></div>
       <div class="qchip" id="chipAudio" title="Waiting audio calls"><span class="qchip-ic">📞</span><span id="callCountNum">0</span></div>
       <div class="qchip" id="chipVideo" title="Waiting video guests"><span class="qchip-ic">🎥</span><span id="videoCountNum">0</span></div>
+      <div class="qchip" id="chipSongs" title="Pending song requests"><span class="qchip-ic">🎵</span><span id="songCountNum">0</span></div>
     </div>
-    <a class="home-btn" href="home-v2.html" title="Home">🏠</a>
-    <button class="signout-btn" id="signOutBtn" type="button" title="Sign out">Sign out</button>
+    <div class="call-counter" id="callCounter" style="display:none">📞 <span>0</span> Incoming</div>
+    <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
+    <input class="search" id="searchInput" placeholder="Search name, city, song…" inputmode="search" enterkeyhint="search">
+    <a class="home-btn" href="home.html">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Home
+    </a>
+    <button class="home-btn" id="soundToggleBtn" title="Button sounds on — click to mute">🔊</button>
+    <button class="signout-btn" id="signOutBtn">Sign Out</button>
   </div>
 </header>
 
@@ -842,12 +773,11 @@ header.studio-top .brand small{ display:none; }
 </nav>
 
 <!-- Bottom nav (mobile / tablet) -->
-<nav class="bot-nav" id="botTabNav" aria-label="Dashboard">
-  <a class="tab-btn" href="home-v2.html" style="text-decoration:none;color:inherit;"><span class="nav-ic">🏠</span>Home</a>
-  <button class="tab-btn active" data-tab="queue" type="button"><span class="nav-ic">💬</span>Messages</button>
-  <button class="tab-btn" data-tab="calls" type="button"><span class="nav-ic">📞</span>Calls</button>
-  <button class="tab-btn" data-tab="songs" type="button"><span class="nav-ic">🎵</span>Songs</button>
-  <button class="tab-btn" data-tab="analytics" type="button"><span class="nav-ic">📊</span>Stats</button>
+<nav class="bot-nav" id="botTabNav" aria-label="Main">
+  <button class="tab-btn active" data-tab="queue"><span class="nav-ic">📥</span>Queue</button>
+  <button class="tab-btn" data-tab="calls"><span class="nav-ic">📞</span>Calls</button>
+  <button class="tab-btn" data-tab="songs"><span class="nav-ic">🎵</span>Songs</button>
+  <button class="tab-btn" data-tab="analytics"><span class="nav-ic">📊</span>Stats</button>
 </nav>
 
 <main>
@@ -928,15 +858,6 @@ header.studio-top .brand small{ display:none; }
               <strong id="videoWaitingSide" style="color:var(--g);">0</strong>
             </div>
           </div>
-        </div>
-
-        <div class="ps-panel on-hold-panel">
-          <div class="ps-panel-h"><span>⏸ On Hold</span><span class="ps-count zero" id="onHoldCount">0</span></div>
-          <div class="ps-panel-body" id="onHoldQueue"><div class="empty" style="display:block;font-size:11px;color:#666;">No callers on hold</div></div>
-        </div>
-        <div class="ps-panel on-air-panel">
-          <div class="ps-panel-h"><span>🔴 Active On Air</span><span class="ps-count zero" id="onAirCount">0</span></div>
-          <div class="ps-panel-body" id="onAirQueue"><div class="empty" style="display:block;font-size:11px;color:#666;">Nothing on air</div></div>
         </div>
 
       </div>
@@ -1171,7 +1092,7 @@ import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
-  getFirestore, collection, query, orderBy, limit, where, onSnapshot,
+  getFirestore, collection, query, orderBy, onSnapshot,
   doc, updateDoc, deleteDoc, setDoc, addDoc, getDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
@@ -2712,12 +2633,10 @@ endBtn.addEventListener('click', async()=>{
   endBtn.textContent = '📵 End Call';
 });
 
-// Firestore query limits — keep live listeners small for mobile producers
-// liveCalls/videoCalls: 40 · messages: 80 · songs: 50 · history: 60
 // Calls Firestore listener — shows incoming calls queue
 function startCallsListener(){
   onSnapshot(
-    query(collection(db, 'liveCalls'), orderBy('createdAt', 'desc'), limit(40)),
+    query(collection(db, 'liveCalls'), orderBy('createdAt', 'desc')),
     (snap)=>{
       const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
       latestAudioCalls = calls;
@@ -2787,31 +2706,6 @@ function startCallsListener(){
   );
 }
 
-
-function refreshHoldAirRails(){
-  const holdEl = document.getElementById('onHoldQueue');
-  const airEl = document.getElementById('onAirQueue');
-  const holdC = document.getElementById('onHoldCount');
-  const airC = document.getElementById('onAirCount');
-  if(!holdEl || !airEl) return;
-  const held = (latestAudioCalls||[]).filter(c => c.status === 'held');
-  if(holdC){ holdC.textContent = String(held.length); holdC.classList.toggle('zero', !held.length); }
-  if(held.length === 0){
-    holdEl.innerHTML = '<div class="empty" style="display:block;font-size:11px;color:#666;">No callers on hold</div>';
-  } else {
-    holdEl.innerHTML = held.map(c=>`<div class="call-card"><div class="call-card-body"><div class="call-card-name">${escapeHtml(c.callerName||'Caller')}</div><div class="call-card-city">${escapeHtml(c.callerCity||'')}</div></div></div>`).join('');
-  }
-  const liveAudio = (latestAudioCalls||[]).filter(c => c.status === 'live');
-  const liveVideo = (latestVideoCalls||[]).filter(c => c.status === 'live');
-  const onAir = [...liveAudio.map(c=>({...c,_k:'audio'})), ...liveVideo.map(c=>({...c,_k:'video'}))];
-  if(airC){ airC.textContent = String(onAir.length); airC.classList.toggle('zero', !onAir.length); }
-  if(onAir.length === 0){
-    airEl.innerHTML = '<div class="empty" style="display:block;font-size:11px;color:#666;">Nothing on air</div>';
-  } else {
-    airEl.innerHTML = onAir.map(c=>`<div class="call-card"><div class="call-card-body"><div class="call-card-name">${escapeHtml(c.callerName||'Guest')} <span class="ph-badge ${c._k==='video'?'video':'audio'}">${c._k==='video'?'Video':'Audio'}</span></div><div class="call-card-city">${escapeHtml(c.callerCity||'')}</div></div></div>`).join('');
-  }
-}
-
 function renderCallsQueue(){
   const calls = latestAudioCalls || [];
   const ringing = calls.filter(c => c.status === 'waiting' && c.id !== connectingCallId);
@@ -2834,7 +2728,6 @@ function renderCallsQueue(){
   if(callsEmpty) callsEmpty.style.display = 'none';
   if(incomingCallsTitle) incomingCallsTitle.style.display = ringing.length > 0 ? 'flex' : 'none';
 
-  refreshHoldAirRails();
   callsQueue.innerHTML = ringing.map((c, i)=>`
     <div class="call-card" data-id="${c.id}">
       <div class="queue-pos">${i + 1}</div>
@@ -2887,7 +2780,7 @@ function startVideoTimer(sinceMs){
 
 function startVideoCallsListener(){
   onSnapshot(
-    query(collection(db, 'videoCalls'), orderBy('createdAt', 'desc'), limit(40)),
+    query(collection(db, 'videoCalls'), orderBy('createdAt', 'desc')),
     (snap)=>{
       const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
       latestVideoCalls = calls;
@@ -2959,7 +2852,6 @@ function startVideoCallsListener(){
       if(vqc) vqc.textContent = String(vCount);
       const vSide = document.getElementById('videoWaitingSide');
       if(vSide) vSide.textContent = String(vCount);
-      refreshHoldAirRails();
 
       // Waiting queue
       if(waiting.length === 0){
@@ -3291,7 +3183,7 @@ function startCallHistoryListener(){
   const histRec    = document.getElementById('histRecorded');
 
   onSnapshot(
-    query(collection(db, 'callHistory'), orderBy('createdAt', 'desc'), limit(60)),
+    query(collection(db, 'callHistory'), orderBy('createdAt', 'desc')),
     (snap)=>{
       const calls = snap.docs.map(d=>({ id:d.id, ...d.data() }));
       const today = new Date(); today.setHours(0,0,0,0);
@@ -3423,58 +3315,23 @@ function formatDur(s){
 
 // ── Text song requests queue ──
 let latestSongRequests = [];
-
-function queueSortKey(m){
-  const hold = m.onHold ? 1 : 0;
-  const pri = Number(m.priority || 0);
-  const ord = Number(m.sortOrder);
-  const hasOrd = !Number.isNaN(ord) && m.sortOrder != null && m.sortOrder !== '';
-  let ta = 0;
-  if(m.createdAt?.toMillis) ta = m.createdAt.toMillis();
-  else if(typeof m.createdAt === 'number') ta = m.createdAt;
-  else if(m.createdAt?.seconds) ta = m.createdAt.seconds * 1000;
-  return { hold, pri, hasOrd, ord: hasOrd ? ord : 0, ta };
-}
-function sortQueueItems(list){
-  return (list || []).slice().sort((a,b)=>{
-    const A = queueSortKey(a), B = queueSortKey(b);
-    if(A.hold !== B.hold) return A.hold - B.hold;
-    if(A.pri !== B.pri) return B.pri - A.pri;
-    if(A.hasOrd || B.hasOrd){
-      if(A.hasOrd && B.hasOrd && A.ord !== B.ord) return A.ord - B.ord;
-      if(A.hasOrd !== B.hasOrd) return A.hasOrd ? -1 : 1;
-    }
-    return A.ta - B.ta;
-  });
-}
-
 function startSongRequestsListener(){
-  const applySnap = (snap)=>{
-    latestSongRequests = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-    try{ renderSongsQueue(); }
-    catch(e){ console.error('renderSongsQueue', e); }
-  };
-  // Prefer pending-only (smaller reads). Fallback chain if composite index missing.
   onSnapshot(
-    query(collection(db, 'songRequests'), where('status', '==', 'pending'), orderBy('createdAt', 'desc'), limit(50)),
-    applySnap,
+    query(collection(db, 'songRequests'), orderBy('createdAt', 'desc')),
+    (snap)=>{
+      latestSongRequests = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      renderSongsQueue();
+    },
     (err)=>{
-      console.warn('songRequests pending query', err);
-      onSnapshot(
-        query(collection(db, 'songRequests'), orderBy('createdAt', 'desc'), limit(50)),
-        applySnap,
-        (e2)=>{
-          console.warn('songRequests orderBy query', e2);
-          onSnapshot(collection(db, 'songRequests'), applySnap, (e3)=>console.warn('songRequests raw', e3));
-        }
-      );
+      console.warn('songRequests listener', err);
+      const el = document.getElementById('songsEmpty');
+      if(el) el.innerHTML = `<div class="ic">⚠️</div><div>Could not load song requests: ${err.message}</div>`;
     }
   );
 }
 
 function renderSongsQueue(){
-  const raw = (latestSongRequests || []).filter(s => s.status === 'pending');
-  const list = typeof sortQueueItems === 'function' ? sortQueueItems(raw) : raw;
+  const list = sortQueueItems(latestSongRequests.filter(s => s.status === 'pending'));
   const n = list.length;
   const chip = document.getElementById('chipSongs');
   const num = document.getElementById('songCountNum');
@@ -3698,7 +3555,7 @@ setInterval(syncAudioQueueBadge, 500);
 function startQueueListener(){
   if(queueListenerStarted) return;
   queueListenerStarted = true;
-  const q = query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc'), limit(80));
+  const q = query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc'));
   onSnapshot(q, (snapshot)=>{
     allMessages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
