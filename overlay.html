@@ -31,8 +31,8 @@
   #notificationDetail{font-size:15px;color:#e6e6e6;margin-top:5px;font-weight:700}
   @keyframes notifyPulse{from{box-shadow:0 0 12px #53fc1844,0 8px 28px #000b}to{box-shadow:0 0 28px #53fc18aa,0 8px 28px #000b}}
   #fallback.error{color:#ff7777;border:1px solid #ff777766}
-  audio{display:none}
-  #guestVideo{display:none;width:100%;max-height:405px;object-fit:contain;background:#000;border-radius:12px;margin-bottom:12px}
+  audio#liveAudio{position:fixed;width:1px;height:1px;left:-10px;bottom:0;opacity:.01;pointer-events:none}
+  #guestVideo{display:none;position:fixed;left:28px;bottom:160px;width:min(720px,72vw);max-height:58vh;object-fit:contain;object-position:left bottom;background:#050505;border:2px solid var(--green);border-radius:14px;box-shadow:0 8px 34px #000c;z-index:10}
   #guestVideo.show{display:block}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   @media(max-width:500px){body{padding:12px}.card{gap:11px;padding:13px}.bolt{width:42px;height:42px;flex-basis:42px;font-size:25px}.pill{display:none}}
@@ -84,6 +84,7 @@ let activeCallId = '';
 let overlayCallPc = null;
 let overlayCallSessionRef = null;
 let overlayCallUnsubs = [];
+let overlayRemoteStream = null;
 const iceConfig = { iceServers: [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
@@ -94,46 +95,82 @@ const iceConfig = { iceServers: [
 function stopOverlayCallAudio(){
   overlayCallUnsubs.forEach(unsub=>{try{unsub()}catch(e){}}); overlayCallUnsubs=[];
   if(overlayCallPc){try{overlayCallPc.close()}catch(e){} overlayCallPc=null;}
-  overlayCallSessionRef=null; activeCallId='';
-  liveAudio.pause(); liveAudio.srcObject=null; liveAudio.removeAttribute('src'); currentAudioUrl='';
+  overlayCallSessionRef=null; activeCallId=''; overlayRemoteStream=null;
+  liveAudio.pause(); liveAudio.srcObject=null; liveAudio.removeAttribute('src'); liveAudio.muted=false; liveAudio.volume=1; currentAudioUrl='';
   guestVideo.pause(); guestVideo.srcObject=null; guestVideo.classList.remove('show');
 }
 async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVideo=false){
-  if(!callId || callId===activeCallId) return;
+  if(!callId) return;
+  // Reuse a healthy connection, but allow a failed connection to be retried.
+  if(callId===activeCallId && overlayCallPc && ['connected','connecting'].includes(overlayCallPc.connectionState)) return;
   stopOverlayCallAudio();
   activeCallId=callId;
   const sessionId = (crypto.randomUUID ? crypto.randomUUID() : 'overlay-'+Date.now()+'-'+Math.random().toString(36).slice(2));
   const sessionRef = doc(db,collectionName,callId,'overlaySessions',sessionId);
   overlayCallSessionRef=sessionRef;
   const pc = new RTCPeerConnection(iceConfig); overlayCallPc=pc;
+  overlayRemoteStream = new MediaStream();
   pc.addTransceiver('audio',{direction:'recvonly'});
   if(isVideo) pc.addTransceiver('video',{direction:'recvonly'});
-  pc.ontrack = (event)=>{
-    const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
-    if(event.track.kind==='video' || isVideo){ guestVideo.srcObject=stream; guestVideo.classList.add('show'); guestVideo.play().catch(()=>{}); }
-    if(event.track.kind==='audio'){ liveAudio.srcObject=stream; liveAudio.removeAttribute('src'); currentAudioUrl=''; liveAudio.play().catch(()=>{ fallback.textContent='OVERLAY AUDIO • CLICK/TAP TO ENABLE'; }); }
+  let remoteSet=false; const pending=[];
+  pc.ontrack = async (event)=>{
+    try {
+      if(!overlayRemoteStream) overlayRemoteStream = new MediaStream();
+      if(!overlayRemoteStream.getTracks().some(t=>t.id===event.track.id)) overlayRemoteStream.addTrack(event.track);
+      liveAudio.srcObject=overlayRemoteStream;
+      liveAudio.muted=false; liveAudio.volume=1;
+      if(event.track.kind==='video'){
+        guestVideo.srcObject=overlayRemoteStream;
+        guestVideo.classList.add('show');
+        await guestVideo.play().catch(()=>{});
+      }
+      if(event.track.kind==='audio'){
+        await liveAudio.play().catch(()=>{ fallback.textContent='CALL AUDIO CONNECTED • CHECK OBS BROWSER-SOURCE AUDIO'; });
+      }
+      fallback.textContent = isVideo ? 'VIDEO CALL MEDIA • '+event.track.kind.toUpperCase()+' TRACK RECEIVED' : 'AUDIO CALL • AUDIO TRACK RECEIVED';
+      fallback.classList.remove('error');
+    } catch(err) { showError('Media track: '+(err.message||'playback failed')); }
+  };
+  pc.onconnectionstatechange=()=>{
+    if(overlayCallPc!==pc) return;
+    if(pc.connectionState==='connected'){
+      fallback.textContent=isVideo?'VIDEO CALL CONNECTED':'AUDIO CALL CONNECTED';
+      fallback.classList.remove('error');
+    } else if(pc.connectionState==='failed' || pc.connectionState==='disconnected') {
+      showError('WebRTC '+pc.connectionState+' — check guest connection and TURN/ICE');
+    }
+  };
+  pc.oniceconnectionstatechange=()=>{
+    if(overlayCallPc===pc && ['failed','disconnected'].includes(pc.iceConnectionState)) showError('ICE '+pc.iceConnectionState+' — media path unavailable');
   };
   pc.onicecandidate = (event)=>{ if(event.candidate) addDoc(collection(sessionRef,'overlayCandidates'),event.candidate.toJSON()).catch(err=>showError(err.code||'ICE write failed')); };
-  const offer=await pc.createOffer(); await pc.setLocalDescription(offer);
-  await setDoc(sessionRef,{ offer:{type:offer.type,sdp:offer.sdp}, createdAt:Date.now(), client:'obs-overlay' });
-  let remoteSet=false; const pending=[];
+  // Subscribe before publishing the offer so fast answers/candidates are not missed.
   overlayCallUnsubs.push(onSnapshot(sessionRef, async snap=>{
     const data=snap.data(); if(!data || !data.answer || remoteSet || overlayCallPc!==pc) return;
     try{
       await pc.setRemoteDescription(new RTCSessionDescription(data.answer)); remoteSet=true;
       for(const c of pending) await pc.addIceCandidate(c).catch(()=>{});
       pending.length=0;
-    }catch(err){showError('Call audio answer: '+(err.message||'failed'));}
-  }));
+    }catch(err){showError('Call audio/video answer: '+(err.message||'failed'));}
+  }, err=>showError('Call signaling: '+(err.code||err.message||'read failed'))));
   overlayCallUnsubs.push(onSnapshot(collection(sessionRef,'dashboardCandidates'),snap=>{
     snap.docChanges().forEach(change=>{
       if(change.type!=='added' || overlayCallPc!==pc) return;
       const candidate=new RTCIceCandidate(change.doc.data());
       if(remoteSet) pc.addIceCandidate(candidate).catch(()=>{}); else pending.push(candidate);
     });
-  }));
+  }, err=>showError('Call ICE: '+(err.code||err.message||'read failed'))));
+  try {
+    const offer=await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await setDoc(sessionRef,{ offer:{type:offer.type,sdp:offer.sdp}, createdAt:Date.now(), client:'obs-overlay', mediaType:isVideo?'video':'audio' });
+    fallback.textContent=isVideo?'CONNECTING VIDEO CALL MEDIA…':'CONNECTING AUDIO CALL…';
+    fallback.classList.remove('error');
+  } catch(err) {
+    stopOverlayCallAudio();
+    throw err;
+  }
 }
-
 function showError(message){
   fallback.textContent = 'OVERLAY ERROR • ' + message;
   fallback.classList.add('error');
@@ -146,6 +183,8 @@ function render(data){
     if(!liveAudio.paused) liveAudio.pause();
     currentAudioUrl='';
     if(liveAudio.srcObject) liveAudio.srcObject=null;
+    if(guestVideo.srcObject) guestVideo.srcObject=null;
+    guestVideo.classList.remove('show');
     headline.textContent='Sending Scene On Air';
     subtitle.textContent='Waiting for Approval';
     eyebrow.textContent='LIVE CALLER STUDIO';
