@@ -749,7 +749,7 @@ import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
-  getFirestore, collection, query, orderBy, onSnapshot,
+  getFirestore, collection, query, orderBy, onSnapshot as firebaseOnSnapshot,
   doc, updateDoc, deleteDoc, setDoc, addDoc, getDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
@@ -768,7 +768,24 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Prevent duplicate realtime subscriptions after signing out and back in.
+// Track every realtime subscription so signing out releases listeners and a
+// later sign-in can safely attach fresh ones without duplicate Firestore reads.
+const activeDashboardUnsubs = new Set();
+function onSnapshot(...args){
+  const unsubscribe = firebaseOnSnapshot(...args);
+  activeDashboardUnsubs.add(unsubscribe);
+  return () => {
+    activeDashboardUnsubs.delete(unsubscribe);
+    unsubscribe();
+  };
+}
+function stopDashboardListeners(){
+  for(const unsubscribe of [...activeDashboardUnsubs]){
+    try{ unsubscribe(); }catch(err){ console.warn('Listener cleanup failed:',err); }
+  }
+  activeDashboardUnsubs.clear();
+  startedDashboardListeners.clear();
+}
 const startedDashboardListeners = new Set();
 function startListenerOnce(name){
   if(startedDashboardListeners.has(name)) return false;
@@ -810,6 +827,7 @@ onAuthStateChanged(auth, (user)=>{
     startVideoToggleListener();
     startVideoCallsListener();
   } else {
+    stopDashboardListeners();
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
   }
@@ -1392,8 +1410,7 @@ async function answerCall(callId, callerName, callerCity){
       callerRemoteStream = stream;
       callerAudio.srcObject = stream;
       callerAudio.play().catch(e => console.warn('callerAudio play blocked:', e));
-      // If the producer already pressed Send On Air before media arrived, route it now.
-      if(callIsOnAir) startOverlayBroadcast(stream, activeCallId).catch(err => console.error('OBS overlay media route failed:', err));
+      // The OBS overlay receives caller media through its own overlaySessions peer.
     }
   };
 
@@ -1607,43 +1624,6 @@ async function saveCallHistory(recordingUrl = null){
 
 // Route the live caller media to the OBS overlay through a second WebRTC peer.
 // The dashboard remains the trusted producer-side endpoint; no public media URL is needed.
-async function startOverlayBroadcast(stream, callId){
-  if(!stream || !callId) return;
-  if(overlayBroadcastPc) { overlayBroadcastPc.close(); overlayBroadcastPc = null; }
-  if(overlayCandidateUnsub){ overlayCandidateUnsub(); overlayCandidateUnsub = null; }
-  const overlayRef = doc(db, 'hotlineLive', 'overlayCall');
-  overlayBroadcastPc = new RTCPeerConnection(iceConfig);
-  stream.getTracks().forEach(track => overlayBroadcastPc.addTrack(track, stream));
-  const pendingOverlayCandidates = [];
-  overlayBroadcastPc.onicecandidate = event => {
-    if(event.candidate) addDoc(collection(db, 'hotlineLive', 'overlayCall', 'sessions', callId, 'offerCandidates'), event.candidate.toJSON()).catch(console.warn);
-  };
-  const offer = await overlayBroadcastPc.createOffer();
-  await overlayBroadcastPc.setLocalDescription(offer);
-  await setDoc(overlayRef, { active:true, callId, mediaType: stream.getVideoTracks().length ? 'video' : 'audio', offer:{type:offer.type,sdp:offer.sdp}, answer:null, updatedAt:Date.now() });
-  overlayCandidateUnsub = onSnapshot(collection(db, 'hotlineLive', 'overlayCall', 'sessions', callId, 'answerCandidates'), snap => {
-    snap.docChanges().forEach(change => {
-      if(change.type === 'added' && overlayBroadcastPc){
-        const candidate = new RTCIceCandidate(change.doc.data());
-        if(overlayBroadcastPc.remoteDescription) overlayBroadcastPc.addIceCandidate(candidate).catch(()=>{});
-        else pendingOverlayCandidates.push(candidate);
-      }
-    });
-  });
-  // Wait for the overlay's answer; the overlay may load after the offer is written.
-  const answerUnsub = onSnapshot(overlayRef, async snap => {
-    const data = snap.data();
-    if(data?.callId === callId && data.answer && overlayBroadcastPc && !overlayBroadcastPc.currentRemoteDescription){
-      try{
-        await overlayBroadcastPc.setRemoteDescription(new RTCSessionDescription(data.answer));
-        for(const candidate of pendingOverlayCandidates) await overlayBroadcastPc.addIceCandidate(candidate).catch(()=>{});
-        pendingOverlayCandidates.length = 0;
-      } catch(err){ console.error('OBS overlay answer failed:', err); }
-      answerUnsub();
-    }
-  });
-}
-
 // Send call on air — audio stays in dashboard (OBS captures via Browser Source)
 // Overlay just shows the visual lower-third, no audio routed through it
 callOnAirBtn.addEventListener('click', async()=>{
@@ -1661,11 +1641,13 @@ callOnAirBtn.addEventListener('click', async()=>{
       name: activeCallerName.textContent,
       city: activeCallerCity.textContent,
       messageType: 'livecall',
-      audioUrl: null, // no audio URL — OBS captures call audio from dashboard browser source
+      callId: activeCallId,
+      audioUrl: null,
       updatedAt: Date.now()
     });
     await setDoc(activeCallRef, { status: 'live' }, { merge: true });
-    if(callerRemoteStream) await startOverlayBroadcast(callerRemoteStream, activeCallId).catch(err=>console.error('OBS overlay media route failed:',err));
+    // OBS overlay creates its own WebRTC offer under liveCalls/{id}/overlaySessions;
+    // call.html answers that offer directly. Do not create a second, unused peer here.
   } else {
     callOnAirBtn.textContent = '🔴 Send On Air';
     callOnAirBtn.classList.remove('live');
@@ -1800,49 +1782,6 @@ function startVideoTimer(sinceMs){
   videoTimerInterval = setInterval(tick, 1000);
 }
 
-let videoPc = null;
-let videoCandidateUnsub = null;
-let videoRemoteStream = null;
-let videoLocalStream = null;
-let videoConnectionId = null;
-
-async function connectVideoGuest(id){
-  if(videoConnectionId === id && videoPc) return;
-  if(videoPc) videoPc.close();
-  if(videoCandidateUnsub){ videoCandidateUnsub(); videoCandidateUnsub=null; }
-  if(videoLocalStream) videoLocalStream.getTracks().forEach(t=>t.stop());
-  videoConnectionId = id;
-  videoRemoteStream = new MediaStream();
-  videoPc = new RTCPeerConnection(iceConfig);
-  try{
-    videoLocalStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
-    videoLocalStream.getTracks().forEach(track=>videoPc.addTrack(track,videoLocalStream));
-  }catch(err){ console.warn('Producer microphone unavailable for video guest:',err); }
-  videoPc.ontrack = event => {
-    const stream = event.streams?.[0];
-    if(stream){
-      videoRemoteStream = stream;
-      if(currentLiveVideoId === id) startOverlayBroadcast(stream, id).catch(err=>console.error('Video overlay route failed:',err));
-    } else if(event.track){ videoRemoteStream.addTrack(event.track); }
-  };
-  videoPc.onicecandidate = event => {
-    if(event.candidate) addDoc(collection(db,'videoCalls',id,'dashboardCandidates'),event.candidate.toJSON()).catch(()=>{});
-  };
-  const ref = doc(db,'videoCalls',id);
-  const snap = await getDoc(ref);
-  const data = snap.data();
-  if(!data?.offer){ console.error('Video guest has no WebRTC offer.'); return; }
-  await videoPc.setRemoteDescription(new RTCSessionDescription(data.offer));
-  const answer = await videoPc.createAnswer();
-  await videoPc.setLocalDescription(answer);
-  await setDoc(ref,{answer:{type:answer.type,sdp:answer.sdp},status:'answered'}, {merge:true});
-  videoCandidateUnsub = onSnapshot(collection(db,'videoCalls',id,'callerCandidates'), snap2=>{
-    snap2.docChanges().forEach(change=>{
-      if(change.type==='added' && videoPc) videoPc.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(()=>{});
-    });
-  });
-}
-
 function startVideoCallsListener(){
   if(!startListenerOnce('startVideoCallsListener')) return;
   onSnapshot(
@@ -1902,10 +1841,6 @@ videoEndBtn.addEventListener('click', async()=>{
   if(!currentLiveVideoId) return;
   await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
   await setDoc(liveStateRef,{active:false,updatedAt:Date.now()}).catch(()=>{});
-  if(videoPc){ videoPc.close(); videoPc=null; }
-  if(videoCandidateUnsub){ videoCandidateUnsub(); videoCandidateUnsub=null; }
-  if(videoLocalStream) videoLocalStream.getTracks().forEach(t=>t.stop());
-  videoRemoteStream=null; videoConnectionId=null;
   await setDoc(doc(db,'hotlineLive','overlayCall'),{active:false,updatedAt:Date.now()},{merge:true}).catch(()=>{});
 });
 
@@ -1920,11 +1855,12 @@ document.addEventListener('click', async(e)=>{
     if(currentLiveVideoId && currentLiveVideoId !== id){
       await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
     }
-    try{ await connectVideoGuest(id); }catch(err){ console.error('Video guest connection failed:',err); alert('Could not connect video guest: '+err.message); return; }
-    await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince: Date.now() }).catch(()=>{});
+    // Video guests do not publish a root-level offer. The OBS overlay creates
+    // an offer under videoCalls/{id}/overlaySessions and the guest answers it.
+    try { await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince: Date.now() }); } catch(err) { console.error('Could not mark video guest live:',err); alert('Could not send video guest on air: '+err.message); return; }
     const videoData = (await getDoc(doc(db,'videoCalls',id))).data() || {};
-    await setDoc(liveStateRef,{active:true,name:videoData.callerName||'Video Guest',city:videoData.callerCity||'',messageType:'videocall',audioUrl:null,updatedAt:Date.now()});
-    if(videoRemoteStream?.getTracks().length) await startOverlayBroadcast(videoRemoteStream,id).catch(err=>console.error('Video overlay route failed:',err));
+    await setDoc(liveStateRef,{active:true,name:videoData.callerName||'Video Guest',city:videoData.callerCity||'',messageType:'livevideo',callId:id,audioUrl:null,updatedAt:Date.now()});
+    // OBS overlay negotiates media through videoCalls/{id}/overlaySessions.
   }
   if(action === 'video-reject'){
     await updateDoc(doc(db, 'videoCalls', id), { status: 'rejected' }).catch(()=>{});

@@ -6,6 +6,7 @@ const CACHE_NAME = 'lcs-v7';
 const SHELL = [
   '/LiveCaller/index.html',
   '/LiveCaller/home.html',
+  '/LiveCaller/home-v2.html',
   '/LiveCaller/voicemessage.html',
   '/LiveCaller/songrequest.html',
   '/LiveCaller/song-overlay.html',
@@ -50,6 +51,10 @@ self.addEventListener('activate', (event) => {
 // - Everything else → cache first, fall back to network
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
+
+  // Only apply the app-shell cache strategy to GET requests. Never turn a failed
+  // POST/PUT/DELETE into an HTML fallback response.
+  if (event.request.method !== 'GET') return;
 
   // Always network for live data sources
   if (
