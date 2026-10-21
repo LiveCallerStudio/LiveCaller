@@ -20,8 +20,20 @@
   #subtitle{font-size:13px;color:var(--muted);line-height:1.35;overflow-wrap:anywhere}
   .pill{align-self:center;flex-shrink:0;border:1px solid #53fc1866;border-radius:999px;padding:8px 11px;color:var(--green);font-size:10px;font-weight:900;letter-spacing:1px;white-space:nowrap}
   #fallback{position:fixed;right:12px;top:12px;padding:6px 9px;border-radius:6px;background:#111d;color:#aaa;font-size:10px;letter-spacing:.5px}
+  #pendingCounters{position:fixed;right:22px;bottom:22px;display:flex;flex-direction:column;align-items:flex-end;gap:9px;z-index:20;max-width:min(460px,94vw)}
+  .pending-counter{display:flex;align-items:center;gap:12px;padding:12px 17px;border:2px solid var(--green);border-radius:14px;background:rgba(5,8,5,.97);box-shadow:0 5px 24px #000b;color:#fff;font-size:15px;font-weight:900;letter-spacing:.5px;text-transform:uppercase}
+  .pending-counter[hidden]{display:none}
+  .pending-counter .count{display:grid;place-items:center;min-width:38px;height:38px;padding:0 8px;border-radius:10px;background:var(--green);color:#071000;font-size:22px;letter-spacing:0}
+  #notificationToast{position:fixed;right:22px;top:22px;display:none;align-items:center;gap:15px;max-width:min(620px,94vw);padding:18px 22px;border:3px solid var(--green);border-left-width:10px;border-radius:15px;background:rgba(3,8,2,.98);box-shadow:0 8px 34px #000c;color:#fff;z-index:30;animation:notifyPulse 1.2s ease-in-out infinite alternate}
+  #notificationToast.show{display:flex}
+  #notificationIcon{font-size:36px;line-height:1}
+  #notificationTitle{font-size:clamp(20px,2.7vw,34px);font-weight:1000;letter-spacing:.5px;line-height:1.05}
+  #notificationDetail{font-size:15px;color:#e6e6e6;margin-top:5px;font-weight:700}
+  @keyframes notifyPulse{from{box-shadow:0 0 12px #53fc1844,0 8px 28px #000b}to{box-shadow:0 0 28px #53fc18aa,0 8px 28px #000b}}
   #fallback.error{color:#ff7777;border:1px solid #ff777766}
   audio{display:none}
+  #guestVideo{display:none;width:100%;max-height:405px;object-fit:contain;background:#000;border-radius:12px;margin-bottom:12px}
+  #guestVideo.show{display:block}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   @media(max-width:500px){body{padding:12px}.card{gap:11px;padding:13px}.bolt{width:42px;height:42px;flex-basis:42px;font-size:25px}.pill{display:none}}
 </style>
@@ -38,11 +50,18 @@
       <div class="pill" id="pill">ON AIR</div>
     </section>
   </main>
-  <div id="fallback">MSG — • CALL — • VIDEO — • SONG —</div>
-  <audio id="liveAudio" autoplay playsinline preload="auto"></audio>
+  <div id="fallback">LIVE CALLER STUDIO • CONNECTING</div>
+  <div id="notificationToast" role="alert" aria-live="assertive"><span id="notificationIcon">🎤</span><div><div id="notificationTitle">NEW VOICE MESSAGE</div><div id="notificationDetail">Waiting in queue</div></div></div>
+  <div id="pendingCounters" aria-live="polite">
+    <div class="pending-counter" id="voiceCounter" hidden><span class="count" id="voiceCount">0</span><span>Voice Messages Pending</span></div>
+    <div class="pending-counter" id="audioCallCounter" hidden><span class="count" id="audioCallCount">0</span><span>Audio Calls Waiting</span></div>
+    <div class="pending-counter" id="videoCallCounter" hidden><span class="count" id="videoCallCount">0</span><span>Video Calls Waiting</span></div>
+  </div>
+  <video id="guestVideo" autoplay playsinline></video>
+  <audio id="liveAudio" autoplay playsinline></audio>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
-import { getFirestore, doc, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
+import { getFirestore, doc, collection, onSnapshot, addDoc, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc',
@@ -59,56 +78,66 @@ const eyebrow = document.getElementById('eyebrow');
 const pill = document.getElementById('pill');
 const fallback = document.getElementById('fallback');
 const liveAudio = document.getElementById('liveAudio');
+const guestVideo = document.getElementById('guestVideo');
 let currentAudioUrl = '';
-liveAudio.muted = false;
-liveAudio.volume = 1;
-liveAudio.addEventListener('playing', () => {
-  fallback.dataset.audio = 'playing';
-  updateStatusChip();
-});
-liveAudio.addEventListener('ended', () => {
-  fallback.dataset.audio = '';
-  updateStatusChip();
-});
-liveAudio.addEventListener('error', () => {
-  const code = liveAudio.error ? liveAudio.error.code : 'unknown';
-  showError('audio load failed (code ' + code + ')');
-});
-
-async function playOverlayAudio(url){
-  if (!url) {
-    liveAudio.pause();
-    liveAudio.removeAttribute('src');
-    liveAudio.load();
-    currentAudioUrl = '';
-    return;
-  }
-  // Re-try a previously selected URL if autoplay failed or playback was paused.
-  if (url !== currentAudioUrl) {
-    currentAudioUrl = url;
-    liveAudio.src = url;
-    liveAudio.load();
-  }
-  if (liveAudio.paused || liveAudio.ended) {
-    try {
-      liveAudio.muted = false;
-      liveAudio.volume = 1;
-      await liveAudio.play();
-    } catch (err) {
-      showError('audio blocked • check OBS Browser Source audio settings');
-      console.warn('Overlay audio playback failed:', err);
-    }
-  }
+let activeCallId = '';
+let overlayCallPc = null;
+let overlayCallSessionRef = null;
+let overlayCallUnsubs = [];
+const iceConfig = { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+] };
+function stopOverlayCallAudio(){
+  overlayCallUnsubs.forEach(unsub=>{try{unsub()}catch(e){}}); overlayCallUnsubs=[];
+  if(overlayCallPc){try{overlayCallPc.close()}catch(e){} overlayCallPc=null;}
+  overlayCallSessionRef=null; activeCallId='';
+  liveAudio.pause(); liveAudio.srcObject=null; liveAudio.removeAttribute('src'); currentAudioUrl='';
+  guestVideo.pause(); guestVideo.srcObject=null; guestVideo.classList.remove('show');
+}
+async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVideo=false){
+  if(!callId || callId===activeCallId) return;
+  stopOverlayCallAudio();
+  activeCallId=callId;
+  const sessionId = (crypto.randomUUID ? crypto.randomUUID() : 'overlay-'+Date.now()+'-'+Math.random().toString(36).slice(2));
+  const sessionRef = doc(db,collectionName,callId,'overlaySessions',sessionId);
+  overlayCallSessionRef=sessionRef;
+  const pc = new RTCPeerConnection(iceConfig); overlayCallPc=pc;
+  pc.addTransceiver('audio',{direction:'recvonly'});
+  if(isVideo) pc.addTransceiver('video',{direction:'recvonly'});
+  pc.ontrack = (event)=>{
+    const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
+    if(event.track.kind==='video' || isVideo){ guestVideo.srcObject=stream; guestVideo.classList.add('show'); guestVideo.play().catch(()=>{}); }
+    if(event.track.kind==='audio'){ liveAudio.srcObject=stream; liveAudio.removeAttribute('src'); currentAudioUrl=''; liveAudio.play().catch(()=>{ fallback.textContent='OVERLAY AUDIO • CLICK/TAP TO ENABLE'; }); }
+  };
+  pc.onicecandidate = (event)=>{ if(event.candidate) addDoc(collection(sessionRef,'overlayCandidates'),event.candidate.toJSON()).catch(err=>showError(err.code||'ICE write failed')); };
+  const offer=await pc.createOffer(); await pc.setLocalDescription(offer);
+  await setDoc(sessionRef,{ offer:{type:offer.type,sdp:offer.sdp}, createdAt:Date.now(), client:'obs-overlay' });
+  let remoteSet=false; const pending=[];
+  overlayCallUnsubs.push(onSnapshot(sessionRef, async snap=>{
+    const data=snap.data(); if(!data || !data.answer || remoteSet || overlayCallPc!==pc) return;
+    try{
+      await pc.setRemoteDescription(new RTCSessionDescription(data.answer)); remoteSet=true;
+      for(const c of pending) await pc.addIceCandidate(c).catch(()=>{});
+      pending.length=0;
+    }catch(err){showError('Call audio answer: '+(err.message||'failed'));}
+  }));
+  overlayCallUnsubs.push(onSnapshot(collection(sessionRef,'dashboardCandidates'),snap=>{
+    snap.docChanges().forEach(change=>{
+      if(change.type!=='added' || overlayCallPc!==pc) return;
+      const candidate=new RTCIceCandidate(change.doc.data());
+      if(remoteSet) pc.addIceCandidate(candidate).catch(()=>{}); else pending.push(candidate);
+    });
+  }));
 }
 
-let statusCounts = { messages: '—', calls: '—', videos: '—', songs: '—' };
-function updateStatusChip(){
-  const audio = fallback.dataset.audio === 'playing' ? ' • AUDIO PLAYING' : '';
-  fallback.textContent = `MSG ${statusCounts.messages} • CALL ${statusCounts.calls} • VIDEO ${statusCounts.videos} • SONG ${statusCounts.songs}${audio}`;
-}
 function showError(message){
   fallback.textContent = 'OVERLAY ERROR • ' + message;
   fallback.classList.add('error');
+  // Keep transparent output clean; the status chip is only a debugging hint.
 }
 function clean(value, max=120){return String(value ?? '').replace(/[<>]/g,'').trim().slice(0,max)}
 function render(data){
@@ -116,6 +145,7 @@ function render(data){
     overlay.classList.add('hidden');
     if(!liveAudio.paused) liveAudio.pause();
     currentAudioUrl='';
+    if(liveAudio.srcObject) liveAudio.srcObject=null;
     headline.textContent='Sending Scene On Air';
     subtitle.textContent='Waiting for Approval';
     eyebrow.textContent='LIVE CALLER STUDIO';
@@ -131,6 +161,11 @@ function render(data){
     headline.textContent=name;
     subtitle.textContent=city ? city + ' • Sending Scene On Air' : 'Sending Scene On Air';
     pill.textContent='LIVE';
+  } else if(type === 'livevideo'){
+    eyebrow.textContent='VIDEO CALL • ON AIR';
+    headline.textContent=name;
+    subtitle.textContent=city ? city + ' • Sending Scene On Air' : 'Sending Scene On Air';
+    pill.textContent='LIVE VIDEO';
   } else {
     eyebrow.textContent='VOICE MESSAGE • ON AIR';
     headline.textContent=name;
@@ -139,32 +174,97 @@ function render(data){
     pill.textContent='ON AIR';
   }
   const url = typeof data.audioUrl === 'string' && /^https:\/\//i.test(data.audioUrl) ? data.audioUrl : '';
-  playOverlayAudio(url);
+  if(type === 'livecall' || type === 'livevideo'){
+    if(liveAudio.srcObject) return;
+    if(url && url !== currentAudioUrl){ liveAudio.src=url; currentAudioUrl=url; liveAudio.play().catch(()=>{}); }
+  } else if(url && url !== currentAudioUrl){
+    currentAudioUrl=url;
+    liveAudio.src=url;
+    liveAudio.play().catch(()=>{ /* OBS/browser autoplay policy may block audio; visual overlay remains active. */ });
+  } else if(!url && !liveAudio.paused){liveAudio.pause();currentAudioUrl='';}
 }
 
 try {
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-  onSnapshot(doc(db,'hotlineLive','nowPlaying'), snap => {
-    fallback.classList.remove('error');
-    render(snap.exists() ? snap.data() : null);
-  }, err => showError(err.code || err.message || 'Firestore connection failed'));
+  const counters = {
+    voice: { box: document.getElementById('voiceCounter'), number: document.getElementById('voiceCount') },
+    audio: { box: document.getElementById('audioCallCounter'), number: document.getElementById('audioCallCount') },
+    video: { box: document.getElementById('videoCallCounter'), number: document.getElementById('videoCallCount') }
+  };
+  const toast = document.getElementById('notificationToast');
+  const toastIcon = document.getElementById('notificationIcon');
+  const toastTitle = document.getElementById('notificationTitle');
+  const toastDetail = document.getElementById('notificationDetail');
+  let toastTimer = null;
+  function notifyIncoming(kind, person='') {
+    const config = {
+      voice: ['🎤','NEW VOICE MESSAGE','Voice message added to the queue'],
+      audio: ['📞','INCOMING AUDIO CALL','A caller is waiting — check the Calls tab'],
+      video: ['🎥','INCOMING VIDEO CALL','A video guest is waiting — check Video Guests']
+    }[kind];
+    if (!config) return;
+    toastIcon.textContent = config[0];
+    toastTitle.textContent = config[1];
+    toastDetail.textContent = person ? `${person} • ${config[2]}` : config[2];
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 10000);
+  }
+  function updateTypeCounter(kind, count) {
+    counters[kind].number.textContent = String(count);
+    counters[kind].box.hidden = count < 1;
+  }
+  // Counters are separated by incoming type. A toast only appears for a newly
+  // arriving pending item, never for old items when OBS first connects.
+  let firstVoiceSnapshot = true;
+  const previousVoiceStatuses = new Map();
+  onSnapshot(collection(db,'hotlineMessages'), snapshot => {
+    const waiting = snapshot.docs.filter(d => (d.data().status || 'pending') === 'pending');
+    updateTypeCounter('voice', waiting.length);
+    if (!firstVoiceSnapshot) {
+      snapshot.docChanges().forEach(change => {
+        const data = change.doc.data();
+        const oldStatus = previousVoiceStatuses.get(change.doc.id) || 'pending';
+        if (change.type === 'added' && (data.status || 'pending') === 'pending') notifyIncoming('voice', clean(data.name || 'Listener', 60));
+        if (change.type === 'modified' && (data.status || 'pending') === 'pending' && oldStatus !== 'pending') notifyIncoming('voice', clean(data.name || 'Listener', 60));
+      });
+    }
+    snapshot.docs.forEach(d => previousVoiceStatuses.set(d.id, d.data().status || 'pending'));
+    firstVoiceSnapshot = false;
+  }, err => showError('Voice message counter: ' + (err.code || err.message || 'read failed')));
 
-  // Compact live queue indicators for the OBS status chip.
-  onSnapshot(collection(db, 'hotlineMessages'), snap => {
-    const messages = snap.docs.map(d => d.data());
-    statusCounts.messages = messages.filter(m => m.status === 'pending').length;
-    statusCounts.songs = messages.filter(m => m.messageType === 'song' && m.status === 'pending').length;
-    updateStatusChip();
-  }, err => { statusCounts.messages = '!'; statusCounts.songs = '!'; updateStatusChip(); console.warn('Message counts unavailable:', err); });
-  onSnapshot(collection(db, 'liveCalls'), snap => {
-    statusCounts.calls = snap.docs.filter(d => ['waiting', 'ringing', 'answered', 'live'].includes((d.data().status || '').toLowerCase())).length;
-    updateStatusChip();
-  }, err => { statusCounts.calls = '!'; updateStatusChip(); console.warn('Call counts unavailable:', err); });
-  onSnapshot(collection(db, 'videoCalls'), snap => {
-    statusCounts.videos = snap.docs.filter(d => ['waiting', 'ringing', 'answered', 'live'].includes((d.data().status || '').toLowerCase())).length;
-    updateStatusChip();
-  }, err => { statusCounts.videos = '!'; updateStatusChip(); console.warn('Video-call counts unavailable:', err); });
+  function watchWaitingCalls(collectionName, kind) {
+    let firstSnapshot = true;
+    const previousStatuses = new Map();
+    onSnapshot(collection(db, collectionName), snapshot => {
+      const waiting = snapshot.docs.filter(d => d.data().status === 'waiting');
+      updateTypeCounter(kind, waiting.length);
+      if (!firstSnapshot) {
+        snapshot.docChanges().forEach(change => {
+          const data = change.doc.data();
+          const oldStatus = previousStatuses.get(change.doc.id);
+          if (data.status === 'waiting' && (change.type === 'added' || oldStatus !== 'waiting')) {
+            notifyIncoming(kind, clean(data.callerName || (kind === 'video' ? 'Video guest' : 'Caller'), 60));
+          }
+        });
+      }
+      snapshot.docs.forEach(d => previousStatuses.set(d.id, d.data().status));
+      firstSnapshot = false;
+    }, err => showError((kind === 'video' ? 'Video' : 'Audio call') + ' counter: ' + (err.code || err.message || 'read failed')));
+  }
+  watchWaitingCalls('liveCalls', 'audio');
+  watchWaitingCalls('videoCalls', 'video');
+  onSnapshot(doc(db,'hotlineLive','nowPlaying'), snap => {
+    fallback.textContent='LIVE CALLER STUDIO • CONNECTED';
+    fallback.classList.remove('error');
+    const data = snap.exists() ? snap.data() : null;
+    render(data);
+    if(data && data.active === true && ['livecall','livevideo'].includes(String(data.messageType||'').toLowerCase()) && data.callId){
+      const isVideo=String(data.messageType).toLowerCase()==='livevideo';
+      connectOverlayCallAudio(data.callId, isVideo?'videoCalls':'liveCalls', isVideo).catch(err=>showError('Call audio/video: '+(err.code||err.message||'connection failed')));
+    } else if(activeCallId){ stopOverlayCallAudio(); }
+  }, err => showError(err.code || err.message || 'Firestore connection failed'));
 } catch(err){showError(err.message || 'Firebase initialization failed');}
 
 // If loaded directly as a URL, a small debug label confirms the page itself rendered.
