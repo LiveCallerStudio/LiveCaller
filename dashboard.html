@@ -1042,7 +1042,8 @@ function render(){
         <div class="waveform ${previewing || isLive ? 'active' : ''}">${buildWaveformBars()}</div>
       </div>
       <div class="card-actions">
-        <button class="ibtn approve" data-action="approve" data-id="${m.id}">✓ Approve</button>
+        <button class="ibtn approve" data-action="approve" data-id="${m.id}">✓ Mark Played</button>
+        ${m.status==='approved' ? `<button class="ibtn" data-action="reset-queue" data-id="${m.id}" title="Return this message to the waiting queue">↺ Reset to Queue</button>` : ''}
         <button class="ibtn favorite ${m.favorited ? 'active' : ''}" data-action="favorite" data-id="${m.id}">⭐ ${m.favorited ? 'Saved' : 'Favorite'}</button>
         <button class="ibtn on-air-btn ${isLive ? 'live' : ''}" data-action="golive" data-id="${m.id}">${isLive ? '⏹ Stop Live' : '🔴 Send Live On Air'}</button>
         <button class="ibtn download" data-action="download-wav" data-id="${m.id}">⬇ WAV</button>
@@ -1211,6 +1212,9 @@ queueEl.addEventListener('click', async (e)=>{
     // Stop any local preview first
     currentlyPlayingId = null;
     livePlayingId = id;
+    // Sending a message on air marks it as played and removes it from the waiting counter.
+    // If this was only a test, use the visible “Reset to Queue” action to restore it.
+    await updateDoc(doc(db, 'hotlineMessages', id), { status: 'approved', playedOnAirAt: Date.now() });
     hiddenPlayer.src = msg.audioUrl;
     hiddenPlayer.muted = true; // MUTED in browser — OBS overlay plays the real audio
     hiddenPlayer.play().catch(()=>{});
@@ -1241,7 +1245,16 @@ queueEl.addEventListener('click', async (e)=>{
   }
 
   if(action === 'approve'){
-    await updateDoc(doc(db, 'hotlineMessages', id), { status: 'approved' });
+    await updateDoc(doc(db, 'hotlineMessages', id), { status: 'approved', playedOnAirAt: Date.now() });
+  }
+
+  if(action === 'reset-queue'){
+    if(!confirm('Reset this message to the waiting queue? It will count as not yet played on air.')) return;
+    await updateDoc(doc(db, 'hotlineMessages', id), {
+      status: 'pending',
+      playedOnAirAt: null,
+      resetToQueueAt: Date.now()
+    });
   }
 
   if(action === 'delete'){
@@ -1695,7 +1708,8 @@ callOnAirBtn.addEventListener('click', async()=>{
       name: activeCallerName.textContent,
       city: activeCallerCity.textContent,
       messageType: 'livecall',
-      audioUrl: null, // no audio URL — OBS captures call audio from dashboard browser source
+      callId: activeCallId,
+      audioUrl: null, // live audio is delivered to the overlay over a separate WebRTC connection
       updatedAt: Date.now()
     });
     await setDoc(activeCallRef, { status: 'live' }, { merge: true });
@@ -1885,6 +1899,7 @@ function startVideoCallsListener(){
 videoEndBtn.addEventListener('click', async()=>{
   if(!currentLiveVideoId) return;
   await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
+  await setDoc(liveStateRef, { active:false, updatedAt:Date.now() }, { merge:true }).catch(()=>{});
 });
 
 document.addEventListener('click', async(e)=>{
@@ -1899,6 +1914,17 @@ document.addEventListener('click', async(e)=>{
       await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
     }
     await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince: Date.now() }).catch(()=>{});
+    const videoCallSnap = await getDoc(doc(db, 'videoCalls', id)).catch(()=>null);
+    const videoCallData = videoCallSnap && videoCallSnap.exists() ? videoCallSnap.data() : {};
+    await setDoc(liveStateRef, {
+      active: true,
+      name: videoCallData.callerName || 'Video Guest',
+      city: videoCallData.callerCity || '',
+      messageType: 'livevideo',
+      callId: id,
+      audioUrl: null,
+      updatedAt: Date.now()
+    }, { merge:true });
   }
   if(action === 'video-reject'){
     await updateDoc(doc(db, 'videoCalls', id), { status: 'rejected' }).catch(()=>{});
