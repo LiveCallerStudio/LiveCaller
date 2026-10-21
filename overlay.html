@@ -39,7 +39,7 @@
     </section>
   </main>
   <div id="fallback">LIVE CALLER STUDIO • CONNECTING</div>
-  <audio id="liveAudio" autoplay playsinline></audio>
+  <audio id="liveAudio" autoplay playsinline preload="auto"></audio>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
 import { getFirestore, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
@@ -60,6 +60,45 @@ const pill = document.getElementById('pill');
 const fallback = document.getElementById('fallback');
 const liveAudio = document.getElementById('liveAudio');
 let currentAudioUrl = '';
+liveAudio.muted = false;
+liveAudio.volume = 1;
+liveAudio.addEventListener('playing', () => {
+  fallback.textContent = 'LIVE CALLER STUDIO • AUDIO PLAYING';
+  fallback.classList.remove('error');
+});
+liveAudio.addEventListener('ended', () => {
+  fallback.textContent = 'LIVE CALLER STUDIO • CONNECTED';
+});
+liveAudio.addEventListener('error', () => {
+  const code = liveAudio.error ? liveAudio.error.code : 'unknown';
+  showError('audio load failed (code ' + code + ')');
+});
+
+async function playOverlayAudio(url){
+  if (!url) {
+    liveAudio.pause();
+    liveAudio.removeAttribute('src');
+    liveAudio.load();
+    currentAudioUrl = '';
+    return;
+  }
+  // Re-try a previously selected URL if autoplay failed or playback was paused.
+  if (url !== currentAudioUrl) {
+    currentAudioUrl = url;
+    liveAudio.src = url;
+    liveAudio.load();
+  }
+  if (liveAudio.paused || liveAudio.ended) {
+    try {
+      liveAudio.muted = false;
+      liveAudio.volume = 1;
+      await liveAudio.play();
+    } catch (err) {
+      showError('audio blocked • check OBS Browser Source audio settings');
+      console.warn('Overlay audio playback failed:', err);
+    }
+  }
+}
 
 function showError(message){
   fallback.textContent = 'OVERLAY ERROR • ' + message;
@@ -95,11 +134,7 @@ function render(data){
     pill.textContent='ON AIR';
   }
   const url = typeof data.audioUrl === 'string' && /^https:\/\//i.test(data.audioUrl) ? data.audioUrl : '';
-  if(url && url !== currentAudioUrl){
-    currentAudioUrl=url;
-    liveAudio.src=url;
-    liveAudio.play().catch(()=>{ /* OBS/browser autoplay policy may block audio; visual overlay remains active. */ });
-  } else if(!url && !liveAudio.paused){liveAudio.pause();currentAudioUrl='';}
+  playOverlayAudio(url);
 }
 
 try {
