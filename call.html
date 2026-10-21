@@ -260,8 +260,8 @@
       </div>
 
       <div class="lines-closed-banner" id="linesClosedBanner">
-        <strong>📞 Phone Lines Are Closed</strong>
-        Call-ins aren't being accepted right now — check back soon!
+        <strong id="linesClosedTitle">📞 Checking phone line…</strong>
+        <span id="linesClosedCopy">Confirming whether call-ins are being accepted.</span>
       </div>
 
       <div class="error-banner" id="errorBanner"></div>
@@ -315,6 +315,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { LINE, resolveLineStates } from "./lib/line-state.js";
 import {
   getFirestore, collection, doc, addDoc, updateDoc,
   onSnapshot, serverTimestamp
@@ -450,7 +451,7 @@ const remoteAudio      = document.getElementById('remoteAudio');
 const errorBanner      = document.getElementById('errorBanner');
 const linesClosedBanner= document.getElementById('linesClosedBanner');
 
-let linesOpen = true; // defaults open until the settings doc says otherwise
+let linesOpen = false; // closed until the settings doc has been read from the server
 
 function showError(msg){ errorBanner.textContent = msg; errorBanner.classList.add('show'); }
 function clearError(){ errorBanner.classList.remove('show'); }
@@ -476,7 +477,7 @@ function stopTimer(){ clearInterval(timerInterval); }
 
 async function startCall(){
   clearError();
-  if(!linesOpen){ showError("Phone lines are currently closed — please check back soon."); return; }
+  if(!linesOpen){ showError("Phone lines aren't confirmed open right now — please check back soon."); return; }
   const name = callerNameInput.value.trim();
   if(!name){ showError('Please enter your name before calling in.'); return; }
 
@@ -708,13 +709,22 @@ window.addEventListener('beforeunload', ()=>{ stopOutgoingRing(); stopHoldMusicC
 // ── Phone lines open/closed ── set by the producer in the dashboard.
 // Missing doc / missing field defaults to OPEN so this never blocks calls
 // before a producer has ever touched the toggle.
-onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
-  const d = snap.data();
-  linesOpen = d ? d.open !== false : true;
+function applyPhoneLine(state){
+  linesOpen = state === LINE.OPEN;
   linesClosedBanner.classList.toggle('show', !linesOpen);
+  document.getElementById('linesClosedTitle').textContent =
+    state === LINE.UNKNOWN ? "📞 Can't confirm the phone line" : '📞 Phone Lines Are Closed';
+  document.getElementById('linesClosedCopy').textContent =
+    state === LINE.UNKNOWN ? 'Check your connection and try again shortly, or leave a voice message.'
+                           : "Call-ins aren't being accepted right now — check back soon!";
   callBtn.disabled = !linesOpen;
   callBtn.style.opacity = linesOpen ? '' : '.4';
-}, ()=>{ /* if this ever errors, leave calls enabled rather than block listeners */ });
+}
+applyPhoneLine(LINE.UNKNOWN); // nothing is open until Firestore confirms it
+onSnapshot(doc(db, 'hotlineSettings', 'callLines'),
+  (snap)=> applyPhoneLine(resolveLineStates(snap).phone),
+  (err)=>{ console.warn('Phone line status read failed:', err && err.code); applyPhoneLine(LINE.UNKNOWN); }
+);
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>

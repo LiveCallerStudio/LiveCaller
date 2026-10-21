@@ -139,6 +139,8 @@
     background:rgba(255,255,255,0.015);
   }
   .line-chip.offline .led{background:#3a3a3a;box-shadow:none;animation:none;}
+  .line-chip.unknown{color:var(--gold);border-color:rgba(212,175,55,0.35);background:var(--gold-soft);}
+  .line-chip.unknown .led{background:var(--gold);box-shadow:none;animation:none;}
   @keyframes pulse-led{
     0%,100%{opacity:1;transform:scale(1);}
     50%{opacity:0.4;transform:scale(0.85);}
@@ -305,7 +307,7 @@
 
   /* Offline state */
   .entry-offline{
-    display:none;
+    display:grid;
     grid-template-columns:64px 1fr auto;
     align-items:center;
     background:var(--surface);
@@ -404,13 +406,13 @@
       </div>
     </div>
     <div class="line-status">
-      <div class="line-chip" id="phoneChip">
+      <div class="line-chip unknown" id="phoneChip" role="status">
         <span class="led"></span>
-        <span id="phoneChipLabel">Phone</span>
+        <span id="phoneChipLabel">Phone status…</span>
       </div>
-      <div class="line-chip" id="videoChip">
+      <div class="line-chip unknown" id="videoChip" role="status">
         <span class="led"></span>
-        <span id="videoChipLabel">Video</span>
+        <span id="videoChipLabel">Video status…</span>
       </div>
     </div>
   </header>
@@ -467,7 +469,7 @@
     </a>
 
     <!-- Phone -->
-    <a class="entry priority" href="call.html" id="callOpen">
+    <a class="entry priority" href="call.html" id="callOpen" style="display:none">
       <div class="entry-icon-wrap">
         <div class="entry-icon">📞</div>
       </div>
@@ -484,14 +486,14 @@
         <div class="entry-icon">📞</div>
       </div>
       <div class="entry-content">
-        <div class="entry-title">Phone lines closed</div>
-        <div class="entry-copy">Live call-ins are not being accepted. Leave a voice message instead.</div>
+        <div class="entry-title" id="callClosedTitle">Checking phone line</div>
+        <div class="entry-copy" id="callClosedCopy">Confirming whether live call-ins are being accepted.</div>
       </div>
-      <div class="offline-badge">Offline</div>
+      <div class="offline-badge" id="callClosedBadge">Checking</div>
     </div>
 
     <!-- Video -->
-    <a class="entry" href="videocall.html" id="videoOpen">
+    <a class="entry" href="videocall.html" id="videoLink" style="display:none">
       <div class="entry-icon-wrap">
         <div class="entry-icon">🎥</div>
       </div>
@@ -508,10 +510,10 @@
         <div class="entry-icon">🎥</div>
       </div>
       <div class="entry-content">
-        <div class="entry-title">Video guests closed</div>
-        <div class="entry-copy">Video appearances are paused. Check back during the live broadcast.</div>
+        <div class="entry-title" id="videoClosedTitle">Checking video line</div>
+        <div class="entry-copy" id="videoClosedCopy">Confirming whether video guests are being accepted.</div>
       </div>
-      <div class="offline-badge">Offline</div>
+      <div class="offline-badge" id="videoClosedBadge">Checking</div>
     </div>
 
   </div>
@@ -550,6 +552,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
   import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import { LINE, UNKNOWN_LINES, resolveLineStates } from "./lib/line-state.js";
 
   const firebaseConfig = {
     apiKey:            "AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc",
@@ -563,41 +566,60 @@
   const app = initializeApp(firebaseConfig);
   const db  = getFirestore(app);
 
-  const callOpen   = document.getElementById('callOpen');
-  const callClosed = document.getElementById('callClosed');
-  const videoOpen  = document.getElementById('videoOpen');
-  const videoClosed= document.getElementById('videoClosed');
+  // DOM elements (…El) and line states (…State) use different names so they can never collide.
+  const callOpenEl    = document.getElementById('callOpen');
+  const callClosedEl  = document.getElementById('callClosed');
+  const videoOpenEl   = document.getElementById('videoLink');
+  const videoClosedEl = document.getElementById('videoClosed');
   const phoneChip  = document.getElementById('phoneChip');
   const phoneLabel = document.getElementById('phoneChipLabel');
   const videoChip  = document.getElementById('videoChip');
   const videoLabel = document.getElementById('videoChipLabel');
 
-  function setEntry(openEl, closedEl, isOpen){
-    openEl.style.display = isOpen ? 'grid' : 'none';
+  const COPY = {
+    phone: {
+      [LINE.CLOSED]:  ['Phone lines closed', 'Live call-ins are not being accepted. Leave a voice message instead.', 'Offline'],
+      [LINE.UNKNOWN]: ['Phone line status unavailable', "We can't confirm the line right now. Leave a voice message or try again shortly.", 'Unknown']
+    },
+    video: {
+      [LINE.CLOSED]:  ['Video guests closed', 'Video appearances are paused. Check back during the live broadcast.', 'Offline'],
+      [LINE.UNKNOWN]: ['Video line status unavailable', "We can't confirm the line right now. Try again shortly.", 'Unknown']
+    }
+  };
+
+  function setEntry(kind, openEl, closedEl, state){
+    const isOpen = state === LINE.OPEN;
+    openEl.style.display   = isOpen ? 'grid' : 'none';
     closedEl.style.display = isOpen ? 'none' : 'grid';
+    if(!isOpen){
+      const [title, copy, badge] = COPY[kind][state];
+      document.getElementById(kind + 'ClosedTitle').textContent = title;
+      document.getElementById(kind + 'ClosedCopy').textContent  = copy;
+      document.getElementById(kind + 'ClosedBadge').textContent = badge;
+    }
   }
 
-  function setChip(chip, labelEl, isOpen, onText, offText){
-    chip.classList.toggle('live', isOpen);
-    chip.classList.toggle('offline', !isOpen);
-    labelEl.textContent = isOpen ? onText : offText;
+  function setChip(chip, labelEl, state, onText, offText, unknownText){
+    chip.classList.toggle('live',    state === LINE.OPEN);
+    chip.classList.toggle('offline', state === LINE.CLOSED);
+    chip.classList.toggle('unknown', state === LINE.UNKNOWN);
+    labelEl.textContent = state === LINE.OPEN ? onText : state === LINE.CLOSED ? offText : unknownText;
   }
 
-  onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
-    const d = snap.data();
-    const phoneOpen = d ? d.open !== false : true;
-    const videoOpen = d ? d.videoOpen !== false : true;
+  function applyLines(states){
+    setEntry('phone', callOpenEl,  callClosedEl,  states.phone);
+    setEntry('video', videoOpenEl, videoClosedEl, states.video);
+    setChip(phoneChip, phoneLabel, states.phone, 'Phone live', 'Phone offline', 'Phone status unknown');
+    setChip(videoChip, videoLabel, states.video, 'Video live', 'Video offline', 'Video status unknown');
+  }
 
-    setEntry(callOpen, callClosed, phoneOpen);
-    setEntry(videoOpen, videoClosed, videoOpen);
-    setChip(phoneChip, phoneLabel, phoneOpen, 'Phone live', 'Phone offline');
-    setChip(videoChip, videoLabel, videoOpen, 'Video live', 'Video offline');
-  }, ()=>{
-    setEntry(callOpen, callClosed, true);
-    setEntry(videoOpen, videoClosed, true);
-    setChip(phoneChip, phoneLabel, true, 'Phone live', 'Phone offline');
-    setChip(videoChip, videoLabel, true, 'Video live', 'Video offline');
-  });
+  // Nothing is open until Firestore has confirmed it.
+  applyLines(UNKNOWN_LINES);
+
+  onSnapshot(doc(db, 'hotlineSettings', 'callLines'),
+    (snap) => applyLines(resolveLineStates(snap)),
+    (err)  => { console.warn('Line status read failed:', err && err.code); applyLines(UNKNOWN_LINES); }
+  );
 </script>
 </body>
 </html>

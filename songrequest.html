@@ -120,15 +120,15 @@ const err = document.getElementById('err');
 const formCard = document.getElementById('formCard');
 const done = document.getElementById('done');
 
-function allowSubmit(){
-  try{
-    const k = 'lcs_last_song_req';
-    const now = Date.now();
-    const last = Number(localStorage.getItem(k) || 0);
-    if(now - last < 12000) return false;
-    localStorage.setItem(k, String(now));
-    return true;
-  }catch(e){ return true; }
+const COOLDOWN_KEY = 'lcs_last_song_req';
+const COOLDOWN_MS = 12000;
+function cooldownActive(){
+  try{ return Date.now() - Number(localStorage.getItem(COOLDOWN_KEY) || 0) < COOLDOWN_MS; }
+  catch(e){ return false; }
+}
+// Only called after Firestore has accepted the write, so a failed send never burns the cooldown.
+function markSubmitted(){
+  try{ localStorage.setItem(COOLDOWN_KEY, String(Date.now())); }catch(e){}
 }
 
 async function send(){
@@ -137,7 +137,7 @@ async function send(){
   const s = title.value.trim();
   if(!a){ err.textContent = 'Artist name is required.'; artist.focus(); return; }
   if(!s){ err.textContent = 'Song title is required.'; title.focus(); return; }
-  if(!allowSubmit()){ err.textContent = 'Please wait a few seconds before sending another request.'; return; }
+  if(cooldownActive()){ err.textContent = 'Please wait a few seconds before sending another request.'; return; }
 
   sendBtn.disabled = true;
   sendBtn.textContent = 'Sending…';
@@ -150,6 +150,7 @@ async function send(){
       status: 'pending',
       createdAt: serverTimestamp()
     });
+    markSubmitted();
     formCard.classList.add('hide');
     done.classList.add('show');
   }catch(e){

@@ -335,6 +335,12 @@
   // Missing doc / missing field defaults to OPEN so the badges don't wrongly
   // say "closed" before a producer has ever touched either toggle.
   onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
+    if(snap.metadata && snap.metadata.fromCache){
+      [linesStatus, videoStatus].forEach(el=>{ el.classList.remove('open'); el.classList.add('closed'); });
+      linesStatusText.textContent = 'Phone line status unavailable';
+      videoStatusText.textContent = 'Video line status unavailable';
+      return;
+    }
     const d = snap.data();
     const open = d ? d.open !== false : true;
     linesStatus.classList.toggle('open', open);
@@ -346,10 +352,10 @@
     videoStatus.classList.toggle('closed', !videoOpen);
     videoStatusText.textContent = videoOpen ? 'Video Guests Open' : 'Video Guests Closed';
   }, ()=>{
-    linesStatusText.textContent = 'Phone Lines Open';
-    linesStatus.classList.add('open');
-    videoStatusText.textContent = 'Video Guests Open';
-    videoStatus.classList.add('open');
+    // Read failed: do not claim the lines are open.
+    [linesStatus, videoStatus].forEach(el=>{ el.classList.remove('open'); el.classList.add('closed'); });
+    linesStatusText.textContent = 'Phone line status unavailable';
+    videoStatusText.textContent = 'Video line status unavailable';
   });
 </script>
 </body>
