@@ -38,11 +38,11 @@
       <div class="pill" id="pill">ON AIR</div>
     </section>
   </main>
-  <div id="fallback">LIVE CALLER STUDIO • CONNECTING</div>
+  <div id="fallback">MSG — • CALL — • VIDEO — • SONG —</div>
   <audio id="liveAudio" autoplay playsinline preload="auto"></audio>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
-import { getFirestore, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
+import { getFirestore, doc, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc',
@@ -63,11 +63,12 @@ let currentAudioUrl = '';
 liveAudio.muted = false;
 liveAudio.volume = 1;
 liveAudio.addEventListener('playing', () => {
-  fallback.textContent = 'LIVE CALLER STUDIO • AUDIO PLAYING';
-  fallback.classList.remove('error');
+  fallback.dataset.audio = 'playing';
+  updateStatusChip();
 });
 liveAudio.addEventListener('ended', () => {
-  fallback.textContent = 'LIVE CALLER STUDIO • CONNECTED';
+  fallback.dataset.audio = '';
+  updateStatusChip();
 });
 liveAudio.addEventListener('error', () => {
   const code = liveAudio.error ? liveAudio.error.code : 'unknown';
@@ -100,10 +101,14 @@ async function playOverlayAudio(url){
   }
 }
 
+let statusCounts = { messages: '—', calls: '—', videos: '—', songs: '—' };
+function updateStatusChip(){
+  const audio = fallback.dataset.audio === 'playing' ? ' • AUDIO PLAYING' : '';
+  fallback.textContent = `MSG ${statusCounts.messages} • CALL ${statusCounts.calls} • VIDEO ${statusCounts.videos} • SONG ${statusCounts.songs}${audio}`;
+}
 function showError(message){
   fallback.textContent = 'OVERLAY ERROR • ' + message;
   fallback.classList.add('error');
-  // Keep transparent output clean; the status chip is only a debugging hint.
 }
 function clean(value, max=120){return String(value ?? '').replace(/[<>]/g,'').trim().slice(0,max)}
 function render(data){
@@ -141,10 +146,25 @@ try {
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
   onSnapshot(doc(db,'hotlineLive','nowPlaying'), snap => {
-    fallback.textContent='LIVE CALLER STUDIO • CONNECTED';
     fallback.classList.remove('error');
     render(snap.exists() ? snap.data() : null);
   }, err => showError(err.code || err.message || 'Firestore connection failed'));
+
+  // Compact live queue indicators for the OBS status chip.
+  onSnapshot(collection(db, 'hotlineMessages'), snap => {
+    const messages = snap.docs.map(d => d.data());
+    statusCounts.messages = messages.filter(m => m.status === 'pending').length;
+    statusCounts.songs = messages.filter(m => m.messageType === 'song' && m.status === 'pending').length;
+    updateStatusChip();
+  }, err => { statusCounts.messages = '!'; statusCounts.songs = '!'; updateStatusChip(); console.warn('Message counts unavailable:', err); });
+  onSnapshot(collection(db, 'liveCalls'), snap => {
+    statusCounts.calls = snap.docs.filter(d => ['waiting', 'ringing', 'answered', 'live'].includes((d.data().status || '').toLowerCase())).length;
+    updateStatusChip();
+  }, err => { statusCounts.calls = '!'; updateStatusChip(); console.warn('Call counts unavailable:', err); });
+  onSnapshot(collection(db, 'videoCalls'), snap => {
+    statusCounts.videos = snap.docs.filter(d => ['waiting', 'ringing', 'answered', 'live'].includes((d.data().status || '').toLowerCase())).length;
+    updateStatusChip();
+  }, err => { statusCounts.videos = '!'; updateStatusChip(); console.warn('Video-call counts unavailable:', err); });
 } catch(err){showError(err.message || 'Firebase initialization failed');}
 
 // If loaded directly as a URL, a small debug label confirms the page itself rendered.
