@@ -497,6 +497,24 @@
   .login-error{
     color:var(--red); font-size:12.5px; margin-top:12px; min-height:16px;
   }
+
+  /* Producer-focused compact layout: controls and line status stay at the top */
+  header{padding:10px 14px;gap:10px;align-items:center}
+  .brand h1{font-size:14px;letter-spacing:1px}.brand small{font-size:10px}
+  .header-right{gap:7px;justify-content:flex-end;flex:1}
+  .header-right>*{min-height:36px}
+  .lines-toggle,.counter,.home-btn,.signout-btn{padding:8px 10px;font-size:11px}
+  .search{width:min(190px,30vw);padding:8px 10px}
+  .tab-nav{position:sticky;top:0;z-index:8;display:flex;gap:6px;overflow-x:auto;white-space:nowrap;padding:8px 12px;background:#090909;border-bottom:1px solid var(--line);scrollbar-width:thin}
+  .tab-btn{flex:0 0 auto;min-height:40px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800}
+  main{max-width:1400px;margin:0 auto}.tab-content{padding:14px 12px 36px}
+  .card,.call-card{padding:12px;gap:10px;border-radius:10px}
+  .card-actions,.active-call-controls,.call-card-actions{display:flex;gap:7px;flex-wrap:wrap}
+  button,a,select,input{touch-action:manipulation}
+  button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+  @media(min-width:900px){header{position:sticky;top:0}.tab-nav{top:74px}.queue{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));align-items:start}}
+  @media(max-width:760px){header{position:relative;align-items:flex-start}.header-right{justify-content:flex-start;width:100%}.search{width:100%;flex:1 1 140px}.tab-nav{top:0}.tab-content{padding:10px 8px 28px}.queue{gap:8px}.card{align-items:flex-start}.card-body{min-width:150px}.ibtn{padding:9px 10px}}
+
 </style>
 </head>
 <body>
@@ -750,24 +768,12 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Keep realtime listeners bounded to one authenticated dashboard session.
-const activeSubscriptions = new Set();
-let dashboardListenersStarted = false;
-function subscribe(...args) {
-  const unsubscribe = onSnapshot(...args);
-  activeSubscriptions.add(unsubscribe);
-  return () => { activeSubscriptions.delete(unsubscribe); unsubscribe(); };
-}
-function stopDashboardListeners() {
-  for (const unsubscribe of activeSubscriptions) {
-    try { unsubscribe(); } catch (_) {}
-  }
-  activeSubscriptions.clear();
-  dashboardListenersStarted = false;
-  queueListenerStarted = false;
-  stopPhoneRing();
-  clearInterval(callTimerInterval);
-  clearInterval(videoTimerInterval);
+// Prevent duplicate realtime subscriptions after signing out and back in.
+const startedDashboardListeners = new Set();
+function startListenerOnce(name){
+  if(startedDashboardListeners.has(name)) return false;
+  startedDashboardListeners.add(name);
+  return true;
 }
 
 const loginScreen = document.getElementById('loginScreen');
@@ -797,17 +803,13 @@ onAuthStateChanged(auth, (user)=>{
   if(user){
     loginScreen.style.display = 'none';
     dashboardApp.style.display = 'block';
-    if (!dashboardListenersStarted) {
-      dashboardListenersStarted = true;
-      startQueueListener();
-      startCallsListener();
-      startCallHistoryListener();
-      startLinesToggleListener();
-      startVideoToggleListener();
-      startVideoCallsListener();
-    }
+    startQueueListener();
+    startCallsListener();
+    startCallHistoryListener();
+    startLinesToggleListener();
+    startVideoToggleListener();
+    startVideoCallsListener();
   } else {
-    stopDashboardListeners();
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
   }
@@ -839,7 +841,8 @@ function renderLinesToggle(){
 }
 
 function startLinesToggleListener(){
-  subscribe(linesSettingsRef, (snap)=>{
+  if(!startListenerOnce('startLinesToggleListener')) return;
+  onSnapshot(linesSettingsRef, (snap)=>{
     const d = snap.data();
     linesOpen = d ? d.open !== false : true;
     renderLinesToggle();
@@ -879,7 +882,8 @@ function renderVideoToggle(){
 }
 
 function startVideoToggleListener(){
-  subscribe(linesSettingsRef, (snap)=>{
+  if(!startListenerOnce('startVideoToggleListener')) return;
+  onSnapshot(linesSettingsRef, (snap)=>{
     const d = snap.data();
     videoOpen = d ? d.videoOpen !== false : true;
     renderVideoToggle();
@@ -976,17 +980,13 @@ function timeAgo(ts){
   return d.toLocaleDateString();
 }
 
-function buildWaveformBars(count=40){
+function buildWaveformBars(count=12){
   let html = '';
   for(let i=0;i<count;i++){
     const h = 4 + Math.round(Math.random()*20);
     html += `<span style="height:${h}px"></span>`;
   }
   return html;
-}
-
-function safeHttpsUrl(value){
-  try { const url = new URL(String(value || ''), location.href); return url.protocol === 'https:' ? url.href : ''; } catch (_) { return ''; }
 }
 
 function render(){
@@ -1020,6 +1020,9 @@ function render(){
   }
   emptyState.style.display = 'none';
 
+  // Keep the live UI lightweight: render only the newest 40 matching cards.
+  // allMessages remains complete for accurate pending counts and live actions.
+  list = list.slice(0, 40);
   queueEl.innerHTML = list.map(m=>{
     const isNew = m.status === 'pending';
     const previewing = currentlyPlayingId === m.id;
@@ -1042,12 +1045,10 @@ function render(){
         <div class="waveform ${previewing || isLive ? 'active' : ''}">${buildWaveformBars()}</div>
       </div>
       <div class="card-actions">
-        <button class="ibtn approve" data-action="approve" data-id="${m.id}">✓ Mark Played</button>
-        ${m.status==='approved' ? `<button class="ibtn" data-action="reset-queue" data-id="${m.id}" title="Return this message to the waiting queue">↺ Reset to Queue</button>` : ''}
+        <button class="ibtn approve" data-action="approve" data-id="${m.id}">✓ Approve</button>
         <button class="ibtn favorite ${m.favorited ? 'active' : ''}" data-action="favorite" data-id="${m.id}">⭐ ${m.favorited ? 'Saved' : 'Favorite'}</button>
         <button class="ibtn on-air-btn ${isLive ? 'live' : ''}" data-action="golive" data-id="${m.id}">${isLive ? '⏹ Stop Live' : '🔴 Send Live On Air'}</button>
-        <button class="ibtn download" data-action="download-wav" data-id="${m.id}">⬇ WAV</button>
-        <button class="ibtn download" data-action="download-mp3" data-id="${m.id}">⬇ MP3</button>
+        <a class="ibtn download" href="${m.audioUrl}" download target="_blank" rel="noopener">⬇ Download</a>
         <button class="ibtn delete" data-action="delete" data-id="${m.id}">🗑 Delete</button>
       </div>
     </div>`;
@@ -1080,86 +1081,7 @@ function typeDetail(m){
 }
 
 function escapeHtml(str){
-  return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-// Download message audio as a real WAV or MP3 file, regardless of the
-// original browser recording container (usually WebM/Opus or MP4/AAC).
-function audioBaseName(msg){
-  const raw = `${msg.name || 'voice-message'}-${msg.id || 'audio'}`;
-  return raw.normalize('NFKD').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80) || 'voice-message';
-}
-function encodeWav(audioBuffer){
-  const channels = Math.min(audioBuffer.numberOfChannels, 2);
-  const sampleRate = audioBuffer.sampleRate;
-  const frames = audioBuffer.length;
-  const bytesPerSample = 2;
-  const dataSize = frames * channels * bytesPerSample;
-  const buffer = new ArrayBuffer(44 + dataSize);
-  const view = new DataView(buffer);
-  const write = (offset, value) => { for(let i=0;i<value.length;i++) view.setUint8(offset+i,value.charCodeAt(i)); };
-  write(0,'RIFF'); view.setUint32(4,36+dataSize,true); write(8,'WAVE'); write(12,'fmt ');
-  view.setUint32(16,16,true); view.setUint16(20,1,true); view.setUint16(22,channels,true);
-  view.setUint32(24,sampleRate,true); view.setUint32(28,sampleRate*channels*bytesPerSample,true);
-  view.setUint16(32,channels*bytesPerSample,true); view.setUint16(34,16,true); write(36,'data'); view.setUint32(40,dataSize,true);
-  const channelData = Array.from({length:channels},(_,i)=>audioBuffer.getChannelData(i));
-  let offset=44;
-  for(let i=0;i<frames;i++) for(let ch=0;ch<channels;ch++){
-    const sample=Math.max(-1,Math.min(1,channelData[ch][i]));
-    view.setInt16(offset, sample < 0 ? sample*0x8000 : sample*0x7fff, true); offset+=2;
-  }
-  return new Blob([buffer],{type:'audio/wav'});
-}
-function downloadBlob(blob, filename){
-  const url=URL.createObjectURL(blob); const a=document.createElement('a');
-  a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),30000);
-}
-let lameJsPromise;
-function loadLameJs(){
-  if(window.lamejs) return Promise.resolve(window.lamejs);
-  if(!lameJsPromise) lameJsPromise=new Promise((resolve,reject)=>{
-    const script=document.createElement('script'); script.src='https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js';
-    script.onload=()=>window.lamejs ? resolve(window.lamejs) : reject(new Error('MP3 encoder did not load'));
-    script.onerror=()=>reject(new Error('Could not load MP3 encoder. Check internet access, or download as WAV.'));
-    document.head.appendChild(script);
-  });
-  return lameJsPromise;
-}
-function floatTo16BitPCM(floatData){
-  const out=new Int16Array(floatData.length);
-  for(let i=0;i<floatData.length;i++){ const v=Math.max(-1,Math.min(1,floatData[i])); out[i]=v<0?v*32768:v*32767; }
-  return out;
-}
-async function downloadMessageAudio(msg, format, button){
-  const audioUrl=safeHttpsUrl(msg.audioUrl);
-  if(!audioUrl) throw new Error('This message has no valid HTTPS audio URL.');
-  const oldText=button.textContent; button.disabled=true; button.textContent='Converting…';
-  try{
-    const response=await fetch(audioUrl,{mode:'cors'});
-    if(!response.ok) throw new Error(`Audio download failed (${response.status}).`);
-    const bytes=await response.arrayBuffer();
-    const AudioCtx=window.AudioContext||window.webkitAudioContext;
-    if(!AudioCtx) throw new Error('Audio conversion is not supported in this browser.');
-    const ctx=new AudioCtx();
-    let decoded;
-    try { decoded=await ctx.decodeAudioData(bytes.slice(0)); } finally { await ctx.close().catch(()=>{}); }
-    const base=audioBaseName(msg);
-    if(format==='wav') { downloadBlob(encodeWav(decoded),`${base}.wav`); return; }
-    const lame=await loadLameJs();
-    const channels=Math.min(decoded.numberOfChannels,2), sampleRate=decoded.sampleRate;
-    const encoder=new lame.Mp3Encoder(channels,sampleRate,128), chunkSize=1152, left=floatTo16BitPCM(decoded.getChannelData(0));
-    const right=channels===2 ? floatTo16BitPCM(decoded.getChannelData(1)) : null;
-    const chunks=[];
-    for(let i=0;i<left.length;i+=chunkSize){
-      const l=left.subarray(i,Math.min(i+chunkSize,left.length));
-      const r=right ? right.subarray(i,Math.min(i+chunkSize,right.length)) : undefined;
-      const part=right ? encoder.encodeBuffer(l,r) : encoder.encodeBuffer(l);
-      if(part.length) chunks.push(new Int8Array(part));
-    }
-    const end=encoder.flush(); if(end.length) chunks.push(new Int8Array(end));
-    downloadBlob(new Blob(chunks,{type:'audio/mpeg'}),`${base}.mp3`);
-  } finally { button.disabled=false; button.textContent=oldText; }
+  return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 queueEl.addEventListener('click', async (e)=>{
@@ -1169,12 +1091,6 @@ queueEl.addEventListener('click', async (e)=>{
   const action = btn.dataset.action;
   const msg = allMessages.find(m=>m.id===id);
   if(!msg) return;
-
-  if(action === 'download-wav' || action === 'download-mp3'){
-    try { await downloadMessageAudio(msg, action === 'download-wav' ? 'wav' : 'mp3', btn); }
-    catch(err){ console.error('Audio conversion failed:',err); alert(`Could not convert this message: ${err.message}`); }
-    return;
-  }
 
   if(action === 'play'){
     // PREVIEW ONLY — plays in this browser, never touches OBS or Firestore
@@ -1212,9 +1128,6 @@ queueEl.addEventListener('click', async (e)=>{
     // Stop any local preview first
     currentlyPlayingId = null;
     livePlayingId = id;
-    // Sending a message on air marks it as played and removes it from the waiting counter.
-    // If this was only a test, use the visible “Reset to Queue” action to restore it.
-    await updateDoc(doc(db, 'hotlineMessages', id), { status: 'approved', playedOnAirAt: Date.now() });
     hiddenPlayer.src = msg.audioUrl;
     hiddenPlayer.muted = true; // MUTED in browser — OBS overlay plays the real audio
     hiddenPlayer.play().catch(()=>{});
@@ -1245,16 +1158,7 @@ queueEl.addEventListener('click', async (e)=>{
   }
 
   if(action === 'approve'){
-    await updateDoc(doc(db, 'hotlineMessages', id), { status: 'approved', playedOnAirAt: Date.now() });
-  }
-
-  if(action === 'reset-queue'){
-    if(!confirm('Reset this message to the waiting queue? It will count as not yet played on air.')) return;
-    await updateDoc(doc(db, 'hotlineMessages', id), {
-      status: 'pending',
-      playedOnAirAt: null,
-      resetToQueueAt: Date.now()
-    });
+    await updateDoc(doc(db, 'hotlineMessages', id), { status: 'approved' });
   }
 
   if(action === 'delete'){
@@ -1389,6 +1293,9 @@ const iceConfig = {
 };
 
 let activePc = null;         // RTCPeerConnection for current call
+let callerRemoteStream = null;
+let overlayBroadcastPc = null;
+let overlayCandidateUnsub = null;
 let activeCallId = null;     // current call Firestore ID
 let activeCallRef = null;    // Firestore doc ref for current call
 let producerStream = null;   // producer mic stream
@@ -1445,6 +1352,9 @@ function setCallStatus(text, cls=''){
 
 function cleanupActiveCall(){
   clearInterval(callTimerInterval);
+  if(overlayCandidateUnsub){ overlayCandidateUnsub(); overlayCandidateUnsub = null; }
+  if(overlayBroadcastPc){ overlayBroadcastPc.close(); overlayBroadcastPc = null; }
+  callerRemoteStream = null;
   if(callCandidateUnsub){ callCandidateUnsub(); callCandidateUnsub = null; }
   if(activePc){ activePc.close(); activePc = null; }
   if(producerStream){ producerStream.getTracks().forEach(t=>t.stop()); producerStream = null; }
@@ -1477,9 +1387,13 @@ async function answerCall(callId, callerName, callerCity){
 
   // 3. Play caller audio when remote track arrives
   activePc.ontrack = (event)=>{
-    if(event.streams && event.streams[0]){
-      callerAudio.srcObject = event.streams[0];
+    const stream = event.streams && event.streams[0];
+    if(stream){
+      callerRemoteStream = stream;
+      callerAudio.srcObject = stream;
       callerAudio.play().catch(e => console.warn('callerAudio play blocked:', e));
+      // If the producer already pressed Send On Air before media arrived, route it now.
+      if(callIsOnAir) startOverlayBroadcast(stream, activeCallId).catch(err => console.error('OBS overlay media route failed:', err));
     }
   };
 
@@ -1510,7 +1424,7 @@ async function answerCall(callId, callerName, callerCity){
 
   // 8. Listen for caller ICE candidates — start immediately, Firestore delivers existing docs too
   // No buffering needed on this side because setRemoteDescription already happened above
-  callCandidateUnsub = subscribe(
+  callCandidateUnsub = onSnapshot(
     collection(db, 'liveCalls', callId, 'callerCandidates'),
     (snap)=>{
       snap.docChanges().forEach(async(change)=>{
@@ -1691,6 +1605,45 @@ async function saveCallHistory(recordingUrl = null){
   }catch(e){ console.warn('Could not save call history:', e); }
 }
 
+// Route the live caller media to the OBS overlay through a second WebRTC peer.
+// The dashboard remains the trusted producer-side endpoint; no public media URL is needed.
+async function startOverlayBroadcast(stream, callId){
+  if(!stream || !callId) return;
+  if(overlayBroadcastPc) { overlayBroadcastPc.close(); overlayBroadcastPc = null; }
+  if(overlayCandidateUnsub){ overlayCandidateUnsub(); overlayCandidateUnsub = null; }
+  const overlayRef = doc(db, 'hotlineLive', 'overlayCall');
+  overlayBroadcastPc = new RTCPeerConnection(iceConfig);
+  stream.getTracks().forEach(track => overlayBroadcastPc.addTrack(track, stream));
+  const pendingOverlayCandidates = [];
+  overlayBroadcastPc.onicecandidate = event => {
+    if(event.candidate) addDoc(collection(db, 'hotlineLive', 'overlayCall', 'sessions', callId, 'offerCandidates'), event.candidate.toJSON()).catch(console.warn);
+  };
+  const offer = await overlayBroadcastPc.createOffer();
+  await overlayBroadcastPc.setLocalDescription(offer);
+  await setDoc(overlayRef, { active:true, callId, mediaType: stream.getVideoTracks().length ? 'video' : 'audio', offer:{type:offer.type,sdp:offer.sdp}, answer:null, updatedAt:Date.now() });
+  overlayCandidateUnsub = onSnapshot(collection(db, 'hotlineLive', 'overlayCall', 'sessions', callId, 'answerCandidates'), snap => {
+    snap.docChanges().forEach(change => {
+      if(change.type === 'added' && overlayBroadcastPc){
+        const candidate = new RTCIceCandidate(change.doc.data());
+        if(overlayBroadcastPc.remoteDescription) overlayBroadcastPc.addIceCandidate(candidate).catch(()=>{});
+        else pendingOverlayCandidates.push(candidate);
+      }
+    });
+  });
+  // Wait for the overlay's answer; the overlay may load after the offer is written.
+  const answerUnsub = onSnapshot(overlayRef, async snap => {
+    const data = snap.data();
+    if(data?.callId === callId && data.answer && overlayBroadcastPc && !overlayBroadcastPc.currentRemoteDescription){
+      try{
+        await overlayBroadcastPc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        for(const candidate of pendingOverlayCandidates) await overlayBroadcastPc.addIceCandidate(candidate).catch(()=>{});
+        pendingOverlayCandidates.length = 0;
+      } catch(err){ console.error('OBS overlay answer failed:', err); }
+      answerUnsub();
+    }
+  });
+}
+
 // Send call on air — audio stays in dashboard (OBS captures via Browser Source)
 // Overlay just shows the visual lower-third, no audio routed through it
 callOnAirBtn.addEventListener('click', async()=>{
@@ -1708,17 +1661,19 @@ callOnAirBtn.addEventListener('click', async()=>{
       name: activeCallerName.textContent,
       city: activeCallerCity.textContent,
       messageType: 'livecall',
-      callId: activeCallId,
-      audioUrl: null, // live audio is delivered to the overlay over a separate WebRTC connection
+      audioUrl: null, // no audio URL — OBS captures call audio from dashboard browser source
       updatedAt: Date.now()
     });
     await setDoc(activeCallRef, { status: 'live' }, { merge: true });
+    if(callerRemoteStream) await startOverlayBroadcast(callerRemoteStream, activeCallId).catch(err=>console.error('OBS overlay media route failed:',err));
   } else {
     callOnAirBtn.textContent = '🔴 Send On Air';
     callOnAirBtn.classList.remove('live');
     setCallStatus('Screening — call taken off air');
     onAirBadge.classList.remove('show');
     await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+    await setDoc(doc(db, 'hotlineLive', 'overlayCall'), { active:false, updatedAt:Date.now() }, { merge:true }).catch(()=>{});
+    if(overlayBroadcastPc){ overlayBroadcastPc.close(); overlayBroadcastPc=null; }
     await setDoc(activeCallRef, { status: 'answered' }, { merge: true });
   }
 });
@@ -1738,6 +1693,8 @@ endBtn.addEventListener('click', async()=>{
   stopPhoneRing();
 
   await setDoc(activeCallRef, { status: 'ended' }, { merge: true });
+  await setDoc(doc(db, 'hotlineLive', 'overlayCall'), { active:false, updatedAt:Date.now() }, { merge:true }).catch(()=>{});
+  if(overlayBroadcastPc){ overlayBroadcastPc.close(); overlayBroadcastPc=null; }
   if(callIsOnAir){
     await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
   }
@@ -1752,7 +1709,8 @@ endBtn.addEventListener('click', async()=>{
 
 // Calls Firestore listener — shows incoming calls queue
 function startCallsListener(){
-  subscribe(
+  if(!startListenerOnce('startCallsListener')) return;
+  onSnapshot(
     query(collection(db, 'liveCalls'), orderBy('createdAt', 'desc')),
     (snap)=>{
       const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
@@ -1842,8 +1800,52 @@ function startVideoTimer(sinceMs){
   videoTimerInterval = setInterval(tick, 1000);
 }
 
+let videoPc = null;
+let videoCandidateUnsub = null;
+let videoRemoteStream = null;
+let videoLocalStream = null;
+let videoConnectionId = null;
+
+async function connectVideoGuest(id){
+  if(videoConnectionId === id && videoPc) return;
+  if(videoPc) videoPc.close();
+  if(videoCandidateUnsub){ videoCandidateUnsub(); videoCandidateUnsub=null; }
+  if(videoLocalStream) videoLocalStream.getTracks().forEach(t=>t.stop());
+  videoConnectionId = id;
+  videoRemoteStream = new MediaStream();
+  videoPc = new RTCPeerConnection(iceConfig);
+  try{
+    videoLocalStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
+    videoLocalStream.getTracks().forEach(track=>videoPc.addTrack(track,videoLocalStream));
+  }catch(err){ console.warn('Producer microphone unavailable for video guest:',err); }
+  videoPc.ontrack = event => {
+    const stream = event.streams?.[0];
+    if(stream){
+      videoRemoteStream = stream;
+      if(currentLiveVideoId === id) startOverlayBroadcast(stream, id).catch(err=>console.error('Video overlay route failed:',err));
+    } else if(event.track){ videoRemoteStream.addTrack(event.track); }
+  };
+  videoPc.onicecandidate = event => {
+    if(event.candidate) addDoc(collection(db,'videoCalls',id,'dashboardCandidates'),event.candidate.toJSON()).catch(()=>{});
+  };
+  const ref = doc(db,'videoCalls',id);
+  const snap = await getDoc(ref);
+  const data = snap.data();
+  if(!data?.offer){ console.error('Video guest has no WebRTC offer.'); return; }
+  await videoPc.setRemoteDescription(new RTCSessionDescription(data.offer));
+  const answer = await videoPc.createAnswer();
+  await videoPc.setLocalDescription(answer);
+  await setDoc(ref,{answer:{type:answer.type,sdp:answer.sdp},status:'answered'}, {merge:true});
+  videoCandidateUnsub = onSnapshot(collection(db,'videoCalls',id,'callerCandidates'), snap2=>{
+    snap2.docChanges().forEach(change=>{
+      if(change.type==='added' && videoPc) videoPc.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(()=>{});
+    });
+  });
+}
+
 function startVideoCallsListener(){
-  subscribe(
+  if(!startListenerOnce('startVideoCallsListener')) return;
+  onSnapshot(
     query(collection(db, 'videoCalls'), orderBy('createdAt', 'desc')),
     (snap)=>{
       const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
@@ -1899,7 +1901,12 @@ function startVideoCallsListener(){
 videoEndBtn.addEventListener('click', async()=>{
   if(!currentLiveVideoId) return;
   await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
-  await setDoc(liveStateRef, { active:false, updatedAt:Date.now() }, { merge:true }).catch(()=>{});
+  await setDoc(liveStateRef,{active:false,updatedAt:Date.now()}).catch(()=>{});
+  if(videoPc){ videoPc.close(); videoPc=null; }
+  if(videoCandidateUnsub){ videoCandidateUnsub(); videoCandidateUnsub=null; }
+  if(videoLocalStream) videoLocalStream.getTracks().forEach(t=>t.stop());
+  videoRemoteStream=null; videoConnectionId=null;
+  await setDoc(doc(db,'hotlineLive','overlayCall'),{active:false,updatedAt:Date.now()},{merge:true}).catch(()=>{});
 });
 
 document.addEventListener('click', async(e)=>{
@@ -1913,18 +1920,11 @@ document.addEventListener('click', async(e)=>{
     if(currentLiveVideoId && currentLiveVideoId !== id){
       await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
     }
+    try{ await connectVideoGuest(id); }catch(err){ console.error('Video guest connection failed:',err); alert('Could not connect video guest: '+err.message); return; }
     await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince: Date.now() }).catch(()=>{});
-    const videoCallSnap = await getDoc(doc(db, 'videoCalls', id)).catch(()=>null);
-    const videoCallData = videoCallSnap && videoCallSnap.exists() ? videoCallSnap.data() : {};
-    await setDoc(liveStateRef, {
-      active: true,
-      name: videoCallData.callerName || 'Video Guest',
-      city: videoCallData.callerCity || '',
-      messageType: 'livevideo',
-      callId: id,
-      audioUrl: null,
-      updatedAt: Date.now()
-    }, { merge:true });
+    const videoData = (await getDoc(doc(db,'videoCalls',id))).data() || {};
+    await setDoc(liveStateRef,{active:true,name:videoData.callerName||'Video Guest',city:videoData.callerCity||'',messageType:'videocall',audioUrl:null,updatedAt:Date.now()});
+    if(videoRemoteStream?.getTracks().length) await startOverlayBroadcast(videoRemoteStream,id).catch(err=>console.error('Video overlay route failed:',err));
   }
   if(action === 'video-reject'){
     await updateDoc(doc(db, 'videoCalls', id), { status: 'rejected' }).catch(()=>{});
@@ -1960,6 +1960,7 @@ document.addEventListener('click', async(e)=>{
 });
 
 function startCallHistoryListener(){
+  if(!startListenerOnce('startCallHistoryListener')) return;
   const histList   = document.getElementById('histList');
   const histEmpty  = document.getElementById('histEmpty');
   const histTotal  = document.getElementById('histTotal');
@@ -1967,7 +1968,7 @@ function startCallHistoryListener(){
   const histAvgDur = document.getElementById('histAvgDur');
   const histRec    = document.getElementById('histRecorded');
 
-  subscribe(
+  onSnapshot(
     query(collection(db, 'callHistory'), orderBy('createdAt', 'desc')),
     (snap)=>{
       const calls = snap.docs.map(d=>({ id:d.id, ...d.data() }));
@@ -1991,7 +1992,7 @@ function startCallHistoryListener(){
       }
       histEmpty.style.display = 'none';
 
-      histList.innerHTML = calls.map(c=>`
+      histList.innerHTML = calls.slice(0, 40).map(c=>`
         <div class="hist-card" data-histid="${c.id}">
           <div class="hist-icon">${c.recordingUrl ? '🔴' : '📞'}</div>
           <div class="hist-body">
@@ -2010,7 +2011,7 @@ function startCallHistoryListener(){
         </div>`).join('');
 
       // ── Recordings section ──
-      const recorded = calls.filter(c => c.recordingUrl);
+      const recorded = calls.filter(c => c.recordingUrl).slice(0, 20);
       const recSection = document.getElementById('recordingsSection');
       const recList    = document.getElementById('recordingsList');
       const recEmpty   = document.getElementById('recordingsEmpty');
@@ -2048,12 +2049,11 @@ function formatDur(s){
 }
 
 function startQueueListener(){
+  if(!startListenerOnce('startQueueListener')) return;
   if(queueListenerStarted) return;
   queueListenerStarted = true;
-  // Read the collection without orderBy so older documents missing createdAt are still visible.
-  const q = collection(db, 'hotlineMessages');
-  queueEl.innerHTML = '<div class="empty">Connecting to message inbox…</div>';
-  subscribe(q, (snapshot)=>{
+  const q = query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc'));
+  onSnapshot(q, (snapshot)=>{
     allMessages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
     if(!firstLoad){
@@ -2071,8 +2071,7 @@ function startQueueListener(){
 
     render();
   }, (err)=>{
-    console.error('Message inbox listener failed:', err);
-    queueEl.innerHTML = `<div class="empty">Messages could not load (${escapeHtml(err.code || 'connection error')}).<br><br>Confirm you are signed into the correct producer account and that Firestore rules allow reads from hotlineMessages.<br><small>${escapeHtml(err.message || '')}</small></div>`;
+    queueEl.innerHTML = `<div class="empty">Couldn't connect to Firebase: ${err.message}<br><br>Check your firebaseConfig and Firestore security rules.</div>`;
   });
 }
 </script>
