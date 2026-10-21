@@ -363,6 +363,9 @@ let callDocRef = null;
 let timerInterval = null;
 let callSeconds = 0;
 let micMuted = false;
+// Extra WebRTC receivers let the OBS overlay receive the caller's live mic directly.
+const overlayPeerConnections = new Map();
+let overlaySessionsUnsub = null;
 
 // ── Outgoing ring tone (caller hears this while waiting for answer) ──
 let outgoingRingInterval = null;
@@ -593,6 +596,47 @@ async function startCall(){
     }
   });
 
+  // OBS overlay is a separate peer. Apply its recvonly offer first, then
+  // attach the caller microphone to the offered audio transceiver before answering.
+  overlaySessionsUnsub = onSnapshot(collection(db, 'liveCalls', callDocRef.id, 'overlaySessions'), (snap) => {
+    snap.docChanges().forEach(async (change) => {
+      if(change.type !== 'added') return;
+      const sessionId = change.doc.id;
+      const sessionData = change.doc.data();
+      if(!sessionData.offer || overlayPeerConnections.has(sessionId) || !localStream) return;
+      const sessionRef = doc(db, 'liveCalls', callDocRef.id, 'overlaySessions', sessionId);
+      const overlayPc = new RTCPeerConnection(STUN);
+      overlayPeerConnections.set(sessionId, overlayPc);
+      let remoteDescriptionSet = false;
+      overlayPc.onicecandidate = (event) => {
+        if(event.candidate) addDoc(collection(sessionRef, 'dashboardCandidates'), event.candidate.toJSON()).catch(err => console.warn('OBS candidate write failed', err));
+      };
+      overlayPc.onconnectionstatechange = () => console.info('OBS audio peer:', overlayPc.connectionState);
+      try {
+        await overlayPc.setRemoteDescription(new RTCSessionDescription(sessionData.offer));
+        remoteDescriptionSet = true;
+        for(const transceiver of overlayPc.getTransceivers()) {
+          const kind = transceiver.receiver?.track?.kind;
+          const track = localStream.getTracks().find(t => t.kind === kind);
+          if(track) { await transceiver.sender.replaceTrack(track); transceiver.direction = 'sendonly'; }
+        }
+        const answer = await overlayPc.createAnswer();
+        await overlayPc.setLocalDescription(answer);
+        await updateDoc(sessionRef, { answer: { type: answer.type, sdp: answer.sdp }, updatedAt: Date.now() });
+        onSnapshot(collection(sessionRef, 'overlayCandidates'), (candidateSnap) => {
+          candidateSnap.docChanges().forEach((candidateChange) => {
+            if(candidateChange.type === 'added' && overlayPc.signalingState !== 'closed') {
+              overlayPc.addIceCandidate(new RTCIceCandidate(candidateChange.doc.data())).catch(err => console.warn('OBS ICE add failed', err));
+            }
+          });
+        }, err => console.warn('OBS overlay candidate listener failed', err));
+      } catch(err) {
+        console.warn('OBS overlay audio connection failed:', err);
+        overlayPc.close(); overlayPeerConnections.delete(sessionId);
+      }
+    });
+  }, err => console.warn('OBS overlay session listener failed:', err));
+
   // Listen for dashboard ICE candidates — buffer them if remote desc not set yet
   onSnapshot(collection(db, 'liveCalls', callDocRef.id, 'dashboardCandidates'), (snap) => {
     snap.docChanges().forEach(async (change) => {
@@ -616,6 +660,9 @@ async function startCall(){
 }
 
 function cleanup(updateFirestore = true){
+  if(overlaySessionsUnsub){ overlaySessionsUnsub(); overlaySessionsUnsub = null; }
+  overlayPeerConnections.forEach((overlayPc)=>{ try{overlayPc.close();}catch(e){} });
+  overlayPeerConnections.clear();
   if(localStream) localStream.getTracks().forEach(t => t.stop());
   if(pc){ pc.close(); pc = null; }
   if(updateFirestore && callDocRef){
