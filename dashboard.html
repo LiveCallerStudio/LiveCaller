@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152.png">
 <link rel="apple-touch-icon" sizes="167x167" href="apple-touch-icon-167.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<title>Live Caller Studio — Producer Dashboard</title>
+<title>Live Caller Studio — Phone & Message Control Center</title>
 <style>
   :root{
     --green:#53FC18;
@@ -515,6 +515,14 @@
   @media(min-width:900px){header{position:sticky;top:0}.tab-nav{top:74px}.queue{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));align-items:start}}
   @media(max-width:760px){header{position:relative;align-items:flex-start}.header-right{justify-content:flex-start;width:100%}.search{width:100%;flex:1 1 140px}.tab-nav{top:0}.tab-content{padding:10px 8px 28px}.queue{gap:8px}.card{align-items:flex-start}.card-body{min-width:150px}.ibtn{padding:9px 10px}}
 
+  .top-line-control{display:flex;align-items:center;gap:12px;padding:10px 16px;background:#0b0b0b;border-bottom:1px solid var(--line);position:relative;z-index:7}
+  .top-line-control .lines-toggle{min-height:40px}
+  .top-line-hint{font-size:11px;color:var(--muted,#999);letter-spacing:.04em}
+  @media(max-width:760px){.top-line-control{padding:8px 10px}.top-line-hint{font-size:10px}}
+
+  .unified-video-section{margin-top:26px;padding-top:22px;border-top:1px solid var(--border,rgba(255,255,255,.12));}
+  .unified-video-section:before{content:'VIDEO CALLS';display:block;font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--sub,#9aa);margin:0 0 14px;}
+  .top-line-control{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -528,7 +536,7 @@
 <div class="login-screen" id="loginScreen">
   <div class="login-box">
     <div class="login-brand">⚡ LIVE CALLER STUDIO</div>
-    <div class="login-sub">Producer Dashboard — Sign in required</div>
+    <div class="login-sub">Phone & Message Control Center — Sign in required</div>
     <input type="email" id="loginEmail" placeholder="Admin email" autocomplete="username">
     <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
     <button id="loginBtn">Sign In</button>
@@ -547,10 +555,6 @@
     </div>
   </div>
   <div class="header-right">
-    <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Toggle whether phone lines are accepting live calls">
-      <span class="lines-dot"></span>
-      <span id="linesToggleText">Lines Open</span>
-    </button>
     <div class="call-counter" id="callCounter">📞 <span id="callCountNum">0</span> Incoming</div>
     <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
     <div class="counter"><span class="dot"></span><span id="queueCount">0 waiting</span></div>
@@ -568,13 +572,25 @@
   </div>
 </header>
 
+<div class="top-line-control">
+  <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Toggle whether phone lines are accepting live calls">
+    <span class="lines-dot"></span>
+    <span id="linesToggleText">Lines Open</span>
+  </button>
+  <span class="top-line-hint">Audio calls</span>
+  <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video calls can join">
+    <span class="lines-dot"></span>
+    <span id="videoToggleText">Video Guests Open</span>
+  </button>
+  <span class="top-line-hint">Video calls</span>
+</div>
+
 <div class="alert-banner" id="alertBanner">🎤 Incoming Voice Message</div>
 
 <!-- Tab Navigation -->
 <nav class="tab-nav">
   <button class="tab-btn active" data-tab="queue">📥 Queue</button>
-  <button class="tab-btn" data-tab="calls">📞 Calls</button>
-  <button class="tab-btn" data-tab="video">🎥 Video Guests</button>
+  <button class="tab-btn" data-tab="calls">☎️ Phone Lines</button>
   <button class="tab-btn" data-tab="history">📋 History</button>
   <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
 </nav>
@@ -625,17 +641,8 @@
 
     <!-- Hidden audio element — producer hears caller here, OBS captures via Browser Source -->
     <audio id="callerAudio" autoplay style="display:none;"></audio>
-  </div>
-
-  <!-- VIDEO GUESTS TAB -->
-  <div class="tab-content" id="tab-video" style="display:none;">
-
-    <div style="margin-bottom:18px;">
-      <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video guests can join">
-        <span class="lines-dot"></span>
-        <span id="videoToggleText">Video Guests Open</span>
-      </button>
-    </div>
+  <!-- VIDEO CALLS — integrated into the same Phone Lines control center -->
+  <section class="unified-video-section" id="videoSection">
 
     <!-- On-air guest panel — shown when a guest is live -->
     <div class="active-call-panel" id="activeVideoPanel" style="display:none;">
@@ -662,6 +669,7 @@
       <div>No video guests waiting right now.</div>
     </div>
     <div class="queue" id="videoQueue"></div>
+  </section>
   </div>
 
   <!-- ANALYTICS TAB -->
@@ -749,7 +757,7 @@ import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
-  getFirestore, collection, query, orderBy, onSnapshot as firebaseOnSnapshot,
+  getFirestore, collection, query, orderBy, onSnapshot,
   doc, updateDoc, deleteDoc, setDoc, addDoc, getDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
@@ -766,26 +774,11 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+// Keep Firestore accessible to overlay/integration callbacks that run in global scope.
+window.db = db; window.firebaseDb = db;
 const auth = getAuth(app);
 
-// Track every realtime subscription so signing out releases listeners and a
-// later sign-in can safely attach fresh ones without duplicate Firestore reads.
-const activeDashboardUnsubs = new Set();
-function onSnapshot(...args){
-  const unsubscribe = firebaseOnSnapshot(...args);
-  activeDashboardUnsubs.add(unsubscribe);
-  return () => {
-    activeDashboardUnsubs.delete(unsubscribe);
-    unsubscribe();
-  };
-}
-function stopDashboardListeners(){
-  for(const unsubscribe of [...activeDashboardUnsubs]){
-    try{ unsubscribe(); }catch(err){ console.warn('Listener cleanup failed:',err); }
-  }
-  activeDashboardUnsubs.clear();
-  startedDashboardListeners.clear();
-}
+// Prevent duplicate realtime subscriptions after signing out and back in.
 const startedDashboardListeners = new Set();
 function startListenerOnce(name){
   if(startedDashboardListeners.has(name)) return false;
@@ -827,7 +820,6 @@ onAuthStateChanged(auth, (user)=>{
     startVideoToggleListener();
     startVideoCallsListener();
   } else {
-    stopDashboardListeners();
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
   }
@@ -836,7 +828,7 @@ onAuthStateChanged(auth, (user)=>{
 const onAirBadge = document.getElementById('onAirBadge');
 const signOutBtn = document.getElementById('signOutBtn');
 signOutBtn.addEventListener('click', ()=>{
-  if(confirm('Sign out of the Producer Dashboard?')) signOut(auth);
+  if(confirm('Sign out of Live Caller Studio?')) signOut(auth);
 });
 // (OBS runs its own browser engine), so they can't message each other directly.
 // Instead, the dashboard writes "now playing" state to this Firestore doc,
@@ -1353,14 +1345,15 @@ let holdMusicCtx = null;
 let holdMusicTimeout = null;
 
 function startCallTimer(){
-  callSeconds = 0;
+  if(!callStartTime) return;
   clearInterval(callTimerInterval);
-  callTimerInterval = setInterval(()=>{
-    callSeconds++;
-    const m = Math.floor(callSeconds/60);
-    const s = callSeconds % 60;
-    activeCallTimer.textContent = `${m}:${s.toString().padStart(2,'0')}`;
-  }, 1000);
+  const tick = ()=>{
+    const secs = Math.max(0, Math.floor((Date.now() - callStartTime) / 1000));
+    callSeconds = secs;
+    activeCallTimer.textContent = formatDur(secs);
+  };
+  tick();
+  callTimerInterval = setInterval(tick, 1000);
 }
 
 function setCallStatus(text, cls=''){
@@ -1377,7 +1370,7 @@ function cleanupActiveCall(){
   if(activePc){ activePc.close(); activePc = null; }
   if(producerStream){ producerStream.getTracks().forEach(t=>t.stop()); producerStream = null; }
   callerAudio.srcObject = null;
-  activePc = null; activeCallId = null; activeCallRef = null;
+  activePc = null; activeCallId = null; activeCallRef = null; callStartTime = null;
   callIsOnAir = false; callIsOnHold = false;
   activeCallPanel.style.display = 'none';
   onAirBadge.classList.remove('show');
@@ -1407,10 +1400,16 @@ async function answerCall(callId, callerName, callerCity){
   activePc.ontrack = (event)=>{
     const stream = event.streams && event.streams[0];
     if(stream){
+      if(!callStartTime){
+        callStartTime = Date.now();
+        startCallTimer();
+        if(activeCallRef) setDoc(activeCallRef, { startedAt: callStartTime, connectedAt: callStartTime }, { merge:true }).catch(()=>{});
+      }
       callerRemoteStream = stream;
       callerAudio.srcObject = stream;
       callerAudio.play().catch(e => console.warn('callerAudio play blocked:', e));
-      // The OBS overlay receives caller media through its own overlaySessions peer.
+      // If the producer already pressed Send On Air before media arrived, route it now.
+      if(callIsOnAir) startOverlayBroadcast(stream, activeCallId).catch(err => console.error('OBS overlay media route failed:', err));
     }
   };
 
@@ -1436,7 +1435,8 @@ async function answerCall(callId, callerName, callerCity){
   // 7. Save answer to Firestore
   await setDoc(activeCallRef, {
     answer: { type: answer.type, sdp: answer.sdp },
-    status: 'answered'
+    status: 'answered',
+    answeredAt: Date.now()
   }, { merge: true });
 
   // 8. Listen for caller ICE candidates — start immediately, Firestore delivers existing docs too
@@ -1463,7 +1463,6 @@ async function answerCall(callId, callerName, callerCity){
   callOnAirBtn.classList.remove('live');
   callIsOnAir = false; callIsOnHold = false;
   // Reset recording + mute state
-  callStartTime = Date.now();
   micMuted = false;
   micMuteBtn.textContent = '🎤 Mute Mic';
   micMuteBtn.classList.remove('muted');
@@ -1471,7 +1470,8 @@ async function answerCall(callId, callerName, callerCity){
   recordBtn.classList.remove('recording');
   recordStatus.textContent = '';
   isRecording = false;
-  startCallTimer();
+  activeCallTimer.textContent = callStartTime ? formatDur(Math.floor((Date.now()-callStartTime)/1000)) : 'Connecting…';
+  if(callStartTime) startCallTimer();
 
   // Switch to Calls tab if not already there
   document.querySelectorAll('.tab-btn').forEach(b=> b.classList.remove('active'));
@@ -1609,12 +1609,16 @@ recordBtn.addEventListener('click', ()=>{
 // ── Save call to history ──
 async function saveCallHistory(recordingUrl = null){
   const endTime = Date.now();
-  const duration = callStartTime ? Math.floor((endTime - callStartTime) / 1000) : 0;
+  const startTime = Number(callStartTime) || endTime;
+  const duration = Math.max(0, Math.floor((endTime - startTime) / 1000));
   try{
     await addDoc(collection(db, 'callHistory'), {
       callerName: document.getElementById('activeCallerName').textContent || 'Unknown',
       callerCity: document.getElementById('activeCallerCity').textContent || null,
       duration,
+      mediaType: 'audio',
+      startedAt: startTime,
+      endedAt: endTime,
       recordingUrl: recordingUrl || null,
       status: 'completed',
       createdAt: serverTimestamp()
@@ -1624,6 +1628,43 @@ async function saveCallHistory(recordingUrl = null){
 
 // Route the live caller media to the OBS overlay through a second WebRTC peer.
 // The dashboard remains the trusted producer-side endpoint; no public media URL is needed.
+async function startOverlayBroadcast(stream, callId){
+  if(!stream || !callId) return;
+  if(overlayBroadcastPc) { overlayBroadcastPc.close(); overlayBroadcastPc = null; }
+  if(overlayCandidateUnsub){ overlayCandidateUnsub(); overlayCandidateUnsub = null; }
+  const overlayRef = doc(db, 'hotlineLive', 'overlayCall');
+  overlayBroadcastPc = new RTCPeerConnection(iceConfig);
+  stream.getTracks().forEach(track => overlayBroadcastPc.addTrack(track, stream));
+  const pendingOverlayCandidates = [];
+  overlayBroadcastPc.onicecandidate = event => {
+    if(event.candidate) addDoc(collection(db, 'hotlineLive', 'overlayCall', 'sessions', callId, 'offerCandidates'), event.candidate.toJSON()).catch(console.warn);
+  };
+  const offer = await overlayBroadcastPc.createOffer();
+  await overlayBroadcastPc.setLocalDescription(offer);
+  await setDoc(overlayRef, { active:true, callId, mediaType: stream.getVideoTracks().length ? 'video' : 'audio', offer:{type:offer.type,sdp:offer.sdp}, answer:null, updatedAt:Date.now() });
+  overlayCandidateUnsub = onSnapshot(collection(db, 'hotlineLive', 'overlayCall', 'sessions', callId, 'answerCandidates'), snap => {
+    snap.docChanges().forEach(change => {
+      if(change.type === 'added' && overlayBroadcastPc){
+        const candidate = new RTCIceCandidate(change.doc.data());
+        if(overlayBroadcastPc.remoteDescription) overlayBroadcastPc.addIceCandidate(candidate).catch(()=>{});
+        else pendingOverlayCandidates.push(candidate);
+      }
+    });
+  });
+  // Wait for the overlay's answer; the overlay may load after the offer is written.
+  const answerUnsub = onSnapshot(overlayRef, async snap => {
+    const data = snap.data();
+    if(data?.callId === callId && data.answer && overlayBroadcastPc && !overlayBroadcastPc.currentRemoteDescription){
+      try{
+        await overlayBroadcastPc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        for(const candidate of pendingOverlayCandidates) await overlayBroadcastPc.addIceCandidate(candidate).catch(()=>{});
+        pendingOverlayCandidates.length = 0;
+      } catch(err){ console.error('OBS overlay answer failed:', err); }
+      answerUnsub();
+    }
+  });
+}
+
 // Send call on air — audio stays in dashboard (OBS captures via Browser Source)
 // Overlay just shows the visual lower-third, no audio routed through it
 callOnAirBtn.addEventListener('click', async()=>{
@@ -1641,13 +1682,11 @@ callOnAirBtn.addEventListener('click', async()=>{
       name: activeCallerName.textContent,
       city: activeCallerCity.textContent,
       messageType: 'livecall',
-      callId: activeCallId,
-      audioUrl: null,
+      audioUrl: null, // no audio URL — OBS captures call audio from dashboard browser source
       updatedAt: Date.now()
     });
     await setDoc(activeCallRef, { status: 'live' }, { merge: true });
-    // OBS overlay creates its own WebRTC offer under liveCalls/{id}/overlaySessions;
-    // call.html answers that offer directly. Do not create a second, unused peer here.
+    if(callerRemoteStream) await startOverlayBroadcast(callerRemoteStream, activeCallId).catch(err=>console.error('OBS overlay media route failed:',err));
   } else {
     callOnAirBtn.textContent = '🔴 Send On Air';
     callOnAirBtn.classList.remove('live');
@@ -1772,14 +1811,56 @@ let currentLiveVideoId = null;
 
 function startVideoTimer(sinceMs){
   clearInterval(videoTimerInterval);
+  const started = Number(sinceMs) || Date.now();
   function tick(){
-    const secs = Math.max(0, Math.floor((Date.now() - sinceMs) / 1000));
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    activeVideoTimer.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    const secs = Math.max(0, Math.floor((Date.now() - started) / 1000));
+    activeVideoTimer.textContent = formatDur(secs);
   }
   tick();
   videoTimerInterval = setInterval(tick, 1000);
+}
+
+let videoPc = null;
+let videoCandidateUnsub = null;
+let videoRemoteStream = null;
+let videoLocalStream = null;
+let videoConnectionId = null;
+
+async function connectVideoGuest(id){
+  if(videoConnectionId === id && videoPc) return;
+  if(videoPc) videoPc.close();
+  if(videoCandidateUnsub){ videoCandidateUnsub(); videoCandidateUnsub=null; }
+  if(videoLocalStream) videoLocalStream.getTracks().forEach(t=>t.stop());
+  videoConnectionId = id;
+  videoRemoteStream = new MediaStream();
+  videoPc = new RTCPeerConnection(iceConfig);
+  try{
+    videoLocalStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
+    videoLocalStream.getTracks().forEach(track=>videoPc.addTrack(track,videoLocalStream));
+  }catch(err){ console.warn('Producer microphone unavailable for video guest:',err); }
+  videoPc.ontrack = event => {
+    const stream = event.streams?.[0];
+    if(stream){
+      videoRemoteStream = stream;
+      if(currentLiveVideoId === id) startOverlayBroadcast(stream, id).catch(err=>console.error('Video overlay route failed:',err));
+    } else if(event.track){ videoRemoteStream.addTrack(event.track); }
+  };
+  videoPc.onicecandidate = event => {
+    if(event.candidate) addDoc(collection(db,'videoCalls',id,'dashboardCandidates'),event.candidate.toJSON()).catch(()=>{});
+  };
+  const ref = doc(db,'videoCalls',id);
+  const snap = await getDoc(ref);
+  const data = snap.data();
+  if(!data?.offer){ console.error('Video guest has no WebRTC offer.'); return; }
+  await videoPc.setRemoteDescription(new RTCSessionDescription(data.offer));
+  const answer = await videoPc.createAnswer();
+  await videoPc.setLocalDescription(answer);
+  await setDoc(ref,{answer:{type:answer.type,sdp:answer.sdp},status:'answered'}, {merge:true});
+  videoCandidateUnsub = onSnapshot(collection(db,'videoCalls',id,'callerCandidates'), snap2=>{
+    snap2.docChanges().forEach(change=>{
+      if(change.type==='added' && videoPc) videoPc.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(()=>{});
+    });
+  });
 }
 
 function startVideoCallsListener(){
@@ -1798,7 +1879,7 @@ function startVideoCallsListener(){
         activeVideoCity.textContent = live.callerCity || '';
         if(live.id !== currentLiveVideoId){
           currentLiveVideoId = live.id;
-          startVideoTimer(live.liveSince || Date.now());
+          startVideoTimer(live.startedAt || live.liveSince || Date.now());
         }
       } else {
         activeVideoPanel.style.display = 'none';
@@ -1829,7 +1910,7 @@ function startVideoCallsListener(){
             <div class="call-card-time">${timeAgo(c.createdAt)}</div>
           </div>
           <div class="call-card-actions">
-            <button class="ibtn ibtn-answer" data-action="video-air" data-id="${c.id}">🔴 Send On Air</button>
+            <button class="ibtn ibtn-answer" data-action="video-air" data-id="${c.id}">🎥 Answer Video Call</button>
             <button class="ibtn ibtn-reject" data-action="video-reject" data-id="${c.id}">✕ Reject</button>
           </div>
         </div>`).join('');
@@ -1837,11 +1918,34 @@ function startVideoCallsListener(){
   );
 }
 
+async function saveVideoCallHistory(callId, endTime = Date.now()){
+  const ref = doc(db, 'videoCalls', callId);
+  const snap = await getDoc(ref).catch(()=>null);
+  const data = snap?.data() || {};
+  if(data.historySaved) return;
+  const startTime = Number(data.startedAt || data.liveSince) || endTime;
+  const duration = Math.max(0, Math.floor((endTime - startTime) / 1000));
+  await addDoc(collection(db, 'callHistory'), {
+    callerName: data.callerName || 'Video Guest', callerCity: data.callerCity || null,
+    mediaType: 'video', startedAt: startTime, endedAt: endTime, duration,
+    recordingUrl: null, status: 'completed', createdAt: serverTimestamp(), sourceCallId: callId
+  });
+  await updateDoc(ref, { status: 'ended', endedAt: endTime, duration, historySaved: true }).catch(()=>{});
+}
+
 videoEndBtn.addEventListener('click', async()=>{
   if(!currentLiveVideoId) return;
-  await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
+  const endingId = currentLiveVideoId;
+  videoEndBtn.disabled = true;
+  try { await saveVideoCallHistory(endingId); }
+  catch(err) { console.warn('Could not save video call history:', err); }
   await setDoc(liveStateRef,{active:false,updatedAt:Date.now()}).catch(()=>{});
+  if(videoPc){ videoPc.close(); videoPc=null; }
+  if(videoCandidateUnsub){ videoCandidateUnsub(); videoCandidateUnsub=null; }
+  if(videoLocalStream) videoLocalStream.getTracks().forEach(t=>t.stop());
+  videoRemoteStream=null; videoConnectionId=null;
   await setDoc(doc(db,'hotlineLive','overlayCall'),{active:false,updatedAt:Date.now()},{merge:true}).catch(()=>{});
+  videoEndBtn.disabled = false;
 });
 
 document.addEventListener('click', async(e)=>{
@@ -1853,14 +1957,15 @@ document.addEventListener('click', async(e)=>{
   if(action === 'video-air'){
     // Only one guest on air at a time — end any other live call first
     if(currentLiveVideoId && currentLiveVideoId !== id){
-      await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
+      try { await saveVideoCallHistory(currentLiveVideoId); }
+      catch(err) { console.warn('Could not save previous video call history:', err); }
     }
-    // Video guests do not publish a root-level offer. The OBS overlay creates
-    // an offer under videoCalls/{id}/overlaySessions and the guest answers it.
-    try { await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince: Date.now() }); } catch(err) { console.error('Could not mark video guest live:',err); alert('Could not send video guest on air: '+err.message); return; }
+    try{ await connectVideoGuest(id); }catch(err){ console.error('Video guest connection failed:',err); alert('Could not connect video guest: '+err.message); return; }
+    const liveSince = Date.now();
+    await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince, startedAt: liveSince }).catch(()=>{});
     const videoData = (await getDoc(doc(db,'videoCalls',id))).data() || {};
-    await setDoc(liveStateRef,{active:true,name:videoData.callerName||'Video Guest',city:videoData.callerCity||'',messageType:'livevideo',callId:id,audioUrl:null,updatedAt:Date.now()});
-    // OBS overlay negotiates media through videoCalls/{id}/overlaySessions.
+    await setDoc(liveStateRef,{active:true,name:videoData.callerName||'Video Guest',city:videoData.callerCity||'',messageType:'videocall',audioUrl:null,updatedAt:Date.now()});
+    if(videoRemoteStream?.getTracks().length) await startOverlayBroadcast(videoRemoteStream,id).catch(err=>console.error('Video overlay route failed:',err));
   }
   if(action === 'video-reject'){
     await updateDoc(doc(db, 'videoCalls', id), { status: 'rejected' }).catch(()=>{});
@@ -1907,7 +2012,7 @@ function startCallHistoryListener(){
   onSnapshot(
     query(collection(db, 'callHistory'), orderBy('createdAt', 'desc')),
     (snap)=>{
-      const calls = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      const calls = snap.docs.map(d=>{ const x={ id:d.id, ...d.data() }; if(Number.isFinite(Number(x.startedAt)) && Number.isFinite(Number(x.endedAt)) && Number(x.endedAt)>=Number(x.startedAt)) x.duration=Math.floor((Number(x.endedAt)-Number(x.startedAt))/1000); return x; });
       const today = new Date(); today.setHours(0,0,0,0);
 
       histTotal.textContent = calls.length;
@@ -1930,10 +2035,10 @@ function startCallHistoryListener(){
 
       histList.innerHTML = calls.slice(0, 40).map(c=>`
         <div class="hist-card" data-histid="${c.id}">
-          <div class="hist-icon">${c.recordingUrl ? '🔴' : '📞'}</div>
+          <div class="hist-icon">${c.mediaType === 'video' ? '🎥' : (c.recordingUrl ? '🔴' : '📞')}</div>
           <div class="hist-body">
             <div class="hist-name">${escapeHtml(c.callerName || 'Unknown')}</div>
-            <div class="hist-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${c.status || ''}</div>
+            <div class="hist-meta">${c.mediaType === 'video' ? 'Video call' : 'Audio call'}${c.callerCity ? ' · ' + escapeHtml(c.callerCity) : ''}${c.status ? ' · ' + escapeHtml(c.status) : ''}</div>
           </div>
           <div class="hist-right">
             <div class="hist-dur">${formatDur(c.duration || 0)}</div>
@@ -1980,8 +2085,11 @@ function startCallHistoryListener(){
 }
 
 function formatDur(s){
-  const m = Math.floor(s/60);
-  return `${m}:${(s%60).toString().padStart(2,'0')}`;
+  const total = Math.max(0, Math.floor(Number(s) || 0));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = total % 60;
+  return h ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}`;
 }
 
 function startQueueListener(){
