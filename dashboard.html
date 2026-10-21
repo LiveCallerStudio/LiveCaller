@@ -1045,7 +1045,8 @@ function render(){
         <button class="ibtn approve" data-action="approve" data-id="${m.id}">✓ Approve</button>
         <button class="ibtn favorite ${m.favorited ? 'active' : ''}" data-action="favorite" data-id="${m.id}">⭐ ${m.favorited ? 'Saved' : 'Favorite'}</button>
         <button class="ibtn on-air-btn ${isLive ? 'live' : ''}" data-action="golive" data-id="${m.id}">${isLive ? '⏹ Stop Live' : '🔴 Send Live On Air'}</button>
-        <a class="ibtn download" href="${safeHttpsUrl(m.audioUrl)}" download target="_blank" rel="noopener" ${safeHttpsUrl(m.audioUrl) ? "" : "aria-disabled=\"true\" tabindex=\"-1\""}>⬇ Download</a>
+        <button class="ibtn download" data-action="download-wav" data-id="${m.id}">⬇ WAV</button>
+        <button class="ibtn download" data-action="download-mp3" data-id="${m.id}">⬇ MP3</button>
         <button class="ibtn delete" data-action="delete" data-id="${m.id}">🗑 Delete</button>
       </div>
     </div>`;
@@ -1081,6 +1082,85 @@ function escapeHtml(str){
   return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// Download message audio as a real WAV or MP3 file, regardless of the
+// original browser recording container (usually WebM/Opus or MP4/AAC).
+function audioBaseName(msg){
+  const raw = `${msg.name || 'voice-message'}-${msg.id || 'audio'}`;
+  return raw.normalize('NFKD').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80) || 'voice-message';
+}
+function encodeWav(audioBuffer){
+  const channels = Math.min(audioBuffer.numberOfChannels, 2);
+  const sampleRate = audioBuffer.sampleRate;
+  const frames = audioBuffer.length;
+  const bytesPerSample = 2;
+  const dataSize = frames * channels * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+  const write = (offset, value) => { for(let i=0;i<value.length;i++) view.setUint8(offset+i,value.charCodeAt(i)); };
+  write(0,'RIFF'); view.setUint32(4,36+dataSize,true); write(8,'WAVE'); write(12,'fmt ');
+  view.setUint32(16,16,true); view.setUint16(20,1,true); view.setUint16(22,channels,true);
+  view.setUint32(24,sampleRate,true); view.setUint32(28,sampleRate*channels*bytesPerSample,true);
+  view.setUint16(32,channels*bytesPerSample,true); view.setUint16(34,16,true); write(36,'data'); view.setUint32(40,dataSize,true);
+  const channelData = Array.from({length:channels},(_,i)=>audioBuffer.getChannelData(i));
+  let offset=44;
+  for(let i=0;i<frames;i++) for(let ch=0;ch<channels;ch++){
+    const sample=Math.max(-1,Math.min(1,channelData[ch][i]));
+    view.setInt16(offset, sample < 0 ? sample*0x8000 : sample*0x7fff, true); offset+=2;
+  }
+  return new Blob([buffer],{type:'audio/wav'});
+}
+function downloadBlob(blob, filename){
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+let lameJsPromise;
+function loadLameJs(){
+  if(window.lamejs) return Promise.resolve(window.lamejs);
+  if(!lameJsPromise) lameJsPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script'); script.src='https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js';
+    script.onload=()=>window.lamejs ? resolve(window.lamejs) : reject(new Error('MP3 encoder did not load'));
+    script.onerror=()=>reject(new Error('Could not load MP3 encoder. Check internet access, or download as WAV.'));
+    document.head.appendChild(script);
+  });
+  return lameJsPromise;
+}
+function floatTo16BitPCM(floatData){
+  const out=new Int16Array(floatData.length);
+  for(let i=0;i<floatData.length;i++){ const v=Math.max(-1,Math.min(1,floatData[i])); out[i]=v<0?v*32768:v*32767; }
+  return out;
+}
+async function downloadMessageAudio(msg, format, button){
+  const audioUrl=safeHttpsUrl(msg.audioUrl);
+  if(!audioUrl) throw new Error('This message has no valid HTTPS audio URL.');
+  const oldText=button.textContent; button.disabled=true; button.textContent='Converting…';
+  try{
+    const response=await fetch(audioUrl,{mode:'cors'});
+    if(!response.ok) throw new Error(`Audio download failed (${response.status}).`);
+    const bytes=await response.arrayBuffer();
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx) throw new Error('Audio conversion is not supported in this browser.');
+    const ctx=new AudioCtx();
+    let decoded;
+    try { decoded=await ctx.decodeAudioData(bytes.slice(0)); } finally { await ctx.close().catch(()=>{}); }
+    const base=audioBaseName(msg);
+    if(format==='wav') { downloadBlob(encodeWav(decoded),`${base}.wav`); return; }
+    const lame=await loadLameJs();
+    const channels=Math.min(decoded.numberOfChannels,2), sampleRate=decoded.sampleRate;
+    const encoder=new lame.Mp3Encoder(channels,sampleRate,128), chunkSize=1152, left=floatTo16BitPCM(decoded.getChannelData(0));
+    const right=channels===2 ? floatTo16BitPCM(decoded.getChannelData(1)) : null;
+    const chunks=[];
+    for(let i=0;i<left.length;i+=chunkSize){
+      const l=left.subarray(i,Math.min(i+chunkSize,left.length));
+      const r=right ? right.subarray(i,Math.min(i+chunkSize,right.length)) : undefined;
+      const part=right ? encoder.encodeBuffer(l,r) : encoder.encodeBuffer(l);
+      if(part.length) chunks.push(new Int8Array(part));
+    }
+    const end=encoder.flush(); if(end.length) chunks.push(new Int8Array(end));
+    downloadBlob(new Blob(chunks,{type:'audio/mpeg'}),`${base}.mp3`);
+  } finally { button.disabled=false; button.textContent=oldText; }
+}
+
 queueEl.addEventListener('click', async (e)=>{
   const btn = e.target.closest('[data-action]');
   if(!btn) return;
@@ -1088,6 +1168,12 @@ queueEl.addEventListener('click', async (e)=>{
   const action = btn.dataset.action;
   const msg = allMessages.find(m=>m.id===id);
   if(!msg) return;
+
+  if(action === 'download-wav' || action === 'download-mp3'){
+    try { await downloadMessageAudio(msg, action === 'download-wav' ? 'wav' : 'mp3', btn); }
+    catch(err){ console.error('Audio conversion failed:',err); alert(`Could not convert this message: ${err.message}`); }
+    return;
+  }
 
   if(action === 'play'){
     // PREVIEW ONLY — plays in this browser, never touches OBS or Firestore
@@ -1938,7 +2024,9 @@ function formatDur(s){
 function startQueueListener(){
   if(queueListenerStarted) return;
   queueListenerStarted = true;
-  const q = query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc'));
+  // Read the collection without orderBy so older documents missing createdAt are still visible.
+  const q = collection(db, 'hotlineMessages');
+  queueEl.innerHTML = '<div class="empty">Connecting to message inbox…</div>';
   subscribe(q, (snapshot)=>{
     allMessages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
@@ -1957,7 +2045,8 @@ function startQueueListener(){
 
     render();
   }, (err)=>{
-    queueEl.innerHTML = `<div class="empty">Couldn't connect to Firebase: ${err.message}<br><br>Check your firebaseConfig and Firestore security rules.</div>`;
+    console.error('Message inbox listener failed:', err);
+    queueEl.innerHTML = `<div class="empty">Messages could not load (${escapeHtml(err.code || 'connection error')}).<br><br>Confirm you are signed into the correct producer account and that Firestore rules allow reads from hotlineMessages.<br><small>${escapeHtml(err.message || '')}</small></div>`;
   });
 }
 </script>

@@ -27,7 +27,6 @@
     --sub:#888;
   }
   *{ box-sizing:border-box; margin:0; padding:0; }
-  button,a,input{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
   html,body{
     min-height:100vh;
     background:var(--black);
@@ -155,7 +154,6 @@
   .call-visual.ringing{ border-color:var(--green); animation:ringpulse 1.2s ease-in-out infinite; }
   .call-visual.connected{ border-color:var(--green); }
   .call-visual.held{ border-color:#f5a623; box-shadow:0 0 40px rgba(245,166,35,0.3); }
-  .call-visual.live{ border-color:var(--red); box-shadow:0 0 40px rgba(255,59,59,0.4); animation:ringpulse 1.2s ease-in-out infinite; }
   .call-visual.ended{ border-color:var(--red); box-shadow:0 0 40px rgba(255,59,59,0.3); }
   @keyframes ringpulse{
     0%,100%{ box-shadow:0 0 0 0 rgba(83,252,24,0.5), 0 0 40px rgba(83,252,24,0.3); }
@@ -163,7 +161,6 @@
   }
   .call-visual svg{ width:60px; height:60px; color:var(--green); }
   .call-visual.held svg{ color:#f5a623; }
-  .call-visual.live svg{ color:var(--red); }
   .call-visual.ended svg{ color:var(--red); }
 
   .call-status{ font-size:22px; font-weight:900; margin:0 0 6px; }
@@ -193,11 +190,9 @@
   .status-badge.waiting{ background:rgba(83,252,24,0.12); color:var(--green); border:1px solid rgba(83,252,24,0.3); }
   .status-badge.connected{ background:rgba(83,252,24,0.2); color:var(--green); border:1px solid var(--green); }
   .status-badge.held{ background:rgba(245,166,35,0.15); color:#f5a623; border:1px solid rgba(245,166,35,0.4); }
-  .status-badge.live{ background:rgba(255,59,59,0.15); color:var(--red); border:1px solid var(--red); font-weight:900; }
   .status-badge.ended{ background:rgba(255,59,59,0.12); color:var(--red); border:1px solid rgba(255,59,59,0.3); }
   .status-dot{ width:7px; height:7px; border-radius:50%; background:currentColor; animation:blink 1.4s infinite; }
   .status-badge.connected .status-dot{ animation:blink 1.4s infinite; }
-  .status-badge.live .status-dot{ animation:blink .8s infinite; }
   .status-badge.ended .status-dot{ animation:none; }
   @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.2;} }
 
@@ -217,18 +212,8 @@
   .lines-closed-banner strong{display:block;color:#ccc;font-weight:700;margin-bottom:4px;font-size:14px;}
 
   /* ── Footer ── */
-  .footer-links{
-    display:flex;gap:20px;flex-wrap:wrap;justify-content:center;
-    margin-top:36px;
-  }
-  .footer-links a{
-    font-family:Arial,sans-serif;font-size:12.5px;color:#444;
-    text-decoration:none;letter-spacing:.2px;
-    transition:color .15s;
-  }
-  .footer-links a:hover{color:var(--green);}
   .site-footer{
-    margin-top:14px;
+    margin-top:36px;
     font-family:Arial,sans-serif;font-size:10.5px;
     color:#2a2a2a;letter-spacing:2px;text-transform:uppercase;
     display:flex;align-items:center;gap:7px;
@@ -281,23 +266,21 @@
 
       <div class="error-banner" id="errorBanner"></div>
 
-      <div id="callFormFields">
-        <div class="field">
-          <label>Name</label>
-          <input type="text" id="callerName" maxlength="40" autocomplete="name" required>
-        </div>
-        <div class="field">
-          <label>City, State</label>
-          <input type="text" id="callerCity" maxlength="40" autocomplete="address-level2">
-        </div>
-
-        <p class="disclaimer">By calling in, you agree your voice may be broadcast on-air or on stream.</p>
-
-        <button class="call-btn" id="callBtn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-          Call In Live
-        </button>
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="callerName" maxlength="40" autocomplete="name">
       </div>
+      <div class="field">
+        <label>City &amp; State</label>
+        <input type="text" id="callerCity" maxlength="40">
+      </div>
+
+      <p class="disclaimer">By calling in, you agree your voice may be broadcast on-air or on stream.</p>
+
+      <button class="call-btn" id="callBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        Call In Live
+      </button>
     </div>
 
     <!-- Call Screen -->
@@ -322,11 +305,6 @@
   </div>
 
   <!-- Footer -->
-  <div class="footer-links">
-    <a href="home.html">Home</a>
-    <a href="voicemessage.html">Voice Message</a>
-    <a href="videocall.html">Video Guest</a>
-  </div>
   <div class="site-footer">
     <span>⚡</span> POWERED BY LIVE CALLER
   </div>
@@ -338,7 +316,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
-  getFirestore, collection, doc, addDoc, updateDoc, setDoc,
+  getFirestore, collection, doc, addDoc, updateDoc,
   onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
@@ -354,65 +332,32 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 
+// ICE config — STUN for direct connections + TURN relay for cross-network/NAT traversal
+// Open Relay Project (openrelay.metered.ca) is free with no account required
+const STUN = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ],
+  iceCandidatePoolSize: 10
+};
 
-// ── Production TURN (recommended) ──
-// Replace Open Relay with your own Metered/Twilio/coturn credentials.
-// Prefer short-lived credentials from a backend; never commit long-lived secrets.
-// Example:
-// { urls: 'turn:your-turn.example.com:3478', username: '…', credential: '…' },
-// { urls: 'turns:your-turn.example.com:5349', username: '…', credential: '…' },
-// ICE config — multi-STUN pool + multi-path TURN fallback for NAT / mobile / strict firewalls
-// Order: fast STUN first, then UDP TURN, TCP TURN, TLS TURNS (last resort)
-const ICE_SERVERS = [
-  // STUN first (lowest latency) — US-friendly public pool
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:stun3.l.google.com:19302' },
-  { urls: 'stun:stun4.l.google.com:19302' },
-  { urls: 'stun:stun.cloudflare.com:3478' },
-  { urls: 'stun:stun.stunprotocol.org:3478' },
-  // Free Open Relay TURN (Metered) — UDP then TCP then TLS; used only when direct/STUN fails
-  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turns:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
-];
-function buildIceConfig(forceRelay){
-  return {
-    iceServers: ICE_SERVERS,
-    iceCandidatePoolSize: 8,           // enough pre-gather without long delay
-    iceTransportPolicy: forceRelay ? 'relay' : 'all',
-    bundlePolicy: 'max-bundle',
-    rtcpMuxPolicy: 'require'
-  };
-}
-
-const STUN = buildIceConfig(false);
-
-// ── Client-side rate limit (spam / accidental double-submit) ──
-// Server-side enforcement still requires App Check + Cloud Functions for hard limits.
-const RATE_LIMIT_MS = 15000;
-function allowCallAttempt(key){
-  try{
-    const now = Date.now();
-    const last = Number(localStorage.getItem(key) || 0);
-    if(now - last < RATE_LIMIT_MS) return false;
-    localStorage.setItem(key, String(now));
-    return true;
-  }catch(e){
-    return true; // private mode / blocked storage — do not block legitimate callers
-  }
-}
-
-
-let pc = null;          // screening connection — to the producer's dashboard
-let airPc = null;       // "air" connection — straight to overlay.html once on air,
-                        // so the broadcast can actually hear this caller
-let airRemoteDescSet = false;
-let airPendingCandidates = [];
-let airCandidateUnsub = null;
+let pc = null;
 let localStream = null;
 let callDocRef = null;
 let timerInterval = null;
@@ -426,83 +371,32 @@ function startOutgoingRing(){
   function ring(){
     try{
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      // FaceTime-style soft two-tone dial pattern (descending pair), not a harsh telephone ring
-      [ {freq: 622.25, at: 0}, {freq: 466.16, at: 0.28} ].forEach(({freq, at})=>{
-        const t = ctx.currentTime + at;
+      const gain = ctx.createGain();
+      gain.connect(ctx.destination);
+      // Single clear tone - standard mobile outgoing ring pattern
+      [440].forEach(freq=>{
         const osc = ctx.createOscillator();
-        const env = ctx.createGain();
-        osc.type = 'triangle';
+        osc.type = 'sine';
         osc.frequency.value = freq;
-        osc.connect(env);
-        env.connect(ctx.destination);
-        env.gain.setValueAtTime(0, t);
-        env.gain.linearRampToValueAtTime(0.2, t + 0.03);
-        env.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-        osc.start(t);
-        osc.stop(t + 0.4);
+        osc.connect(gain);
+        gain.gain.setValueAtTime(0.25, ctx.currentTime);
+        gain.gain.setValueAtTime(0.25, ctx.currentTime + 0.5);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.65);
       });
-      setTimeout(()=> ctx.close().catch(()=>{}), 900);
+      setTimeout(()=> ctx.close().catch(()=>{}), 1000);
     }catch(e){}
   }
   ring();
-  outgoingRingInterval = setInterval(ring, 2600);
+  // Ring twice rapidly (brring brring) then pause
+  setTimeout(ring, 700);
+  outgoingRingInterval = setInterval(()=>{ ring(); setTimeout(ring, 700); }, 3500);
 }
 function stopOutgoingRing(){
   clearInterval(outgoingRingInterval);
   outgoingRingInterval = null;
 }
-
-/* ── UI button sounds ── */
-function playTap(){
-  try{
-    const ctx=new (window.AudioContext||window.webkitAudioContext)();
-    const osc=ctx.createOscillator(), env=ctx.createGain();
-    osc.type='sine'; osc.frequency.value=1200;
-    osc.connect(env); env.connect(ctx.destination);
-    env.gain.setValueAtTime(0.001,ctx.currentTime);
-    env.gain.linearRampToValueAtTime(0.12,ctx.currentTime+0.005);
-    env.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.06);
-    osc.start(); osc.stop(ctx.currentTime+0.07);
-    setTimeout(()=>ctx.close().catch(()=>{}),150);
-  }catch(e){}
-}
-function playPositive(){
-  try{
-    const ctx=new (window.AudioContext||window.webkitAudioContext)();
-    [880,1318.51].forEach((freq,i)=>{
-      const t=ctx.currentTime+i*0.08;
-      const osc=ctx.createOscillator(), env=ctx.createGain();
-      osc.type='sine'; osc.frequency.value=freq;
-      osc.connect(env); env.connect(ctx.destination);
-      env.gain.setValueAtTime(0,t); env.gain.linearRampToValueAtTime(0.18,t+0.015);
-      env.gain.exponentialRampToValueAtTime(0.001,t+0.18);
-      osc.start(t); osc.stop(t+0.18);
-    });
-    setTimeout(()=>ctx.close().catch(()=>{}),400);
-  }catch(e){}
-}
-function playNegative(){
-  try{
-    const ctx=new (window.AudioContext||window.webkitAudioContext)();
-    [523.25,392.00].forEach((freq,i)=>{
-      const t=ctx.currentTime+i*0.09;
-      const osc=ctx.createOscillator(), env=ctx.createGain();
-      osc.type='sine'; osc.frequency.value=freq;
-      osc.connect(env); env.connect(ctx.destination);
-      env.gain.setValueAtTime(0,t); env.gain.linearRampToValueAtTime(0.16,t+0.015);
-      env.gain.exponentialRampToValueAtTime(0.001,t+0.2);
-      osc.start(t); osc.stop(t+0.2);
-    });
-    setTimeout(()=>ctx.close().catch(()=>{}),400);
-  }catch(e){}
-}
-document.addEventListener('click', (e)=>{
-  const el = e.target.closest('button');
-  if(!el) return;
-  if(el === callBtn) { playPositive(); return; }
-  if(el === endBtn) { playNegative(); return; }
-  playTap();
-});
 
 // ── Hold music (plays in caller's browser when producer puts them on hold) ──
 let holdMusicCtx = null;
@@ -565,7 +459,7 @@ function formatTimer(s){
 
 function setStatus(state, sub){
   statusBadge.className = 'status-badge ' + state;
-  statusText.textContent = { waiting:'Waiting', connected:'Connected', held:'On Hold', live:'On Air', ended:'Call Ended' }[state] || state;
+  statusText.textContent = { waiting:'Waiting', connected:'Connected', held:'On Hold', ended:'Call Ended' }[state] || state;
   callVisual.className = 'call-visual ' + state;
   callSub.textContent = sub || '';
 }
@@ -577,82 +471,11 @@ function startTimer(){
 
 function stopTimer(){ clearInterval(timerInterval); }
 
-// ── On-air connection to overlay.html ──
-// This is what actually gets the caller's voice onto the broadcast. It's a
-// completely separate connection from the screening one (caller ↔ dashboard) —
-// the producer's own mic is never part of this, only the caller's audio.
-async function startAirConnection(forceRelay = false){
-  if(airPc || !callDocRef || !localStream) return; // already connected, or not ready
-
-  airPc = new RTCPeerConnection(buildIceConfig(forceRelay));
-  localStream.getTracks().forEach(track => airPc.addTrack(track, localStream));
-  airRemoteDescSet = false;
-  airPendingCandidates = [];
-
-  airPc.onconnectionstatechange = () => {
-    if(!airPc) return;
-    if(airPc.connectionState === 'failed'){
-      console.warn('[WebRTC] air connection failed — retrying with TURN-only relay');
-      stopAirConnection();
-      // Retry forced through TURN when direct/UDP paths fail (strict NATs / corporate firewalls)
-      setTimeout(()=>{ if(callDocRef) startAirConnection(true).catch(()=>{}); }, 800);
-    }
-  };
-  airPc.oniceconnectionstatechange = () => {
-    if(airPc && airPc.iceConnectionState === 'failed'){
-      console.warn('[WebRTC] air ICE failed');
-    }
-  };
-
-  let airOffer;
-  try{
-    airOffer = await airPc.createOffer();
-    airPc.onicecandidate = (e) => {
-      if(e.candidate && callDocRef){
-        addDoc(collection(db, 'liveCalls', callDocRef.id, 'airCallerCandidates'), e.candidate.toJSON())
-          .catch((err)=> console.warn('[WebRTC] air ICE upload failed:', err));
-      }
-    };
-    await airPc.setLocalDescription(airOffer);
-    await setDoc(callDocRef, {
-      airOffer: { type: airOffer.type, sdp: airOffer.sdp }
-    }, { merge: true });
-  }catch(err){
-    console.error('[WebRTC] startAirConnection failed:', err);
-    stopAirConnection();
-    return;
-  }
-
-  airCandidateUnsub = onSnapshot(
-    collection(db, 'liveCalls', callDocRef.id, 'airOverlayCandidates'),
-    (snap) => {
-      snap.docChanges().forEach(async (change) => {
-        if(change.type === 'added'){
-          const candidate = new RTCIceCandidate(change.doc.data());
-          if(airRemoteDescSet){ await airPc.addIceCandidate(candidate).catch(()=>{}); }
-          else{ airPendingCandidates.push(candidate); }
-        }
-      });
-    }
-  );
-}
-
-function stopAirConnection(){
-  if(airCandidateUnsub){ airCandidateUnsub(); airCandidateUnsub = null; }
-  if(airPc){ airPc.close(); airPc = null; }
-  airRemoteDescSet = false;
-  airPendingCandidates = [];
-}
-
 async function startCall(){
   clearError();
   if(!linesOpen){ showError("Phone lines are currently closed — please check back soon."); return; }
   const name = callerNameInput.value.trim();
   if(!name){ showError('Please enter your name before calling in.'); return; }
-  if(!allowCallAttempt('lcs_last_audio_call')){
-    showError('Please wait a few seconds before calling in again.');
-    return;
-  }
 
   callBtn.disabled = true;
   callBtn.textContent = 'Connecting…';
@@ -668,7 +491,7 @@ async function startCall(){
     return;
   }
 
-  pc = new RTCPeerConnection(buildIceConfig(false));
+  pc = new RTCPeerConnection(STUN);
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
   // Play remote audio (producer's voice)
@@ -679,88 +502,32 @@ async function startCall(){
     }
   };
 
-  // WebRTC error handling — connection / ICE failures
-  let _pcFailHandled = false;
-  const handlePcFail = (reason) => {
-    if(_pcFailHandled || !pc) return;
-    _pcFailHandled = true;
-    console.warn('[WebRTC] screening connection failed:', reason);
-    stopOutgoingRing();
-    stopHoldMusicCaller();
-    setStatus('ended', 'Connection lost — please try calling in again.');
-    showError('The call connection failed. Check your network and try again.');
-    if(callDocRef) updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
-    stopTimer();
-    cleanup(false);
-  };
-  pc.onconnectionstatechange = () => {
-    if(!pc) return;
-    const st = pc.connectionState;
-    if(st === 'failed') handlePcFail('connectionState=failed');
-    // 'disconnected' can recover; only escalate after prolonged disconnect
-  };
-  pc.oniceconnectionstatechange = () => {
-    if(!pc) return;
-    if(pc.iceConnectionState === 'failed') handlePcFail('iceConnectionState=failed');
-  };
-  pc.onicegatheringstatechange = () => {
-    // no-op; useful for diagnostics
-  };
-
   // Buffer dashboard ICE candidates that arrive before remote description is set
   const pendingCandidates = [];
   let remoteDescSet = false;
 
-  let offer;
-  try{
-    // Create offer BEFORE setting up onicecandidate so we have the callDocRef first
-    offer = await pc.createOffer();
-  }catch(err){
-    console.error('[WebRTC] createOffer failed:', err);
-    showError('Could not start the call connection. Please refresh and try again.');
-    callBtn.disabled = false;
-    callBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Call In Live';
-    cleanup(false);
-    return;
-  }
+  // Create offer BEFORE setting up onicecandidate so we have the callDocRef first
+  const offer = await pc.createOffer();
 
-  try{
-    // Save call to Firestore FIRST so we have the ID for ICE candidate collection path
-    callDocRef = await addDoc(collection(db, 'liveCalls'), {
-      callerName: name,
-      callerCity: callerCityInput.value.trim() || null,
-      offer: { type: offer.type, sdp: offer.sdp },
-      status: 'waiting',
-      createdAt: serverTimestamp()
-    });
-  }catch(err){
-    console.error('[WebRTC] Firestore addDoc failed:', err);
-    showError('Could not reach the studio queue. Check your connection and try again.');
-    callBtn.disabled = false;
-    callBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Call In Live';
-    cleanup(false);
-    return;
-  }
+  // Save call to Firestore FIRST so we have the ID for ICE candidate collection path
+  callDocRef = await addDoc(collection(db, 'liveCalls'), {
+    callerName: name,
+    callerCity: callerCityInput.value.trim() || null,
+    offer: { type: offer.type, sdp: offer.sdp },
+    status: 'waiting',
+    createdAt: serverTimestamp()
+  });
 
   // Wire onicecandidate BEFORE setLocalDescription so no candidates are missed
   pc.onicecandidate = (e) => {
     if(e.candidate){
       addDoc(collection(db, 'liveCalls', callDocRef.id, 'callerCandidates'), e.candidate.toJSON())
-        .catch((err)=> console.warn('[WebRTC] ICE candidate upload failed:', err));
+        .catch(()=>{});
     }
   };
 
-  try{
-    // Now set local description — ICE gathering starts here, handler is already wired
-    await pc.setLocalDescription(offer);
-  }catch(err){
-    console.error('[WebRTC] setLocalDescription failed:', err);
-    showError('Could not finalize the call setup. Please try again.');
-    if(callDocRef) updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
-    cleanup(false);
-    callBtn.disabled = false;
-    return;
-  }
+  // Now set local description — ICE gathering starts here, handler is already wired
+  await pc.setLocalDescription(offer);
 
   // Listen for answer + status changes
   onSnapshot(callDocRef, async (snap) => {
@@ -776,19 +543,7 @@ async function startCall(){
           await pc.addIceCandidate(c).catch(()=>{});
         }
         pendingCandidates.length = 0;
-      }catch(e){ console.error('[WebRTC] setRemoteDescription failed:', e); showError('Connection handshake failed. Stay on this screen — retrying when the producer answers again.'); }
-    }
-
-    // Same idea for the on-air connection to overlay.html, once it exists
-    if(data.airAnswer && airPc && !airPc.currentRemoteDescription){
-      try{
-        await airPc.setRemoteDescription(new RTCSessionDescription(data.airAnswer));
-        airRemoteDescSet = true;
-        for(const c of airPendingCandidates){
-          await airPc.addIceCandidate(c).catch(()=>{});
-        }
-        airPendingCandidates.length = 0;
-      }catch(e){ console.error('air setRemoteDescription failed:', e); }
+      }catch(e){ console.error('setRemoteDescription failed:', e); }
     }
 
     if(data.status === 'answered' || data.status === 'live'){
@@ -800,26 +555,14 @@ async function startCall(){
       stopOutgoingRing();
       setStatus('held', 'You\'re on hold — producer will be right with you');
       startHoldMusicCaller();
-    }
-
-    // On-air connection to overlay.html — this is what actually gets the caller's
-    // voice onto the broadcast (the producer's own separate connection can't;
-    // OBS's Browser Source only ever captures overlay.html, not the dashboard tab).
-    if(data.status === 'live'){
-      setStatus('live', "You're live! Your voice is going straight to the broadcast.");
-      startAirConnection();
-    } else {
-      stopAirConnection();
-    }
-
-    if(data.status === 'rejected'){
+    } else if(data.status === 'rejected'){
       stopOutgoingRing();
       stopHoldMusicCaller();
       setStatus('ended', 'Call could not be connected right now. Try again soon!');
       stopTimer();
       cleanup(false);
       setTimeout(()=>{
-        window.close(); // works only if this tab was opened via script — harmless if not
+        window.close();
         document.body.innerHTML = `
           <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;
             justify-content:center;background:#0a0a0a;color:#f2f2f2;font-family:Arial,sans-serif;
@@ -827,11 +570,7 @@ async function startCall(){
             <div style="font-size:48px;">📵</div>
             <div style="font-size:22px;font-weight:900;">Not Available</div>
             <div style="font-size:14px;color:#888;">The producer is unavailable right now. Try calling back soon!</div>
-            <div style="font-size:12px;color:#555;margin-top:8px;">Taking you back home…</div>
           </div>`;
-        // Browsers block window.close() on tabs they didn't open themselves — this
-        // redirect is the reliable way to exit the call screen either way.
-        setTimeout(()=>{ window.location.href = 'home.html'; }, 1800);
       }, 3000);
     } else if(data.status === 'ended'){
       stopOutgoingRing();
@@ -848,9 +587,8 @@ async function startCall(){
             <div style="font-size:48px;">📞</div>
             <div style="font-size:22px;font-weight:900;">Call Ended</div>
             <div style="font-size:14px;color:#888;">Thanks for calling in to Live Caller Studio!</div>
-            <div style="font-size:12px;color:#555;margin-top:8px;">Taking you back home…</div>
+            <div style="font-size:12px;color:#555;margin-top:8px;">You can close this window.</div>
           </div>`;
-        setTimeout(()=>{ window.location.href = 'home.html'; }, 1800);
       }, 3000);
     }
   });
@@ -880,7 +618,6 @@ async function startCall(){
 function cleanup(updateFirestore = true){
   if(localStream) localStream.getTracks().forEach(t => t.stop());
   if(pc){ pc.close(); pc = null; }
-  stopAirConnection();
   if(updateFirestore && callDocRef){
     updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
   }
@@ -903,7 +640,7 @@ endBtn.addEventListener('click', async ()=>{
   if(callDocRef) await updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
   cleanup(false);
   setTimeout(()=>{
-    window.close(); // works only if this tab was opened via script — harmless if not
+    window.close();
     document.body.innerHTML = `
       <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;
         justify-content:center;background:#0a0a0a;color:#f2f2f2;font-family:Arial,sans-serif;
@@ -911,29 +648,23 @@ endBtn.addEventListener('click', async ()=>{
         <div style="font-size:48px;">📞</div>
         <div style="font-size:22px;font-weight:900;">Call Ended</div>
         <div style="font-size:14px;color:#888;">Thanks for calling in to Live Caller Studio!</div>
-        <div style="font-size:12px;color:#555;margin-top:8px;">Taking you back home…</div>
+        <div style="font-size:12px;color:#555;margin-top:8px;">You can close this window.</div>
       </div>`;
-    // Browsers block window.close() on tabs they didn't open themselves — this
-    // redirect is what actually gets the caller out of the call screen.
-    setTimeout(()=>{ window.location.href = 'home.html'; }, 1800);
   }, 2000);
 });
 
 callBtn.addEventListener('click', startCall);
 callerNameInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') startCall(); });
-callerCityInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') startCall(); });
 
 window.addEventListener('beforeunload', ()=>{ stopOutgoingRing(); stopHoldMusicCaller(); cleanup(true); });
 
 // ── Phone lines open/closed ── set by the producer in the dashboard.
 // Missing doc / missing field defaults to OPEN so this never blocks calls
 // before a producer has ever touched the toggle.
-const callFormFields = document.getElementById('callFormFields');
 onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
   const d = snap.data();
   linesOpen = d ? d.open !== false : true;
   linesClosedBanner.classList.toggle('show', !linesOpen);
-  if(callFormFields) callFormFields.style.display = linesOpen ? '' : 'none';
   callBtn.disabled = !linesOpen;
   callBtn.style.opacity = linesOpen ? '' : '.4';
 }, ()=>{ /* if this ever errors, leave calls enabled rather than block listeners */ });

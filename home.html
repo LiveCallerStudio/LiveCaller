@@ -8,12 +8,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Live Caller">
-<link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152.png">
-<link rel="apple-touch-icon" sizes="167x167" href="apple-touch-icon-167.png">
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <title>Live Caller Studio</title>
 <style>
   :root{
@@ -28,7 +22,6 @@
     --sub:#666;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
-  button,a{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
   html,body{
     min-height:100vh;
     background:var(--bk);
@@ -157,7 +150,7 @@
   .card:active{transform:translateY(-1px);}
 
   .card-head{
-    display:flex;align-items:center;justify-content:center;
+    display:flex;align-items:flex-start;justify-content:space-between;
     margin-bottom:20px;
   }
   .card-icon{
@@ -172,7 +165,6 @@
     border-color:rgba(255,59,59,0.16);
   }
   .card-arrow{
-    position:absolute;top:24px;right:24px;
     width:34px;height:34px;border-radius:50%;
     border:1px solid var(--line2);
     display:flex;align-items:center;justify-content:center;
@@ -184,32 +176,29 @@
 
   .card-title{
     font-size:20px;font-weight:900;letter-spacing:-.2px;
-    text-transform:uppercase;text-align:center;
     margin-bottom:9px;line-height:1.15;
   }
+
+  .lines-status{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:6px 12px;border-radius:20px;
+    font-family:Arial,sans-serif;font-size:10.5px;font-weight:700;
+    letter-spacing:.8px;text-transform:uppercase;
+    margin-bottom:14px;
+    border:1px solid var(--line2);color:#666;
+    background:rgba(255,255,255,0.03);
+  }
+  .lines-status.open{border-color:rgba(83,252,24,0.3);color:var(--g);background:rgba(83,252,24,0.08);}
+  .lines-status.open .lines-status-dot{background:var(--g);animation:blink 1.4s infinite;}
+  .lines-status.closed{border-color:var(--line2);color:#777;}
+  .lines-status.closed .lines-status-dot{background:#555;}
+  .lines-status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.25;}}
 
   .card-desc{
     font-family:Arial,sans-serif;font-weight:400;
     font-size:14px;color:#666;line-height:1.65;
-    text-align:center;max-width:320px;margin:0 auto 20px;
-  }
-
-  /* ── Closed-state card — swapped in for Call In Live / Video Guest when the
-     producer has that line closed, instead of the normal interactive card ── */
-  .card-closed{
-    display:none;flex-direction:column;align-items:center;
-    text-align:center;gap:12px;
-    background:var(--p);border:1px solid var(--line);border-radius:22px;
-    padding:40px 28px;
-  }
-  .card-closed-title{
-    display:flex;align-items:center;justify-content:center;gap:10px;
-    font-size:21px;font-weight:800;color:#f0f0f0;letter-spacing:-.2px;
-  }
-  .card-closed-desc{
-    font-family:Arial,sans-serif;font-weight:400;
-    font-size:15px;color:#888;line-height:1.6;
-    max-width:340px;
+    margin-bottom:20px;
   }
 
   /* ── Footer ── */
@@ -281,40 +270,37 @@
       <div class="card-desc">Record a message in seconds. Song requests, shoutouts, birthday messages, and dedications.</div>
     </a>
 
-    <a class="card red" href="call.html" id="callCardOpen">
+    <a class="card red" href="call.html">
       <div class="card-head">
         <div class="card-icon">📞</div>
         <div class="card-arrow">↗</div>
       </div>
       <div class="card-title">Call In Live</div>
+      <div class="lines-status closed" id="linesStatus">
+        <span class="lines-status-dot"></span>
+        <span id="linesStatusText">Checking phone lines…</span>
+      </div>
       <div class="card-desc">Connect directly with the producer for a chance to go live on air.</div>
     </a>
 
-    <div class="card-closed" id="callCardClosed">
-      <div class="card-closed-title"><span>📞</span> Phone Lines Are Closed</div>
-      <div class="card-closed-desc">Call-ins aren't being accepted right now — check back soon!</div>
-    </div>
-
-    <a class="card" href="videocall.html" id="videoCardOpen">
+    <a class="card" href="videocall.html">
       <div class="card-head">
         <div class="card-icon">🎥</div>
         <div class="card-arrow">↗</div>
       </div>
       <div class="card-title">Join as Video Guest</div>
+      <div class="lines-status closed" id="videoStatus">
+        <span class="lines-status-dot"></span>
+        <span id="videoStatusText">Checking video guests…</span>
+      </div>
       <div class="card-desc">Bring your camera and mic straight into the live stream.</div>
     </a>
-
-    <div class="card-closed" id="videoCardClosed">
-      <div class="card-closed-title"><span>🎥</span> Video Guests Are Closed</div>
-      <div class="card-closed-desc">The host isn't taking video guests right now — check back soon!</div>
-    </div>
 
   </div>
 
   <!-- Footer -->
   <footer class="footer">
     <div class="footer-links">
-      <a href="home.html">Home</a>
       <a href="voicemessage.html">Voice Message</a>
       <a href="call.html">Call In Live</a>
       <a href="videocall.html">Video Guest</a>
@@ -325,9 +311,6 @@
   </footer>
 
 </div>
-<script>
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
-</script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
   import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
@@ -344,25 +327,29 @@
   const app = initializeApp(firebaseConfig);
   const db  = getFirestore(app);
 
-  const callCardOpen    = document.getElementById('callCardOpen');
-  const callCardClosed  = document.getElementById('callCardClosed');
-  const videoCardOpen   = document.getElementById('videoCardOpen');
-  const videoCardClosed = document.getElementById('videoCardClosed');
+  const linesStatus = document.getElementById('linesStatus');
+  const linesStatusText = document.getElementById('linesStatusText');
+  const videoStatus = document.getElementById('videoStatus');
+  const videoStatusText = document.getElementById('videoStatusText');
 
-  function showCard(openEl, closedEl, isOpen){
-    openEl.style.display = isOpen ? 'flex' : 'none';
-    closedEl.style.display = isOpen ? 'none' : 'flex';
-  }
-
-  // Missing doc / missing field defaults to OPEN so nothing wrongly shows
-  // "closed" before a producer has ever touched either toggle.
+  // Missing doc / missing field defaults to OPEN so the badges don't wrongly
+  // say "closed" before a producer has ever touched either toggle.
   onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
     const d = snap.data();
-    showCard(callCardOpen, callCardClosed, d ? d.open !== false : true);
-    showCard(videoCardOpen, videoCardClosed, d ? d.videoOpen !== false : true);
+    const open = d ? d.open !== false : true;
+    linesStatus.classList.toggle('open', open);
+    linesStatus.classList.toggle('closed', !open);
+    linesStatusText.textContent = open ? 'Phone Lines Open' : 'Phone Lines Closed';
+
+    const videoOpen = d ? d.videoOpen !== false : true;
+    videoStatus.classList.toggle('open', videoOpen);
+    videoStatus.classList.toggle('closed', !videoOpen);
+    videoStatusText.textContent = videoOpen ? 'Video Guests Open' : 'Video Guests Closed';
   }, ()=>{
-    showCard(callCardOpen, callCardClosed, true);
-    showCard(videoCardOpen, videoCardClosed, true);
+    linesStatusText.textContent = 'Phone Lines Open';
+    linesStatus.classList.add('open');
+    videoStatusText.textContent = 'Video Guests Open';
+    videoStatus.classList.add('open');
   });
 </script>
 </body>
