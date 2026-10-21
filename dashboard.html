@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#53FC18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,680 +16,487 @@
 <title>Live Caller Studio — Producer Dashboard</title>
 <style>
   :root{
-    --g:#53FC18;
-    --g-dim:rgba(83,252,24,0.12);
-    --g-line:rgba(83,252,24,0.35);
+    --green:#53FC18;
+    --black:#0a0a0a;
+    --panel:#131313;
+    --panel-2:#181818;
+    --line:#262626;
     --red:#ff3b3b;
-    --red-dim:rgba(255,59,59,0.12);
-    --bk:#060606;
-    --panel:#0e0e0e;
-    --panel2:#141414;
-    --line:#1c1c1c;
-    --line2:#2a2a2a;
-    --tx:#f4f4f4;
-    --sub:#8a8a8a;
-    --muted:#555;
-    --safe-top:env(safe-area-inset-top,0px);
-    --safe-bot:env(safe-area-inset-bottom,0px);
-    --header-h:56px;
-    --tab-h:52px;
-    --bot-nav-h:64px;
+    --text:#f2f2f2;
+    --sub:#8f8f8f;
   }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html,body{
-    margin:0;
-    background:
-      radial-gradient(ellipse 100% 80% at 10% -20%, rgba(83,252,24,0.07), transparent 50%),
-      radial-gradient(ellipse 80% 60% at 100% 0%, rgba(40,80,200,0.06), transparent 45%),
-      var(--bk);
-    color:var(--tx);
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
-    min-height:100%;min-height:100dvh;
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--black); color:var(--text);
+    font-family:Arial,Helvetica,sans-serif;
+    min-height:100vh;
     overflow-x:hidden;
-    -webkit-font-smoothing:antialiased;
-  }
-  button,a,input,select{font-family:inherit;touch-action:manipulation;}
-
-  .bolt-wrap,.ambient{display:none;} /* cleaner pro surface */
-
-  #dashboardApp{position:relative;z-index:1;min-height:100dvh;padding-bottom:calc(var(--bot-nav-h) + var(--safe-bot));}
-  @media(min-width:900px){
-    #dashboardApp{padding-bottom:24px;}
   }
 
-  /* ── Header ── */
+  /* ── Lightning bolt decorations (matches voicemessage.html / call.html) ── */
+  .bolt-wrap{
+    position:fixed;top:0;left:0;right:0;bottom:0;
+    pointer-events:none;z-index:0;overflow:hidden;
+  }
+  .bolt-tl,.bolt-tr{
+    position:absolute;top:-20px;
+    font-size:120px;line-height:1;
+    color:var(--green);opacity:.09;
+    filter:drop-shadow(0 0 20px rgba(83,252,24,0.5));
+    animation:boltpulse 3s ease-in-out infinite;
+  }
+  .bolt-tl{left:-20px;transform:rotate(-15deg);}
+  .bolt-tr{right:-20px;transform:rotate(15deg);animation-delay:1.5s;}
+  @keyframes boltpulse{0%,100%{opacity:.09;}50%{opacity:.16;}}
+
+  .ambient{
+    position:fixed;top:0;left:0;right:0;height:40vh;
+    pointer-events:none;z-index:0;
+    background:radial-gradient(ellipse 80% 60% at 50% 0%, rgba(83,252,24,0.08) 0%, transparent 70%);
+  }
+
+  #dashboardApp{position:relative;z-index:1;}
   header{
-    display:flex;align-items:center;justify-content:space-between;
-    padding:calc(10px + var(--safe-top)) 14px 10px;
-    border-bottom:1px solid var(--line);
-    background:rgba(10,10,10,0.92);
-    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-    position:sticky;top:0;z-index:50;
-    gap:10px;flex-wrap:wrap;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 26px; border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, #111, #0a0a0a);
+    position:sticky; top:0; z-index:5;
+    flex-wrap:wrap; gap:14px;
   }
-  .brand{display:flex;align-items:center;gap:10px;min-width:0;}
-  .brand .bolt{
-    width:34px;height:34px;border-radius:10px;
-    display:flex;align-items:center;justify-content:center;
-    background:var(--g-dim);border:1px solid var(--g-line);
-    color:var(--g);font-size:16px;flex-shrink:0;
-  }
-  .brand h1{font-size:13px;letter-spacing:1.2px;margin:0;text-transform:uppercase;font-weight:800;line-height:1.15;}
-  .brand h1 span{color:var(--g);}
-  .brand small{display:block;color:var(--muted);font-size:9px;letter-spacing:1.4px;text-transform:uppercase;margin-top:2px;}
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .bolt{color:var(--green); font-size:22px;}
+  .brand h1{font-size:16px; letter-spacing:1.5px; margin:0; text-transform:uppercase; font-weight:800;}
+  .brand h1 span{color:var(--green);}
+  .brand small{display:block; color:var(--sub); font-size:11px; letter-spacing:1px;}
 
-  .header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex:1;}
-  .broadcast-controls{display:flex;align-items:center;gap:6px;}
-  .console-toggle{
-    display:inline-flex;align-items:center;gap:7px;
-    padding:8px 11px;border-radius:20px;
-    border:1px solid var(--line2);background:var(--panel);
-    font-size:10px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);
-    cursor:pointer;transition:all .15s;
-  }
-  .console-led{width:7px;height:7px;border-radius:50%;background:#333;flex-shrink:0;}
-  .console-toggle.open{color:var(--g);border-color:var(--g-line);background:var(--g-dim);}
-  .console-toggle.open .console-led{background:var(--g);box-shadow:0 0 8px rgba(83,252,24,.8);animation:ledpulse 1.6s ease-in-out infinite;}
-  .console-toggle.closed{color:#666;}
-  @keyframes ledpulse{0%,100%{opacity:1}50%{opacity:.5}}
+  .header-right{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
 
-  .call-counter{
-    display:none;align-items:center;gap:6px;
-    background:var(--g-dim);border:1px solid var(--g-line);color:var(--g);
-    padding:6px 10px;border-radius:20px;font-size:11px;font-weight:700;
+  .lines-toggle{
+    display:flex;align-items:center;gap:8px;
+    padding:8px 14px;border-radius:20px;border:1.5px solid;
+    font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+    cursor:pointer;transition:filter .15s ease,background .15s ease;
+    background:transparent;font-family:Arial,Helvetica,sans-serif;
   }
-  .call-counter.show{display:flex;}
-  .on-air-badge{
-    display:none;align-items:center;gap:6px;
-    background:var(--red-dim);border:1px solid rgba(255,59,59,.4);color:var(--red);
-    padding:6px 10px;border-radius:20px;font-size:10px;font-weight:800;letter-spacing:1px;
-  }
-  .on-air-badge.show{display:flex;}
-  .on-air-dot{width:7px;height:7px;border-radius:50%;background:var(--red);animation:ledpulse 1s infinite;}
+  .lines-toggle:hover{filter:brightness(1.3);}
+  .lines-toggle.open{border-color:var(--green);color:var(--green);background:rgba(83,252,24,0.08);}
+  .lines-toggle.open .lines-dot{background:var(--green);animation:blink 1.4s infinite;}
+  .lines-toggle.closed{border-color:var(--sub);color:var(--sub);background:rgba(255,255,255,0.03);}
+  .lines-toggle.closed .lines-dot{background:var(--sub);}
+  .lines-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
   .counter{
-    display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);
-    background:var(--panel);border:1px solid var(--line);padding:6px 10px;border-radius:20px;
+    background:var(--panel-2); border:1px solid var(--green); color:var(--green);
+    padding:7px 14px; border-radius:20px; font-size:13px; font-weight:700; letter-spacing:.5px;
+    display:flex; align-items:center; gap:8px;
   }
-  .counter .dot{width:6px;height:6px;border-radius:50%;background:var(--g);}
+  .counter .dot{width:8px; height:8px; border-radius:50%; background:var(--green); animation:blink 1.4s infinite;}
+  @keyframes blink{0%,100%{opacity:1;} 50%{opacity:.25;}}
 
   .search{
-    background:var(--panel);border:1px solid var(--line);color:var(--tx);
-    border-radius:10px;padding:9px 12px;font-size:14px;min-width:0;width:140px;
+    background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    padding:9px 12px; color:var(--text); font-size:13px; width:200px;
   }
-  .search:focus{outline:none;border-color:var(--g-line);}
-  .home-btn,.signout-btn{
-    background:var(--panel);border:1px solid var(--line);color:var(--sub);
-    border-radius:10px;padding:8px 12px;font-size:12px;font-weight:600;
-    text-decoration:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
-  }
-  .signout-btn:hover,.home-btn:hover{border-color:var(--line2);color:var(--tx);}
+  .search:focus{outline:none; border-color:var(--green);}
 
-  /* ── Desktop top tabs / Mobile bottom nav ── */
-  .tab-nav{
-    display:none;
-    gap:0;border-bottom:1px solid var(--line);
-    background:var(--panel);padding:0 8px;
-    position:sticky;top:0;z-index:40;
-    overflow-x:auto;-webkit-overflow-scrolling:touch;
-    scrollbar-width:none;
+  select{
+    background:var(--panel); border:1px solid var(--line); color:var(--text);
+    padding:9px 10px; border-radius:8px; font-size:13px;
   }
-  .tab-nav::-webkit-scrollbar{display:none;}
-  @media(min-width:900px){
-    .tab-nav{display:flex;top:auto;}
-  }
-  .tab-btn{
-    background:transparent;border:none;border-bottom:2px solid transparent;
-    color:var(--sub);font-size:12px;font-weight:700;padding:14px 14px;
-    cursor:pointer;letter-spacing:.3px;white-space:nowrap;flex-shrink:0;
-  }
-  .tab-btn.active{color:var(--g);border-bottom-color:var(--g);}
-
-  .bot-nav{
-    display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;
-    background:rgba(10,10,10,0.94);
-    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
-    border-top:1px solid var(--line);
-    padding:6px 4px calc(6px + var(--safe-bot));
-    justify-content:space-around;align-items:stretch;
-  }
-  @media(min-width:900px){ .bot-nav{display:none;} }
-  .bot-nav .tab-btn{
-    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:3px;padding:8px 4px;border:none;border-bottom:none;border-radius:12px;
-    font-size:10px;font-weight:700;color:var(--muted);letter-spacing:0;
-  }
-  .bot-nav .tab-btn .nav-ic{font-size:18px;line-height:1;}
-  .bot-nav .tab-btn.active{color:var(--g);background:var(--g-dim);}
-
-  main{padding:14px 14px 28px;max-width:1100px;margin:0 auto;}
-  @media(min-width:900px){ main{padding:20px 24px 40px;} }
 
   .alert-banner{
-    display:none;text-align:center;padding:10px 14px;
-    background:var(--g-dim);color:var(--g);font-weight:700;font-size:13px;
-    border-bottom:1px solid var(--g-line);
+    display:none; max-width:1100px; margin:16px auto 0; padding:13px 18px;
+    background:rgba(83,252,24,0.12); border:1px solid var(--green); border-radius:10px;
+    color:var(--green); font-weight:700; font-size:14px; letter-spacing:.5px;
+    text-align:center; animation:flash 1s infinite;
   }
   .alert-banner.show{display:block;}
+  @keyframes flash{0%,100%{background:rgba(83,252,24,0.12);} 50%{background:rgba(83,252,24,0.28);}}
 
-  /* ── Cards / queue ── */
-  .empty{text-align:center;padding:48px 20px;color:var(--sub);font-size:14px;}
-  .empty .ic{font-size:36px;margin-bottom:12px;}
-  .queue{display:flex;flex-direction:column;gap:10px;}
+  main{max-width:1100px; margin:0 auto; padding:0;}
+  .tab-content{padding:24px 18px 60px;}
+
+  .empty{
+    text-align:center; color:var(--sub); padding:80px 20px; font-size:14px;
+  }
+  .empty .ic{font-size:40px; margin-bottom:14px; opacity:.5;}
+
+  .queue{display:flex; flex-direction:column; gap:12px;}
+
   .card{
-    background:var(--panel);border:1px solid var(--line);border-radius:14px;
-    padding:14px;display:flex;gap:12px;align-items:flex-start;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    transition:border-color .15s ease;
   }
-  .card-main{flex:1;min-width:0;}
-  .card-name{font-weight:800;font-size:15px;}
-  .card-city{color:var(--sub);font-size:12px;}
-  .card-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .card.new{border-color:var(--green); box-shadow:0 0 0 1px rgba(83,252,24,0.25);}
+  .card.approved{opacity:.55;}
+
+  .play-btn{
+    width:46px; height:46px; min-width:46px; border-radius:50%; border:2px solid var(--green);
+    background:transparent; color:var(--green); cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:background .15s ease;
+  }
+  .play-btn:hover{background:rgba(83,252,24,0.12);}
+  .play-btn.playing{background:var(--green); color:#0a0a0a;}
+  .play-btn svg{width:18px; height:18px;}
+
+  .card-body{flex:1; min-width:200px;}
+  .card-top{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px;}
+  .card-name{font-weight:800; font-size:15px;}
+  .card-city{color:var(--sub); font-size:12px;}
+  .card-time{color:#5a5a5a; font-size:11px; margin-left:auto;}
+  .card-song{color:var(--green); font-size:12.5px; margin-bottom:6px;}
+  .card-song::before{content:"♪ ";}
+
+  .waveform{
+    display:flex; align-items:center; gap:2px; height:24px; margin:6px 0;
+  }
+  .waveform span{
+    width:3px; background:#3a3a3a; border-radius:2px;
+  }
+  .waveform.active span{background:var(--green);}
+
+  .duration{color:var(--sub); font-size:11px; font-variant-numeric:tabular-nums;}
+
+  .card-actions{display:flex; gap:8px; flex-wrap:wrap;}
   .ibtn{
-    border:1px solid var(--line2);background:var(--panel2);color:var(--tx);
-    border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;
+    padding:9px 14px; border-radius:7px; border:1px solid var(--line); background:var(--panel-2);
+    color:var(--text); cursor:pointer; font-size:12px; font-weight:700; letter-spacing:.3px;
+    display:flex; align-items:center; gap:6px; transition:filter .15s ease;
   }
-  .ibtn-play{border-color:var(--g-line);color:var(--g);}
-  .ibtn-approve{border-color:var(--g-line);background:var(--g-dim);color:var(--g);}
-  .ibtn-reject{border-color:rgba(255,59,59,.35);color:var(--red);}
+  .ibtn:hover{filter:brightness(1.3);}
+  .ibtn.approve{border-color:var(--green); color:var(--green);}
+  .ibtn.delete{border-color:var(--red); color:var(--red);}
+  .ibtn.download{color:var(--sub);}
+  .ibtn.favorite{color:#f5c518;}
+  .ibtn.favorite.active{background:#f5c518; color:#0a0a0a; border-color:#f5c518;}
+  .ibtn.on-air{color:var(--red); border-color:var(--red); animation:pulse-red 1.5s infinite;}
+  .ibtn.on-air-btn{color:var(--red); border-color:var(--red); font-weight:900;}
+  .ibtn.on-air-btn:hover{background:var(--red); color:#fff;}
+  .ibtn.on-air-btn.live{background:var(--red); color:#fff; animation:pulse-red 1.5s infinite;}
+  @keyframes pulse-red{0%,100%{box-shadow:0 0 0 0 rgba(255,59,59,0.4);} 50%{box-shadow:0 0 0 6px rgba(255,59,59,0);}}
 
-  /* ── Active call ── */
-  .active-call-panel{
-    background:linear-gradient(180deg,#121812,#0a0a0a);
-    border:1px solid var(--g-line);border-radius:16px;padding:16px;margin-bottom:14px;
+  .on-air-badge{
+    display:none; align-items:center; gap:6px; background:var(--red); color:#fff;
+    font-size:11px; font-weight:900; letter-spacing:1.5px; padding:5px 10px; border-radius:4px;
+    text-transform:uppercase;
   }
-  .active-call-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
-  .active-call-badge{font-size:10px;font-weight:800;letter-spacing:1.5px;color:var(--g);margin-bottom:4px;}
-  .active-call-name{font-size:20px;font-weight:800;}
-  .active-call-city{font-size:13px;color:var(--sub);}
-  .active-call-timer{font-variant-numeric:tabular-nums;font-size:22px;font-weight:700;color:var(--g);font-family:ui-monospace,monospace;}
-  .active-call-status{margin:10px 0;font-size:13px;color:var(--sub);}
-  .active-call-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  @media(min-width:600px){ .active-call-controls{grid-template-columns:repeat(3,1fr);} }
+  .on-air-badge.show{display:flex;}
+  .on-air-dot{width:8px; height:8px; border-radius:50%; background:#fff; animation:blink 1s infinite;}
+
+  .signout-btn{
+    background:transparent; border:1px solid var(--line); color:var(--sub);
+    padding:8px 14px; border-radius:8px; font-size:12px; font-weight:700;
+    cursor:pointer; letter-spacing:.3px; transition:color .15s ease, border-color .15s ease;
+  }
+  .signout-btn:hover{color:var(--red); border-color:var(--red);}
+
+  .home-btn{
+    display:inline-flex; align-items:center; gap:6px;
+    background:transparent; border:1px solid var(--line); color:var(--sub);
+    padding:8px 14px; border-radius:8px; font-size:12px; font-weight:700;
+    text-decoration:none; letter-spacing:.3px; transition:color .15s ease, border-color .15s ease;
+  }
+  .home-btn:hover{color:var(--green); border-color:var(--green);}
+
+  /* ── Live Call Cards ── */
+  .call-card{
+    background:var(--panel); border:2px solid var(--green); border-radius:12px;
+    padding:18px; margin-bottom:12px;
+  }
+  .call-card.on-hold{ border-color:var(--gold,#f5a623); }
+  .call-card.ended{ border-color:var(--line); opacity:.5; }
+  .call-card-top{
+    display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;
+  }
+  .call-card-ring{
+    width:46px; height:46px; border-radius:50%; border:2px solid var(--green);
+    display:flex; align-items:center; justify-content:center; color:var(--green);
+    animation:callring 1.2s ease-in-out infinite; flex-shrink:0;
+  }
+  .call-card-ring.active{ animation:none; border-color:var(--green); }
+  .call-card-ring.on-hold{ border-color:var(--gold,#f5a623); color:var(--gold,#f5a623); animation:none; }
+  .call-card-ring.ended{ border-color:var(--sub); color:var(--sub); animation:none; }
+  @keyframes callring{
+    0%,100%{box-shadow:0 0 0 0 rgba(83,252,24,.5);}
+    50%{box-shadow:0 0 0 8px rgba(83,252,24,0);}
+  }
+  .call-card-ring svg{ width:20px; height:20px; }
+  .call-card-info{ flex:1; }
+  .call-card-name{ font-size:16px; font-weight:900; }
+  .call-card-city{ color:var(--sub); font-size:12px; margin-top:2px; }
+  .call-card-status{
+    font-size:11px; letter-spacing:1px; text-transform:uppercase;
+    color:var(--green); font-weight:700; margin-top:4px;
+  }
+  .call-card-timer{ font-size:22px; font-weight:900; font-variant-numeric:tabular-nums; color:var(--text); }
+  .call-card-actions{ display:flex; gap:8px; flex-wrap:wrap; }
   .cbtn{
-    border:1px solid var(--line2);background:var(--panel2);color:var(--tx);
-    border-radius:12px;padding:12px 10px;font-size:13px;font-weight:700;cursor:pointer;
-    min-height:48px;
+    flex:1; padding:11px 10px; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--text); cursor:pointer;
+    font-size:12px; font-weight:700; letter-spacing:.3px; min-width:80px;
+    transition:filter .15s ease;
   }
-  .cbtn-end{border-color:rgba(255,59,59,.4);color:var(--red);grid-column:1 / -1;}
-  .cbtn-air{border-color:rgba(255,59,59,.35);background:var(--red-dim);color:#ff8a8a;}
-  .cbtn-air.live{background:rgba(255,59,59,.25);color:#fff;}
-  .cbtn-hold.on-hold{border-color:#e6b800;color:#e6b800;}
-  .cbtn-mute.muted,.cbtn-record.recording{border-color:var(--g-line);color:var(--g);}
-
-  .call-card,.video-card{
-    background:var(--panel);border:1px solid var(--line);border-radius:14px;
-    padding:14px;margin-bottom:10px;
+  .cbtn:hover{ filter:brightness(1.3); }
+  .cbtn.answer{ border-color:var(--green); color:var(--green); }
+  .cbtn.end{ border-color:var(--red); color:var(--red); }
+  .cbtn.hold{ border-color:#f5a623; color:#f5a623; }
+  .cbtn.live{ background:var(--red); border-color:var(--red); color:#fff; font-weight:900; animation:pulse-red 1.5s infinite; }
+  .badge{
+    font-size:10px; padding:3px 8px; border-radius:10px; text-transform:uppercase; letter-spacing:.5px;
+    background:rgba(83,252,24,0.15); color:var(--green); font-weight:700;
   }
-  .call-card-name,.video-card-name{font-weight:800;font-size:15px;}
-  .call-card-city{font-size:12px;color:var(--sub);}
-  .call-card-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .badge.approved{background:rgba(255,255,255,0.08); color:var(--sub);}
 
-  /* Video preview */
-  #videoPreviewPanel{
-    background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px;
+  audio.hiddenplayer{display:none;}
+
+  .on-air-badge{
+    display:none; align-items:center; gap:7px; padding:7px 14px; border-radius:20px;
+    background:rgba(255,59,59,0.15); border:1px solid var(--red); color:var(--red);
+    font-size:13px; font-weight:700; letter-spacing:.5px;
   }
-  #previewVideo{width:100%;max-height:280px;border-radius:12px;background:#000;object-fit:contain;}
+  .on-air-badge.show{display:flex;}
+  .on-air-badge .dot{width:8px; height:8px; border-radius:50%; background:var(--red); animation:blink 1s infinite;}
+  .signout-btn{
+    background:transparent; border:1px solid var(--line); color:var(--sub);
+    padding:7px 12px; border-radius:8px; font-size:12px; cursor:pointer; font-weight:700;
+  }
+  .signout-btn:hover{border-color:var(--red); color:var(--red);}
+  .ibtn.favorite{color:#f5a623; border-color:#f5a623;}
+  .ibtn.favorite.active{background:#f5a623; color:#0a0a0a;}
+  .ibtn.skip{color:var(--sub);}
+  .card.favorited{border-left:3px solid #f5a623;}
 
-  /* History */
+  /* ── Call Center ── */
+  .active-call-panel{
+    background:linear-gradient(135deg, rgba(83,252,24,0.06), rgba(10,10,10,0));
+    border:1px solid var(--green); border-radius:14px; padding:20px; margin-bottom:20px;
+    box-shadow:0 0 30px rgba(83,252,24,0.1);
+  }
+  .active-call-header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:8px;}
+  .active-call-badge{font-size:11px; color:var(--green); letter-spacing:2px;
+    text-transform:uppercase; font-weight:900; margin-bottom:4px;}
+  .active-call-name{font-size:22px; font-weight:900; color:var(--text);}
+  .active-call-city{font-size:12px; color:var(--sub);}
+  .active-call-timer{font-size:36px; font-weight:900; color:var(--green);
+    font-variant-numeric:tabular-nums; flex-shrink:0;}
+  .active-call-status{
+    font-size:12px; color:var(--sub); letter-spacing:1.5px; text-transform:uppercase;
+    margin-bottom:16px; font-family:Arial,Helvetica,sans-serif;
+  }
+  .active-call-status.on-air{color:var(--red); font-weight:900;}
+  .active-call-status.on-hold{color:#f5a623;}
+  .active-call-controls{display:flex; gap:10px; flex-wrap:wrap;}
+  .cbtn{
+    flex:1; min-width:100px; padding:12px 10px; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--text); cursor:pointer; font-size:13px;
+    font-weight:700; letter-spacing:.3px; transition:all .15s ease;
+  }
+  .cbtn:hover{filter:brightness(1.3);}
+  .cbtn:disabled{opacity:.3; cursor:not-allowed;}
+  .cbtn-hold{border-color:#f5a623; color:#f5a623;}
+  .cbtn-hold.on-hold{background:#f5a623; color:#0a0a0a;}
+  .cbtn-mute{border-color:var(--sub); color:var(--sub);}
+  .cbtn-mute.muted{background:var(--red); border-color:var(--red); color:#fff;}
+  .cbtn-record{border-color:#e74c3c; color:#e74c3c;}
+  .cbtn-record.recording{background:#e74c3c; color:#fff; animation:pulse-red 1.2s infinite;}
+  .cbtn-air{border-color:var(--red); color:var(--red); font-weight:900;}
+  .cbtn-air.live{background:var(--red); color:#fff; animation:pulse-red 1.5s infinite;}
+  .cbtn-end{border-color:var(--red); color:var(--red);}
+  .record-status{
+    font-family:Arial,sans-serif; font-size:12px; color:var(--sub);
+    text-align:center; min-height:18px; margin-top:8px; letter-spacing:.5px;
+  }
+  .record-status.saved{color:var(--green);}
+
+  /* History cards */
   .hist-card{
-    display:flex;gap:12px;align-items:center;flex-wrap:wrap;
-    background:var(--panel);border:1px solid var(--line);border-radius:14px;
-    padding:14px;margin-bottom:8px;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:14px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    margin-bottom:10px;
   }
-  .hist-card.missed{border-color:rgba(255,59,59,.25);}
-  .hist-missed-badge{font-size:10px;color:var(--red);margin-left:6px;font-weight:700;}
-  .hist-body{
-    background:
-      radial-gradient(ellipse 100% 80% at 10% -20%, rgba(83,252,24,0.07), transparent 50%),
-      radial-gradient(ellipse 80% 60% at 100% 0%, rgba(40,80,200,0.06), transparent 45%),
-      var(--bk) !important;
-  }
-  .call-card-body{flex:1;min-width:120px;}
-  .hist-name{font-weight:800;font-size:14px;}
-  .hist-meta{font-size:12px;color:var(--sub);margin-top:2px;}
-  .hist-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
-  .hist-dur{font-variant-numeric:tabular-nums;font-size:14px;font-weight:700;color:var(--g);}
-  .hist-time{font-size:11px;color:var(--muted);text-align:right;max-width:160px;}
+  .hist-icon{font-size:22px; min-width:28px;}
+  .hist-body{flex:1; min-width:160px;}
+  .hist-name{font-weight:800; font-size:14px;}
+  .hist-meta{font-size:12px; color:var(--sub); margin-top:2px; font-family:Arial,sans-serif;}
+  .hist-right{display:flex; flex-direction:column; align-items:flex-end; gap:6px;}
+  .hist-dur{font-size:13px; color:var(--green); font-weight:700; font-variant-numeric:tabular-nums;}
+  .hist-time{font-size:11px; color:#5a5a5a;}
   .hist-play{
-    display:inline-block;padding:6px 10px;border-radius:8px;font-size:11px;font-weight:700;
-    text-decoration:none;border:1px solid var(--g-line);color:var(--g);
+    padding:6px 12px; border-radius:6px; border:1px solid var(--green); background:transparent;
+    color:var(--green); font-size:11px; font-weight:700; cursor:pointer; text-decoration:none;
+    display:inline-block; transition:background .15s, color .15s;
   }
+  .hist-play:hover{background:var(--green); color:#0a0a0a;}
   .hist-delete{
-    border:1px solid var(--line2);background:transparent;color:var(--muted);
-    border-radius:8px;padding:6px 8px;cursor:pointer;
+    padding:6px 10px; border-radius:6px; border:1px solid var(--red); background:transparent;
+    color:var(--red); font-size:11px; cursor:pointer; transition:background .15s, color .15s;
   }
+  .hist-delete:hover{background:var(--red); color:#fff;}
 
+  /* ── Recordings Section ── */
   .rec-card{
-    display:flex;flex-wrap:wrap;gap:12px;align-items:center;
-    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:8px;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px; display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap;
+    margin-bottom:10px;
   }
-  .rec-audio{width:100%;max-width:280px;height:36px;}
-  .rbtn{display:inline-block;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;border:1px solid var(--line2);color:var(--tx);background:var(--panel2);cursor:pointer;}
+  .rec-icon{ font-size:24px; padding-top:2px; }
+  .rec-body{ flex:1; min-width:160px; }
+  .rec-name{ font-weight:800; font-size:14px; margin-bottom:3px; }
+  .rec-meta{ font-size:12px; color:var(--sub); font-family:Arial,sans-serif; }
+  .rec-actions{ width:100%; display:flex; flex-direction:column; gap:8px; }
+  .rec-audio{ width:100%; height:36px; margin-top:4px; filter:invert(1) hue-rotate(70deg); }
+  .rec-btns{ display:flex; gap:8px; }
+  .rbtn{
+    padding:8px 14px; border-radius:7px; font-size:12px; font-weight:700;
+    cursor:pointer; text-decoration:none; display:inline-block;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--text);
+    transition:filter .15s, border-color .15s;
+  }
+  .rbtn:hover{ filter:brightness(1.3); }
+  .rbtn-save{ border-color:var(--green); color:var(--green); }
+  .rbtn-save:hover{ background:var(--green); color:#0a0a0a; }
+  .rbtn-del{ border-color:var(--red); color:var(--red); }
+  .rbtn-del:hover{ background:var(--red); color:#fff; }
+  .cbtn-end:hover{background:var(--red); color:#fff;}
 
-  .analytics-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px;}
-  @media(min-width:700px){ .analytics-grid{grid-template-columns:repeat(4,1fr);} }
+  .calls-section-title{font-size:11px; color:var(--sub); text-transform:uppercase;
+    letter-spacing:1.5px; margin-bottom:10px;}
+
+  .call-card{
+    background:var(--panel); border:1px solid var(--green); border-radius:12px;
+    padding:16px 18px; display:flex; align-items:center; gap:16px;
+    flex-wrap:wrap; margin-bottom:12px;
+    box-shadow:0 0 18px rgba(83,252,24,0.12); animation:flash-new 2s ease;
+  }
+  @keyframes flash-new{
+    0%,100%{box-shadow:0 0 18px rgba(83,252,24,.12);}
+    50%{box-shadow:0 0 30px rgba(83,252,24,.4);}
+  }
+  .call-ring-icon{
+    width:46px; height:46px; min-width:46px; border-radius:50%;
+    border:2px solid var(--green); display:flex; align-items:center; justify-content:center;
+    color:var(--green); animation:ringpulse 1.2s ease-in-out infinite;
+  }
+  @keyframes ringpulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(83,252,24,.5);}
+    50%{box-shadow:0 0 0 8px rgba(83,252,24,0);}
+  }
+  .call-card-body{flex:1; min-width:160px;}
+  .call-card-name{font-size:16px; font-weight:800; margin-bottom:2px;}
+  .call-card-city{font-size:12px; color:var(--sub);}
+  .call-card-time{font-size:11px; color:#555; margin-top:3px;}
+  .call-card-actions{display:flex; gap:8px;}
+  .ibtn-answer{background:var(--green); color:#0a0a0a; border:none; font-weight:900;}
+  .ibtn-reject{border-color:var(--red); color:var(--red);}
+
+  /* incoming call notification in header */
+  .call-counter{
+    display:none; align-items:center; gap:8px; background:rgba(83,252,24,0.12);
+    border:1px solid var(--green); color:var(--green); padding:6px 12px;
+    border-radius:20px; font-size:13px; font-weight:700; animation:blink-border 1s infinite;
+  }
+  .call-counter.show{display:flex;}
+  @keyframes blink-border{0%,100%{border-color:var(--green);}50%{border-color:transparent;}}
+    .card{flex-direction:column; align-items:stretch;}
+    .card-actions{justify-content:stretch;}
+    .ibtn{flex:1; justify-content:center;}
+    .search{width:140px;}
+  }
+
+  /* ── Tab Navigation ── */
+  .tab-nav{
+    display:flex; gap:0; border-bottom:1px solid var(--line);
+    background:var(--panel); padding:0 24px; position:sticky; top:73px; z-index:4;
+  }
+  .tab-btn{
+    background:transparent; border:none; border-bottom:2px solid transparent;
+    color:var(--sub); font-size:13px; font-weight:700; padding:14px 18px;
+    cursor:pointer; letter-spacing:.5px; transition:color .15s ease, border-color .15s ease;
+    margin-bottom:-1px;
+  }
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{color:var(--green); border-bottom-color:var(--green);}
+
+  /* ── Analytics ── */
+  .analytics-grid{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
+    gap:12px; margin-bottom:24px;
+  }
   .stat-card{
-    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:18px 16px; text-align:center;
   }
-  .stat-card .stat-val{font-size:24px;font-weight:800;color:var(--g);}
-  .stat-card .stat-label{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.8px;margin-top:4px;}
+  .stat-value{
+    font-size:32px; font-weight:900; color:var(--green); letter-spacing:-1px; line-height:1;
+    margin-bottom:6px;
+  }
+  .stat-label{
+    font-size:11px; color:var(--sub); text-transform:uppercase; letter-spacing:1px;
+  }
+  .analytics-section{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:18px; margin-bottom:16px;
+  }
+  .section-title{
+    margin:0 0 14px; font-size:12px; color:var(--green); text-transform:uppercase; letter-spacing:1.5px;
+  }
+  .breakdown-list{display:flex; flex-direction:column; gap:8px;}
+  .breakdown-row{
+    display:flex; align-items:center; gap:10px;
+  }
+  .breakdown-label{font-size:13px; flex:1; color:var(--text);}
+  .breakdown-bar-wrap{flex:2; background:var(--black); border-radius:4px; height:6px; overflow:hidden;}
+  .breakdown-bar{height:100%; background:var(--green); border-radius:4px; transition:width .4s ease;}
+  .breakdown-count{font-size:12px; color:var(--sub); font-variant-numeric:tabular-nums; min-width:24px; text-align:right;}
 
-  /* Login */
+  /* ── Tips ── */
+  .tips-header{margin-bottom:16px;}
+  .tips-log{display:flex; flex-direction:column; gap:10px;}
+  .tip-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:14px 16px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .tip-method{
+    font-size:20px; line-height:1; min-width:28px; text-align:center;
+  }
+  .tip-body{flex:1;}
+  .tip-name{font-weight:700; font-size:14px;}
+  .tip-note{font-size:12px; color:var(--sub); margin-top:2px;}
+  .tip-time{font-size:11px; color:#5a5a5a; margin-left:auto;}
+  .tip-amount{
+    font-size:13px; font-weight:700; color:var(--green); background:rgba(83,252,24,0.1);
+    padding:4px 10px; border-radius:6px;
+  }
+
   .login-screen{
-    min-height:100dvh;display:flex;align-items:center;justify-content:center;
-    padding:24px;padding-top:calc(24px + var(--safe-top));
-    background:radial-gradient(ellipse 80% 50% at 50% 0%, rgba(83,252,24,0.08), transparent 60%), var(--bk);
+    position:fixed; inset:0; background:var(--black); z-index:100;
+    display:flex; align-items:center; justify-content:center; padding:20px;
   }
   .login-box{
-    width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);
-    border-radius:18px;padding:28px 22px;text-align:center;
+    width:100%; max-width:340px; background:var(--panel); border:1px solid var(--line);
+    border-radius:14px; padding:32px 26px; text-align:center;
   }
-  .login-brand{font-weight:900;letter-spacing:2px;font-size:14px;margin-bottom:6px;}
-  .login-sub{font-size:12px;color:var(--sub);margin-bottom:22px;}
+  .login-brand{
+    color:var(--green); font-weight:900; font-size:18px; letter-spacing:1.5px; margin-bottom:4px;
+  }
+  .login-sub{
+    color:var(--sub); font-size:12.5px; margin-bottom:22px;
+  }
   .login-box input{
-    width:100%;margin:0 0 10px;padding:14px 14px;border-radius:12px;
-    border:1px solid var(--line2);background:#0a0a0a;color:var(--tx);font-size:16px;
+    width:100%; background:var(--black); border:1px solid var(--line); border-radius:8px;
+    padding:12px 14px; color:var(--text); font-size:14px; margin-bottom:12px;
+    box-sizing:border-box;
   }
+  .login-box input:focus{outline:none; border-color:var(--green);}
   .login-box button{
-    width:100%;padding:14px;border:none;border-radius:12px;margin-top:6px;
-    background:var(--g);color:#0a0a0a;font-weight:800;font-size:15px;cursor:pointer;
+    width:100%; padding:13px; border-radius:8px; border:none; background:var(--green);
+    color:#0a0a0a; font-weight:700; font-size:13px; text-transform:uppercase; letter-spacing:.5px;
+    cursor:pointer; margin-top:4px;
   }
-  .login-error{color:var(--red);font-size:13px;margin-top:12px;min-height:18px;}
-
-  /* Incoming overlay — mobile friendly */
-  .incoming-overlay{
-    display:none;position:fixed;inset:0;z-index:300;
-    background:radial-gradient(ellipse at 50% 30%, #142010 0%, #050505 75%);
-    flex-direction:column;align-items:center;justify-content:center;
-    gap:8px;padding:40px 20px;padding-bottom:calc(40px + var(--safe-bot));
+  .login-box button:hover{filter:brightness(1.1);}
+  .login-error{
+    color:var(--red); font-size:12.5px; margin-top:12px; min-height:16px;
   }
-  .incoming-overlay.show{display:flex;}
-  .incoming-kind{color:var(--g);font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;}
-  .incoming-avatar{
-    width:96px;height:96px;border-radius:50%;background:var(--g-dim);border:2px solid var(--g-line);
-    display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:var(--g);
-    margin:12px 0;
-  }
-  .incoming-name{font-size:24px;font-weight:800;text-align:center;}
-  .incoming-more{font-size:13px;color:var(--sub);}
-  .incoming-actions{display:flex;gap:28px;margin-top:28px;}
-  .incoming-actions button{
-    width:72px;height:72px;border-radius:50%;border:none;font-size:28px;cursor:pointer;
-  }
-  #incomingDeclineBtn{background:#3a1515;color:var(--red);}
-  #incomingAcceptBtn{background:var(--g);color:#0a0a0a;}
-  .incoming-labels{display:flex;gap:28px;font-size:12px;color:var(--sub);}
-  .incoming-labels span{width:72px;text-align:center;}
-
-  /* Hide bulky header chrome on small phones */
-  @media(max-width:700px){
-    .search{width:100%;max-width:220px;}
-    .header-right .home-btn span,.signout-btn{font-size:11px;}
-    .brand h1{font-size:12px;}
-    header{gap:8px;}
-    .console-toggle{padding:7px 9px;font-size:9px;}
-  }
-  @media(max-width:420px){
-    .header-right .home-btn{padding:8px;}
-  }
-
-  /* Queue card details */
-  .card{flex-wrap:wrap;}
-  .card .play-btn,.card > button:first-child{
-    width:44px;height:44px;border-radius:50%;border:1px solid var(--g-line);
-    background:var(--g-dim);color:var(--g);display:flex;align-items:center;justify-content:center;
-    cursor:pointer;flex-shrink:0;padding:0;
-  }
-  .card .play-btn svg,.card > button:first-child svg{width:18px;height:18px;fill:currentColor;}
-  .card-body{
-    background:
-      radial-gradient(ellipse 100% 80% at 10% -20%, rgba(83,252,24,0.07), transparent 50%),
-      radial-gradient(ellipse 80% 60% at 100% 0%, rgba(40,80,200,0.06), transparent 45%),
-      var(--bk) !important;
-  }
-  .card-body{flex:1;min-width:180px;}
-  .card-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;}
-  .badge{font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px;background:var(--panel2);color:var(--sub);border:1px solid var(--line);}
-  .badge.approved{color:var(--g);border-color:var(--g-line);background:var(--g-dim);}
-  .type-badge{color:#ccc;}
-  .card-time{font-size:11px;color:var(--muted);margin-left:auto;}
-  .card-song{font-size:13px;color:var(--sub);margin:4px 0 8px;}
-  .waveform{display:flex;align-items:flex-end;gap:2px;height:28px;opacity:.35;margin-top:6px;}
-  .waveform span{width:3px;background:var(--g);border-radius:1px;display:block;}
-  .waveform.active{opacity:1;}
-  .card.new{border-color:var(--g-line);}
-  .card.approved{opacity:.85;}
-  .card.favorited{border-color:rgba(255,200,50,.3);}
-  .ibtn.favorite.active{color:#e6b800;border-color:rgba(230,184,0,.4);}
-  .ibtn.on-air-btn.live{background:var(--red-dim);color:var(--red);border-color:rgba(255,59,59,.4);}
-  .ibtn.delete{color:var(--red);}
-  .breakdown-list{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
-  .breakdown-row{display:grid;grid-template-columns:100px 1fr 28px;gap:8px;align-items:center;font-size:12px;}
-  .breakdown-label{color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .breakdown-bar-wrap{height:6px;background:var(--line);border-radius:4px;overflow:hidden;}
-  .breakdown-bar{height:100%;background:var(--g);border-radius:4px;}
-  .breakdown-count{color:var(--muted);text-align:right;}
-  .section-title{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:18px 0 10px;}
-
-  .hiddenplayer{position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;}
-  .play-btn{
-    width:48px;height:48px;min-width:48px;border-radius:50%;
-    border:1px solid var(--g-line);background:var(--g-dim);color:var(--g);
-    display:flex;align-items:center;justify-content:center;
-    cursor:pointer;flex-shrink:0;padding:0;position:relative;z-index:2;
-  }
-  .play-btn svg{width:18px;height:18px;pointer-events:none;}
-  .play-btn.playing{background:var(--g);color:#0a0a0a;border-color:var(--g);}
-  .preview-bar{
-    position:fixed;left:12px;right:12px;bottom:calc(72px + env(safe-area-inset-bottom,0px));
-    z-index:55;display:flex;align-items:center;justify-content:space-between;gap:12px;
-    background:rgba(12,18,10,0.96);border:1px solid var(--g-line);border-radius:14px;
-    padding:12px 14px;box-shadow:0 8px 32px rgba(0,0,0,0.5);
-    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  }
-  @media(min-width:900px){
-    .preview-bar{left:50%;right:auto;transform:translateX(-50%);width:min(520px,92vw);bottom:24px;}
-  }
-  .preview-bar-info{min-width:0;display:flex;flex-direction:column;gap:2px;}
-  .preview-bar-label{font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--g);}
-  #previewBarName{font-size:14px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .preview-bar-stop{
-    border:1px solid var(--line2);background:var(--panel2);color:var(--tx);
-    border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;
-  }
-
-  /* Queue filter — segmented control */
-  .queue-toolbar{
-    margin-bottom:14px;
-  }
-  .filter-seg{
-    display:grid;
-    grid-template-columns:1fr 1fr 1fr;
-    gap:4px;
-    padding:4px;
-    background:var(--panel);
-    border:1px solid var(--line);
-    border-radius:14px;
-  }
-  .seg-btn{
-    display:flex;align-items:center;justify-content:center;gap:6px;
-    border:none;background:transparent;color:var(--sub);
-    font-size:13px;font-weight:700;letter-spacing:0.2px;
-    padding:11px 8px;border-radius:10px;cursor:pointer;
-    min-height:44px;transition:background .15s,color .15s;
-  }
-  .seg-btn:active{transform:scale(0.98);}
-  .seg-btn.active{
-    background:var(--g-dim);color:var(--g);
-    box-shadow:inset 0 0 0 1px var(--g-line);
-  }
-  .seg-count{
-    display:inline-flex;align-items:center;justify-content:center;
-    min-width:20px;height:20px;padding:0 6px;border-radius:100px;
-    font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;
-    background:rgba(255,255,255,0.06);color:inherit;
-  }
-  .seg-btn.active .seg-count{
-    background:rgba(83,252,24,0.2);
-  }
-  @media(min-width:700px){
-    .filter-seg{max-width:420px;}
-    .seg-btn{font-size:13px;padding:10px 12px;}
-  }
-
-  /* Header queue chips */
-  .queue-chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-  .qchip{
-    display:none;align-items:center;gap:5px;
-    background:var(--panel);border:1px solid var(--line);color:var(--sub);
-    padding:6px 10px;border-radius:20px;font-size:12px;font-weight:800;
-    font-variant-numeric:tabular-nums;
-  }
-  .qchip.show{display:inline-flex;}
-  .qchip.hot{
-    background:var(--g-dim);border-color:var(--g-line);color:var(--g);
-  }
-  .qchip-ic{font-size:12px;}
-
-  .wait-queue-head{
-    display:flex;align-items:center;justify-content:space-between;gap:12px;
-    margin:4px 0 12px;padding:12px 14px;
-    background:var(--panel);border:1px solid var(--line);border-radius:12px;
-  }
-  .wait-queue-title{font-size:13px;font-weight:800;letter-spacing:.3px;}
-  .wait-queue-count{
-    font-size:12px;font-weight:800;color:var(--g);
-    background:var(--g-dim);border:1px solid var(--g-line);
-    padding:5px 10px;border-radius:20px;font-variant-numeric:tabular-nums;
-  }
-  .queue-pos{
-    width:28px;height:28px;border-radius:8px;flex-shrink:0;
-    display:flex;align-items:center;justify-content:center;
-    background:var(--g-dim);border:1px solid var(--g-line);
-    color:var(--g);font-size:12px;font-weight:900;
-  }
-  .call-card{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
-  .call-card-body{
-    background:
-      radial-gradient(ellipse 100% 80% at 10% -20%, rgba(83,252,24,0.07), transparent 50%),
-      radial-gradient(ellipse 80% 60% at 100% 0%, rgba(40,80,200,0.06), transparent 45%),
-      var(--bk) !important;
-  }
-  .call-card-body{flex:1;min-width:120px;}
-
-/* ═══ Unified Phone System (Calls + Video) ═══ */
-.phone-sys{
-  display:grid;
-  grid-template-columns: minmax(240px,280px) minmax(0,1fr);
-  gap:12px;
-  align-items:start;
-  max-width:1400px;
-  margin:0 auto;
-}
-@media(min-width:1100px){
-  .phone-sys{ grid-template-columns: 260px minmax(0,1fr) 280px; }
-}
-@media(max-width:820px){
-  .phone-sys{ grid-template-columns:1fr; gap:10px; }
-  .ps-right{ display:none; }
-}
-.ps-col{ display:flex; flex-direction:column; gap:10px; min-width:0; }
-.ps-panel{
-  background:linear-gradient(180deg,#121214 0%,#0c0c0e 100%);
-  border:1px solid #222;
-  border-radius:16px;
-  overflow:hidden;
-  box-shadow:0 8px 32px rgba(0,0,0,.35);
-}
-.ps-panel-h{
-  display:flex; align-items:center; justify-content:space-between;
-  padding:12px 14px; border-bottom:1px solid #1c1c1c;
-  font-size:11px; font-weight:800; letter-spacing:1.2px; text-transform:uppercase; color:#9a9a9a;
-}
-.ps-panel-h .ps-count{
-  min-width:22px; height:22px; padding:0 7px; border-radius:11px;
-  background:var(--g-dim); color:var(--g); font-size:11px; font-weight:900;
-  display:inline-flex; align-items:center; justify-content:center;
-  border:1px solid var(--g-line);
-}
-.ps-panel-h .ps-count.zero{ background:#1a1a1a; color:#555; border-color:#2a2a2a; }
-.ps-panel-body{
-    background:
-      radial-gradient(ellipse 100% 80% at 10% -20%, rgba(83,252,24,0.07), transparent 50%),
-      radial-gradient(ellipse 80% 60% at 100% 0%, rgba(40,80,200,0.06), transparent 45%),
-      var(--bk) !important;
-  }
-  .ps-panel-body{ padding:8px; max-height:280px; overflow-y:auto; }
-.ps-panel-body.tall{ max-height:none; }
-.ps-stage{
-  background:linear-gradient(165deg,#141416 0%,#0a0a0c 55%,#0e1210 100%);
-  border:1px solid #252525;
-  border-radius:20px;
-  padding:16px;
-  min-height:320px;
-  position:relative;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 12px 40px rgba(0,0,0,.4);
-}
-.ps-stage-empty{
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  min-height:280px; color:#555; text-align:center; gap:8px; padding:24px;
-}
-.ps-stage-empty .ic{ font-size:42px; opacity:.5; }
-.ps-stage-empty p{ margin:0; font-size:13px; max-width:260px; line-height:1.4; }
-
-/* Active / preview panels restyle inside stage */
-.ps-stage .active-call-panel{
-  background:transparent; border:none; box-shadow:none; padding:0; margin:0;
-}
-.ps-stage .active-call-header{ margin-bottom:12px; }
-.ps-stage .active-call-name{ font-size:22px; font-weight:900; letter-spacing:-0.3px; }
-.ps-stage .active-call-badge{
-  display:inline-block; font-size:10px; font-weight:900; letter-spacing:1.5px;
-  color:var(--g); background:var(--g-dim); border:1px solid var(--g-line);
-  padding:4px 10px; border-radius:20px; margin-bottom:8px;
-}
-.ps-stage .active-call-timer{
-  font-variant-numeric:tabular-nums; font-size:28px; font-weight:900; color:var(--g);
-}
-.ps-stage .preview-video-wrap{
-  /* Front-camera friendly frame — not full-bleed wide */
-  border-radius:18px; overflow:hidden; background:#000;
-  border:2px solid rgba(83,252,24,.35);
-  position:relative;
-  width:min(100%, 320px);
-  margin:12px auto 8px;
-  aspect-ratio:3/4;           /* phone front cam portrait */
-  max-height:min(52vh, 420px);
-  box-shadow:0 8px 28px rgba(0,0,0,.45);
-}
-.ps-stage .preview-video-wrap video{
-  width:100%; height:100%;
-  object-fit:contain;         /* fit full frame, no crop/stretch */
-  object-position:center;
-  display:block;
-  background:#000;
-  /* Front cam often feels natural mirrored for producer preview */
-  transform: scaleX(-1);
-}
-.ps-stage .preview-video-wrap.is-landscape{
-  aspect-ratio:4/3;
-  width:min(100%, 420px);
-  max-height:min(40vh, 320px);
-}
-.ps-stage .preview-video-wrap.is-landscape video{
-  transform:none;             /* landscape guest / rear cam: no mirror */
-}
-.ps-stage .preview-video-status{
-  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-  background:rgba(0,0,0,.55); color:#ccc; font-size:13px; text-align:center; padding:16px;
-  z-index:1;
-}
-#previewVideo{
-  width:100% !important;
-  height:100% !important;
-  max-height:none !important;
-  border-radius:0 !important;
-  object-fit:contain !important;
-}
-
-/* Broadcast control pad — iPhone-like control row */
-.ps-controls{
-  display:grid;
-  grid-template-columns:repeat(5,1fr);
-  gap:8px;
-  margin-top:14px;
-}
-@media(max-width:520px){
-  .ps-controls{ grid-template-columns:repeat(3,1fr); }
-}
-.ps-controls .cbtn{
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:6px; min-height:72px; border-radius:16px; border:none; cursor:pointer;
-  font-size:10px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase;
-  color:#fff; padding:10px 6px;
-  transition:transform .12s ease, filter .12s ease;
-}
-.ps-controls .cbtn:active{ transform:scale(0.96); }
-.ps-controls .cbtn .cico{ font-size:22px; line-height:1; }
-.ps-controls .cbtn-air{ background:linear-gradient(180deg,#2d9e2d,#1a7a1a); }
-.ps-controls .cbtn-hold{ background:linear-gradient(180deg,#d4a017,#b8860b); color:#111; }
-.ps-controls .cbtn-preview{ background:linear-gradient(180deg,#2b6cb0,#1a4f8a); }
-.ps-controls .cbtn-end,.ps-controls .cbtn-drop{ background:linear-gradient(180deg,#e04848,#b91c1c); }
-.ps-controls .cbtn-mute{ background:linear-gradient(180deg,#6b46c1,#553c9a); }
-.ps-controls .cbtn-record{ background:linear-gradient(180deg,#333,#222); border:1px solid #444; }
-
-/* Queue list items denser */
-.ps-panel .queue{ display:flex; flex-direction:column; gap:6px; }
-.ps-panel .call-card{
-  background:#141416; border:1px solid #242424; border-radius:12px;
-  padding:10px; margin:0;
-}
-.ps-panel .call-card-name{ font-size:13px; }
-.ps-panel .call-card-actions{ margin-top:8px; }
-.ps-panel .call-card-actions .ibtn{ font-size:11px; padding:6px 8px; }
-
-.ps-status-bar{
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
-  flex-wrap:wrap; margin-bottom:12px;
-  padding:10px 14px; border-radius:14px;
-  background:rgba(83,252,24,.06); border:1px solid rgba(83,252,24,.2);
-  font-size:12px; font-weight:700; color:#b8b8b8;
-}
-.ps-status-bar .live-dot{
-  width:8px; height:8px; border-radius:50%; background:var(--g);
-  box-shadow:0 0 8px var(--g); display:inline-block; margin-right:6px;
-  animation:ledpulse 1.4s ease-in-out infinite;
-}
-.ps-mini-hist .hist-row{
-  display:flex; align-items:center; gap:8px; padding:8px; border-radius:10px;
-  font-size:12px; color:#aaa;
-}
-.ps-mini-hist .hist-row + .hist-row{ border-top:1px solid #1a1a1a; }
-.phone-sys .empty{ padding:20px 12px; font-size:12px; }
-.phone-sys .empty .ic{ font-size:28px; }
-
-/* Hide standalone video tab content when nested — we move nodes into phone sys */
-#tab-video.nested-hidden{ display:none !important; }
-
-
-.phone-hist-row{
-  display:flex; align-items:center; gap:10px;
-  padding:10px 8px; border-radius:12px;
-  border:1px solid transparent;
-}
-.phone-hist-row + .phone-hist-row{ border-top:1px solid rgba(255,255,255,0.05); }
-.phone-hist-row:hover{ background:rgba(255,255,255,0.03); }
-.phone-hist-row .ph-main{ flex:1; min-width:0; }
-.phone-hist-row .ph-name{ font-size:13px; font-weight:800; color:#eee; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.phone-hist-row .ph-meta{ font-size:11px; color:#888; margin-top:2px; }
-.phone-hist-row .ph-right{ text-align:right; flex-shrink:0; }
-.phone-hist-row .ph-time{ font-size:11px; font-weight:700; color:#cfcfcf; font-variant-numeric:tabular-nums; }
-.phone-hist-row .ph-dur{ font-size:10px; color:#666; margin-top:2px; }
-.phone-hist-row.missed .ph-time{ color:#ff6b6b; }
-.phone-hist-row .ph-badge{
-  display:inline-block; font-size:9px; font-weight:800; letter-spacing:0.5px;
-  padding:2px 6px; border-radius:6px; margin-left:6px; vertical-align:middle;
-}
-.phone-hist-row .ph-badge.audio{ background:rgba(83,252,24,0.12); color:var(--g); }
-.phone-hist-row .ph-badge.video{ background:rgba(91,141,239,0.15); color:#8bb4ff; }
-.phone-hist-row .ph-badge.missed{ background:rgba(255,59,59,0.12); color:#ff6b6b; }
-@media(max-width:820px){
-  .ps-right{ display:block !important; }
-  .phone-sys{ grid-template-columns:1fr; }
-}
-
-
-.net-badge{
-  font-size:11px; font-weight:800; letter-spacing:0.4px;
-  padding:5px 10px; border-radius:20px;
-  border:1px solid rgba(255,255,255,0.1);
-  background:rgba(255,255,255,0.05);
-  color:#888;
-}
-.net-badge.good{ color:#53FC18; border-color:rgba(83,252,24,0.35); background:rgba(83,252,24,0.1); }
-.net-badge.fair{ color:#f5c542; border-color:rgba(245,197,66,0.35); background:rgba(245,197,66,0.1); }
-.net-badge.poor{ color:#ff6b6b; border-color:rgba(255,107,107,0.35); background:rgba(255,107,107,0.1); }
-.net-badge.idle{ color:#666; }
-
 </style>
 </head>
 <body>
@@ -717,267 +524,126 @@
   <div class="brand">
     <span class="bolt">⚡</span>
     <div>
-      <h1>LIVE <span>CALLER</span></h1>
-      <small>Producer Console</small>
+      <h1>LIVE <span>CALLER</span> STUDIO</h1>
+      <small>PRODUCER DASHBOARD</small>
     </div>
   </div>
   <div class="header-right">
-    <div class="broadcast-controls">
-      <button class="console-toggle open" id="linesToggleBtn" type="button" title="Toggle whether phone lines are accepting live calls">
-        <span class="console-led"></span>
-        <span id="linesToggleText">Lines Open</span>
-      </button>
-      <button class="console-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video guests can join">
-        <span class="console-led"></span>
-        <span id="videoToggleText">Video Open</span>
-      </button>
-      <button class="console-toggle open" id="overlayToggleBtn" type="button" title="Master switch: hide or show all OBS overlay graphics">
-        <span class="console-led"></span>
-        <span id="overlayToggleText">Overlay On</span>
-      </button>
-      <button class="console-toggle open" id="overlayListToggleBtn" type="button" title="Show or hide waiting-list panel on the OBS overlay">
-        <span class="console-led"></span>
-        <span id="overlayListToggleText">List Open</span>
-      </button>
-      <button class="console-toggle open" id="overlayModeToggleBtn" type="button" title="Auto: queue badges + alerts. Manual: only live lower-thirds">
-        <span class="console-led"></span>
-        <span id="overlayModeToggleText">Auto</span>
-      </button>
-    </div>
-    <div class="queue-chips" id="queueChips">
-      <div class="qchip" id="chipVoice" title="Pending voice messages"><span class="qchip-ic">🎤</span><span id="queueCount">0</span></div>
-      <div class="qchip" id="chipAudio" title="Waiting audio calls"><span class="qchip-ic">📞</span><span id="callCountNum">0</span></div>
-      <div class="qchip" id="chipVideo" title="Waiting video guests"><span class="qchip-ic">🎥</span><span id="videoCountNum">0</span></div>
-      <div class="qchip" id="chipSongs" title="Pending song requests"><span class="qchip-ic">🎵</span><span id="songCountNum">0</span></div>
-    </div>
-    <div class="call-counter" id="callCounter" style="display:none">📞 <span>0</span> Incoming</div>
+    <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Toggle whether phone lines are accepting live calls">
+      <span class="lines-dot"></span>
+      <span id="linesToggleText">Lines Open</span>
+    </button>
+    <div class="call-counter" id="callCounter">📞 <span id="callCountNum">0</span> Incoming</div>
     <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
-    <input class="search" id="searchInput" placeholder="Search name, city, song…" inputmode="search" enterkeyhint="search">
+    <div class="counter"><span class="dot"></span><span id="queueCount">0 waiting</span></div>
+    <input class="search" id="searchInput" placeholder="Search name, city, song…">
+    <select id="filterSelect">
+      <option value="pending">Pending only</option>
+      <option value="all">All messages</option>
+      <option value="approved">Approved only</option>
+    </select>
     <a class="home-btn" href="home.html">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
       Home
     </a>
-    <button class="home-btn" id="soundToggleBtn" title="Button sounds on — click to mute">🔊</button>
     <button class="signout-btn" id="signOutBtn">Sign Out</button>
   </div>
 </header>
 
 <div class="alert-banner" id="alertBanner">🎤 Incoming Voice Message</div>
 
-<!-- Tab Navigation (desktop) -->
-<nav class="tab-nav" id="topTabNav">
+<!-- Tab Navigation -->
+<nav class="tab-nav">
   <button class="tab-btn active" data-tab="queue">📥 Queue</button>
-  <button class="tab-btn" data-tab="calls">📞 Phone System</button>
-  <button class="tab-btn" data-tab="songs">🎵 Songs</button>
-  <button class="tab-btn" data-tab="analytics">📊 Stats</button>
-</nav>
-
-<!-- Bottom nav (mobile / tablet) -->
-<nav class="bot-nav" id="botTabNav" aria-label="Main">
-  <button class="tab-btn active" data-tab="queue"><span class="nav-ic">📥</span>Queue</button>
-  <button class="tab-btn" data-tab="calls"><span class="nav-ic">📞</span>Calls</button>
-  <button class="tab-btn" data-tab="songs"><span class="nav-ic">🎵</span>Songs</button>
-  <button class="tab-btn" data-tab="analytics"><span class="nav-ic">📊</span>Stats</button>
+  <button class="tab-btn" data-tab="calls">📞 Calls</button>
+  <button class="tab-btn" data-tab="video">🎥 Video Guests</button>
+  <button class="tab-btn" data-tab="history">📋 History</button>
+  <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
 </nav>
 
 <main>
   <!-- QUEUE TAB -->
   <div class="tab-content" id="tab-queue">
-    <div class="queue-toolbar">
-      <div class="filter-seg" role="tablist" aria-label="Message filter">
-        <button type="button" class="seg-btn active" data-filter="pending" role="tab" aria-selected="true">
-          Pending <span class="seg-count" id="countPending">0</span>
-        </button>
-        <button type="button" class="seg-btn" data-filter="all" role="tab" aria-selected="false">
-          All <span class="seg-count" id="countAll">0</span>
-        </button>
-        <button type="button" class="seg-btn" data-filter="approved" role="tab" aria-selected="false">
-          Approved <span class="seg-count" id="countApproved">0</span>
-        </button>
-      </div>
-      <input type="hidden" id="filterSelect" value="pending">
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
-        <button type="button" class="ibtn ibtn-reject" id="clearPendingSongsBtn" title="Mark all pending text song requests as played">Clear pending songs</button>
-      </div>
-    </div>
     <div id="emptyState" class="empty" style="display:none;">
       <div class="ic">📭</div>
-      <div id="emptyStateText">No pending messages. The queue is clear.</div>
+      <div>No messages waiting. The queue's clear.</div>
     </div>
     <div class="queue" id="queue"></div>
   </div>
 
-  <!-- CALLS TAB — unified phone system (audio + video) -->
+  <!-- CALLS TAB -->
   <div class="tab-content" id="tab-calls" style="display:none;">
 
-    <div class="ps-status-bar">
-      <span><span class="live-dot"></span>Phone system · Audio + Video on one board</span>
-      <span id="netQualityBadge" class="net-badge idle" title="WebRTC path quality">Net —</span>
+    <!-- Active call panel — shown when a call is connected -->
+    <div class="active-call-panel" id="activeCallPanel" style="display:none;">
+      <div class="active-call-header">
+        <div class="active-call-info">
+          <div class="active-call-badge">📞 LIVE CALL</div>
+          <div class="active-call-name" id="activeCallerName">—</div>
+          <div class="active-call-city" id="activeCallerCity"></div>
+        </div>
+        <div class="active-call-timer" id="activeCallTimer">0:00</div>
+      </div>
+      <div class="active-call-status" id="activeCallStatus">Screening</div>
+      <div class="active-call-controls">
+        <button class="cbtn cbtn-hold" id="holdBtn">⏸ Hold</button>
+        <button class="cbtn cbtn-mute" id="micMuteBtn">🎤 Mute Mic</button>
+        <button class="cbtn cbtn-record" id="recordBtn">⏺ Record</button>
+        <button class="cbtn cbtn-air" id="callOnAirBtn">🔴 Send On Air</button>
+        <button class="cbtn cbtn-end" id="endBtn">📵 End Call</button>
+      </div>
+      <div class="record-status" id="recordStatus"></div>
     </div>
 
-    <div class="phone-sys">
-      <!-- LEFT: queues -->
-      <div class="ps-col ps-left">
-        <div class="ps-panel">
-          <div class="ps-panel-h">
-            <span>📞 Audio Queue</span>
-            <span class="ps-count" id="audioQueueCountBadge">0</span>
-          </div>
-          <div class="ps-panel-body">
-            <div class="empty" id="callsEmpty" style="display:none;">
-              <div class="ic">📞</div>
-              <div>No callers waiting</div>
-            </div>
-            <div class="queue" id="callsQueue"></div>
-          </div>
-        </div>
-
-        <div class="ps-panel">
-          <div class="ps-panel-h">
-            <span>🎥 Video Queue</span>
-            <span class="ps-count" id="videoQueueCount">0</span>
-          </div>
-          <div class="ps-panel-body">
-            <div class="empty" id="videoEmpty" style="display:none;">
-              <div class="ic">🎥</div>
-              <div>No video guests</div>
-            </div>
-            <div class="queue" id="videoQueue"></div>
-          </div>
-        </div>
-
-        <div class="ps-panel">
-          <div class="ps-panel-h"><span>Waiting</span></div>
-          <div class="ps-panel-body" style="padding:12px 14px;">
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;">
-              <span style="color:#888;">Audio</span>
-              <strong id="audioQueueCount" style="color:var(--g);">0</strong>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;">
-              <span style="color:#888;">Video</span>
-              <strong id="videoWaitingSide" style="color:var(--g);">0</strong>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- CENTER: stage + controls -->
-      <div class="ps-col ps-center">
-        <div class="ps-stage" id="phoneStage">
-          <div class="ps-stage-empty" id="phoneStageEmpty">
-            <div class="ic">📱</div>
-            <strong style="color:#888;">No active call</strong>
-            <p>Answer a caller from the queues. Preview video guests before sending them on air.</p>
-          </div>
-
-          <!-- Active audio call -->
-          <div class="active-call-panel" id="activeCallPanel" style="display:none;">
-            <div class="active-call-header">
-              <div class="active-call-info">
-                <div class="active-call-badge">📞 LIVE AUDIO</div>
-                <div class="active-call-name" id="activeCallerName">—</div>
-                <div class="active-call-city" id="activeCallerCity"></div>
-              </div>
-              <div class="active-call-timer" id="activeCallTimer">0:00</div>
-            </div>
-            <div class="active-call-status" id="activeCallStatus">Screening</div>
-            <div class="active-call-controls ps-controls">
-              <button class="cbtn cbtn-air" id="callOnAirBtn"><span class="cico">📡</span>On Air</button>
-              <button class="cbtn cbtn-hold" id="holdBtn"><span class="cico">⏸</span>Hold</button>
-              <button class="cbtn cbtn-mute" id="micMuteBtn"><span class="cico">🎤</span>Mute</button>
-              <button class="cbtn cbtn-record" id="recordBtn"><span class="cico">⏺</span>Record</button>
-              <button class="cbtn cbtn-end" id="endBtn"><span class="cico">📵</span>Drop</button>
-            </div>
-            <div class="record-status" id="recordStatus"></div>
-          </div>
-
-          <!-- On-air video guest -->
-          <div class="active-call-panel" id="activeVideoPanel" style="display:none;">
-            <div class="active-call-header">
-              <div class="active-call-info">
-                <div class="active-call-badge">🎥 VIDEO — LIVE</div>
-                <div class="active-call-name" id="activeVideoName">—</div>
-                <div class="active-call-city" id="activeVideoCity"></div>
-              </div>
-              <div class="active-call-timer" id="activeVideoTimer">0:00</div>
-            </div>
-            <div class="active-call-status on-air">On air — connected to overlay</div>
-            <div class="active-call-controls ps-controls">
-              <button class="cbtn cbtn-end" id="videoEndBtn"><span class="cico">📵</span>End Segment</button>
-            </div>
-          </div>
-
-          <!-- Video screening preview -->
-          <div class="active-call-panel" id="videoPreviewPanel" style="display:none;">
-            <div class="active-call-header">
-              <div class="active-call-info">
-                <div class="active-call-badge">🔍 VIDEO PREVIEW</div>
-                <div class="active-call-name" id="previewName">—</div>
-                <div class="active-call-city" id="previewCity"></div>
-              </div>
-            </div>
-            <div class="preview-video-wrap">
-              <video id="previewVideo" autoplay playsinline></video>
-              <div class="preview-video-status" id="previewVideoStatus">Connecting to guest's camera…</div>
-            </div>
-            <div class="active-call-status" id="previewStatus">Connecting…</div>
-            <div class="active-call-controls ps-controls">
-              <button class="cbtn cbtn-air" id="previewAirBtn"><span class="cico">📡</span>Send On Air</button>
-              <button class="cbtn cbtn-hold" id="previewStopBtn"><span class="cico">⏹</span>Stop Preview</button>
-              <button class="cbtn cbtn-mute" id="previewMicMuteBtn" style="display:none;"><span class="cico">🎤</span>Mute Mic</button>
-              <button class="cbtn cbtn-end" id="previewRejectBtn"><span class="cico">✕</span>Reject</button>
-            </div>
-          </div>
-        </div>
-
-        <audio id="callerAudio" autoplay style="display:none;"></audio>
-      </div>
-
-      <!-- RIGHT: tips / status (desktop) -->
-      <div class="ps-col ps-right">
-        <div class="ps-panel">
-          <div class="ps-panel-h">
-            <span>📋 Call History</span>
-            <span class="ps-count zero" id="phoneHistCount">0</span>
-          </div>
-          <div class="ps-panel-body tall" style="max-height:min(70vh,560px);padding:8px;" id="phoneHistBody">
-            <div class="hist-strip" id="phoneHistStrip" style="display:none;"></div>
-            <div id="phoneHistList">
-              <div class="empty" style="display:block;"><div class="ic">📋</div><div>No call history yet</div></div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <!-- Incoming calls queue -->
+    <div class="calls-section-title" id="incomingCallsTitle" style="display:none;">
+      Incoming Calls
     </div>
+    <div class="empty" id="callsEmpty">
+      <div class="ic">📞</div>
+      <div>No incoming calls right now.</div>
+    </div>
+    <div class="queue" id="callsQueue"></div>
 
-    <!-- Legacy titles kept hidden for any JS that toggles them -->
-    <div class="wait-queue-head" id="incomingCallsTitle" style="display:none;"></div>
-    <div class="wait-queue-head" id="incomingVideoTitle" style="display:none;"></div>
+    <!-- Hidden audio element — producer hears caller here, OBS captures via Browser Source -->
+    <audio id="callerAudio" autoplay style="display:none;"></audio>
   </div>
 
-  <!-- VIDEO TAB — redirects to phone system; empty shell keeps data-tab="video" links safe -->
-  <div class="tab-content nested-hidden" id="tab-video" style="display:none;" aria-hidden="true"></div>
+  <!-- VIDEO GUESTS TAB -->
+  <div class="tab-content" id="tab-video" style="display:none;">
 
-  <!-- SONG REQUESTS TAB -->
-  <div class="tab-content" id="tab-songs" style="display:none;">
-    <div class="wait-queue-head" id="songQueueHead" style="display:none;">
-      <div class="wait-queue-title">🎵 Song Request Queue</div>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <div class="wait-queue-count"><span id="songQueueCount">0</span> pending</div>
-        <button type="button" class="ibtn ibtn-reject" id="clearSongsBtn" title="Mark all pending song requests as played">Clear pending songs</button>
-        <button type="button" class="ibtn" id="clearSongOverlayBtn" title="Hide song plate on OBS">Clear overlay</button>
+    <div style="margin-bottom:18px;">
+      <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video guests can join">
+        <span class="lines-dot"></span>
+        <span id="videoToggleText">Video Guests Open</span>
+      </button>
+    </div>
+
+    <!-- On-air guest panel — shown when a guest is live -->
+    <div class="active-call-panel" id="activeVideoPanel" style="display:none;">
+      <div class="active-call-header">
+        <div class="active-call-info">
+          <div class="active-call-badge">🎥 VIDEO GUEST — LIVE</div>
+          <div class="active-call-name" id="activeVideoName">—</div>
+          <div class="active-call-city" id="activeVideoCity"></div>
+        </div>
+        <div class="active-call-timer" id="activeVideoTimer">0:00</div>
+      </div>
+      <div class="active-call-status on-air">🔴 On air — connected directly to the overlay, no relay needed</div>
+      <div class="active-call-controls">
+        <button class="cbtn cbtn-end" id="videoEndBtn">📵 End Segment</button>
       </div>
     </div>
-    <div class="empty" id="songsEmpty">
-      <div class="ic">🎵</div>
-      <div>No text song requests waiting.</div>
+
+    <!-- Incoming video guest requests -->
+    <div class="calls-section-title" id="incomingVideoTitle" style="display:none;">
+      Waiting to Join
     </div>
-    <div class="queue" id="songsQueue"></div>
-    <p style="margin-top:16px;font-size:12px;color:#666;line-height:1.4;">
-      Text-only requests from <code>songrequest.html</code>. Use <strong>On Overlay</strong> to show on the dedicated
-      <code>song-overlay.html</code> OBS source (separate from voice / call overlay).
-    </p>
+    <div class="empty" id="videoEmpty">
+      <div class="ic">🎥</div>
+      <div>No video guests waiting right now.</div>
+    </div>
+    <div class="queue" id="videoQueue"></div>
   </div>
 
   <!-- ANALYTICS TAB -->
@@ -1018,7 +684,7 @@
   </div>
 
   <!-- CALL HISTORY TAB -->
-  <div class="tab-content" id="tab-history" style="display:none;" hidden aria-hidden="true">
+  <div class="tab-content" id="tab-history" style="display:none;">
     <div class="analytics-grid" style="margin-bottom:20px;">
       <div class="stat-card">
         <div class="stat-value" id="histTotal">—</div>
@@ -1055,34 +721,7 @@
   </div>
 </main>
 
-<audio id="hiddenPlayer" class="hiddenplayer" playsinline preload="auto"></audio>
-<div id="previewBar" class="preview-bar" style="display:none;" aria-live="polite">
-  <div class="preview-bar-info">
-    <span class="preview-bar-label">Previewing</span>
-    <span id="previewBarName">—</span>
-  </div>
-  <button type="button" id="previewBarStop" class="preview-bar-stop">Stop</button>
-</div>
-
-<!-- Incoming Call / Video Guest overlay — iOS FaceTime-style full-screen alert -->
-<div class="incoming-overlay" id="incomingOverlay">
-  <div class="incoming-top">
-    <div class="incoming-kind" id="incomingKind">INCOMING AUDIO CALL</div>
-    <div class="avatar lg" id="incomingAvatar">?</div>
-    <div class="incoming-name" id="incomingName">—</div>
-    <div class="incoming-city" id="incomingCity"></div>
-    <div class="incoming-sub" id="incomingSub">is calling…</div>
-    <div class="incoming-more" id="incomingMore" style="display:none;"></div>
-  </div>
-  <div class="incoming-actions">
-    <button class="incoming-btn decline" id="incomingDeclineBtn" type="button" title="Decline" aria-label="Decline">📵</button>
-    <button class="incoming-btn accept" id="incomingAcceptBtn" type="button" title="Accept" aria-label="Accept">📞</button>
-  </div>
-  <div class="incoming-btn-label">
-    <span>Decline</span>
-    <span id="incomingAcceptLabel">Accept</span>
-  </div>
-</div>
+<audio id="hiddenPlayer" class="hiddenplayer"></audio>
 
 </div>
 
@@ -1111,6 +750,26 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
+// Keep realtime listeners bounded to one authenticated dashboard session.
+const activeSubscriptions = new Set();
+let dashboardListenersStarted = false;
+function subscribe(...args) {
+  const unsubscribe = onSnapshot(...args);
+  activeSubscriptions.add(unsubscribe);
+  return () => { activeSubscriptions.delete(unsubscribe); unsubscribe(); };
+}
+function stopDashboardListeners() {
+  for (const unsubscribe of activeSubscriptions) {
+    try { unsubscribe(); } catch (_) {}
+  }
+  activeSubscriptions.clear();
+  dashboardListenersStarted = false;
+  queueListenerStarted = false;
+  stopPhoneRing();
+  clearInterval(callTimerInterval);
+  clearInterval(videoTimerInterval);
+}
+
 const loginScreen = document.getElementById('loginScreen');
 const dashboardApp = document.getElementById('dashboardApp');
 const loginEmail = document.getElementById('loginEmail');
@@ -1134,23 +793,21 @@ async function attemptLogin(){
 loginBtn.addEventListener('click', attemptLogin);
 loginPassword.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') attemptLogin(); });
 
-let dashboardListenersStarted = false;
 onAuthStateChanged(auth, (user)=>{
   if(user){
     loginScreen.style.display = 'none';
     dashboardApp.style.display = 'block';
-    if(!dashboardListenersStarted){
+    if (!dashboardListenersStarted) {
       dashboardListenersStarted = true;
       startQueueListener();
       startCallsListener();
       startCallHistoryListener();
       startLinesToggleListener();
       startVideoToggleListener();
-      startOverlayToggleListener();
       startVideoCallsListener();
-      startSongRequestsListener();
     }
   } else {
+    stopDashboardListeners();
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
   }
@@ -1165,7 +822,6 @@ signOutBtn.addEventListener('click', ()=>{
 // Instead, the dashboard writes "now playing" state to this Firestore doc,
 // and overlay.html listens to it live. This works no matter where each page runs.
 const liveStateRef = doc(db, 'hotlineLive', 'nowPlaying');
-const songRequestLiveRef = doc(db, 'songRequestLive', 'now');
 
 // ── Phone lines open/closed ──
 // Controls whether call.html will let listeners call in, and whether home.html
@@ -1183,7 +839,7 @@ function renderLinesToggle(){
 }
 
 function startLinesToggleListener(){
-  onSnapshot(linesSettingsRef, (snap)=>{
+  subscribe(linesSettingsRef, (snap)=>{
     const d = snap.data();
     linesOpen = d ? d.open !== false : true;
     renderLinesToggle();
@@ -1223,7 +879,7 @@ function renderVideoToggle(){
 }
 
 function startVideoToggleListener(){
-  onSnapshot(linesSettingsRef, (snap)=>{
+  subscribe(linesSettingsRef, (snap)=>{
     const d = snap.data();
     videoOpen = d ? d.videoOpen !== false : true;
     renderVideoToggle();
@@ -1249,79 +905,6 @@ videoToggleBtn.addEventListener('click', async()=>{
   videoToggleBtn.disabled = false;
 });
 
-// ── OBS overlay master on/off (graphics only — does not close phone/video lines) ──
-const overlaySettingsRef = doc(db, 'hotlineSettings', 'overlay');
-const overlayToggleBtn = document.getElementById('overlayToggleBtn');
-const overlayToggleText = document.getElementById('overlayToggleText');
-let overlayOn = true;
-
-let overlayListOpen = true;
-let overlayMode = 'auto'; // auto | manual
-const overlayListToggleBtn = document.getElementById('overlayListToggleBtn');
-const overlayListToggleText = document.getElementById('overlayListToggleText');
-const overlayModeToggleBtn = document.getElementById('overlayModeToggleBtn');
-const overlayModeToggleText = document.getElementById('overlayModeToggleText');
-
-function renderOverlayToggle(){
-  if(overlayToggleBtn){
-    overlayToggleBtn.classList.toggle('open', overlayOn);
-    overlayToggleBtn.classList.toggle('closed', !overlayOn);
-    overlayToggleText.textContent = overlayOn ? 'Overlay On' : 'Overlay Off';
-  }
-  if(overlayListToggleBtn){
-    overlayListToggleBtn.classList.toggle('open', overlayListOpen);
-    overlayListToggleBtn.classList.toggle('closed', !overlayListOpen);
-    overlayListToggleText.textContent = overlayListOpen ? 'List Open' : 'List Closed';
-  }
-  if(overlayModeToggleBtn){
-    const isAuto = overlayMode === 'auto';
-    overlayModeToggleBtn.classList.toggle('open', isAuto);
-    overlayModeToggleBtn.classList.toggle('closed', !isAuto);
-    overlayModeToggleText.textContent = isAuto ? 'Auto' : 'Manual';
-  }
-}
-
-function startOverlayToggleListener(){
-  onSnapshot(overlaySettingsRef, (snap)=>{
-    const d = snap.data() || {};
-    overlayOn = d.enabled !== false;
-    overlayListOpen = d.listOpen !== false;
-    overlayMode = d.mode === 'manual' ? 'manual' : 'auto';
-    renderOverlayToggle();
-  });
-}
-
-async function saveOverlaySettings(patch){
-  try{
-    await setDoc(overlaySettingsRef, { ...patch, updatedAt: Date.now() }, { merge: true });
-  }catch(err){
-    alert('Could not update overlay setting: ' + (err.message || err));
-    throw err;
-  }
-}
-
-overlayToggleBtn?.addEventListener('click', async()=>{
-  overlayOn = !overlayOn;
-  renderOverlayToggle();
-  try{ await saveOverlaySettings({ enabled: overlayOn }); }
-  catch(e){ overlayOn = !overlayOn; renderOverlayToggle(); }
-});
-
-overlayListToggleBtn?.addEventListener('click', async()=>{
-  overlayListOpen = !overlayListOpen;
-  renderOverlayToggle();
-  try{ await saveOverlaySettings({ listOpen: overlayListOpen }); }
-  catch(e){ overlayListOpen = !overlayListOpen; renderOverlayToggle(); }
-});
-
-overlayModeToggleBtn?.addEventListener('click', async()=>{
-  overlayMode = overlayMode === 'auto' ? 'manual' : 'auto';
-  renderOverlayToggle();
-  try{ await saveOverlaySettings({ mode: overlayMode }); }
-  catch(e){ overlayMode = overlayMode === 'auto' ? 'manual' : 'auto'; renderOverlayToggle(); }
-});
-
-
 let allMessages = [];
 let knownIds = new Set();
 let firstLoad = true;
@@ -1334,38 +917,7 @@ const queueCount = document.getElementById('queueCount');
 const alertBanner = document.getElementById('alertBanner');
 const searchInput = document.getElementById('searchInput');
 const filterSelect = document.getElementById('filterSelect');
-document.querySelectorAll('.seg-btn[data-filter]').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    const val = btn.dataset.filter;
-    filterSelect.value = val;
-    document.querySelectorAll('.seg-btn[data-filter]').forEach(b=>{
-      const on = b.dataset.filter === val;
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-selected', on ? 'true' : 'false');
-    });
-    render();
-  });
-});
 const hiddenPlayer = document.getElementById('hiddenPlayer');
-
-function updatePreviewBar(msg){
-  const bar = document.getElementById('previewBar');
-  const nameEl = document.getElementById('previewBarName');
-  if(!bar) return;
-  if(!msg){
-    bar.style.display = 'none';
-    return;
-  }
-  if(nameEl) nameEl.textContent = msg.name || 'Anonymous Caller';
-  bar.style.display = 'flex';
-}
-function stopLocalPreview(){
-  try{ hiddenPlayer.pause(); hiddenPlayer.removeAttribute('src'); hiddenPlayer.load(); }catch(e){}
-  currentlyPlayingId = null;
-  updatePreviewBar(null);
-  render();
-}
-
 
 // simple notification sound (WebAudio beep, no external file needed)
 function playChime(){
@@ -1385,308 +937,43 @@ function playChime(){
 
 // ── Phone ring — classic dual-tone (440Hz + 480Hz) with on/off pattern ──
 let phoneRingInterval = null;
-let phoneRingCtx = null;
-function getPhoneRingCtx(){
-  if(!phoneRingCtx || phoneRingCtx.state === 'closed'){
-    phoneRingCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if(phoneRingCtx.state === 'suspended') phoneRingCtx.resume().catch(()=>{});
-  return phoneRingCtx;
-}
 function startPhoneRing(){
   stopPhoneRing();
   function ring(){
     try{
-      const ctx = getPhoneRingCtx();
-      // iOS Phone-style alternating two-tone pattern — pitched lower and paced
-      // differently from the video chime so producers can tell them apart by ear.
-      [349.23, 440.00, 349.23, 440.00].forEach((freq,i)=>{
-        const t=ctx.currentTime+i*0.16;
-        const osc=ctx.createOscillator(), env=ctx.createGain();
-        osc.type='triangle'; osc.frequency.value=freq;
-        osc.connect(env); env.connect(ctx.destination);
-        env.gain.setValueAtTime(0,t); env.gain.linearRampToValueAtTime(0.25,t+0.015);
-        env.gain.exponentialRampToValueAtTime(0.001,t+0.14);
-        osc.start(t); osc.stop(t+0.14);
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const gain = ctx.createGain();
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + 1.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.4);
+      [440, 480].forEach(freq=>{
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 1.4);
       });
+      setTimeout(()=> ctx.close().catch(()=>{}), 2000);
     }catch(e){}
   }
   ring(); // Ring immediately
-  phoneRingInterval = setInterval(ring, 1800);
+  phoneRingInterval = setInterval(ring, 3000); // Ring every 3s (1.4s tone + 1.6s silence)
 }
 function stopPhoneRing(){
   clearInterval(phoneRingInterval);
   phoneRingInterval = null;
 }
 
-// ── Video ring — FaceTime-style ascending marimba chime, repeating ──
-let videoRingInterval = null;
-let videoRingCtx = null;
-function getVideoRingCtx(){
-  if(!videoRingCtx || videoRingCtx.state === 'closed'){
-    videoRingCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if(videoRingCtx.state === 'suspended') videoRingCtx.resume().catch(()=>{});
-  return videoRingCtx;
-}
-function startVideoRing(){
-  stopVideoRing();
-  function chime(){
-    try{
-      const ctx = getVideoRingCtx();
-      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-      notes.forEach((freq, i) => {
-        const t = ctx.currentTime + i * 0.11;
-        const osc = ctx.createOscillator();
-        const env = ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.value = freq;
-        osc.connect(env);
-        env.connect(ctx.destination);
-        env.gain.setValueAtTime(0, t);
-        env.gain.linearRampToValueAtTime(0.22, t + 0.02);
-        env.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-        osc.start(t);
-        osc.stop(t + 0.5);
-      });
-    }catch(e){}
-  }
-  chime();
-  videoRingInterval = setInterval(chime, 2000);
-}
-function stopVideoRing(){
-  clearInterval(videoRingInterval);
-  videoRingInterval = null;
-}
-
-/* ===================== UI BUTTON SOUNDS ===================== */
-// One shared, persistent AudioContext instead of creating (and half-closing) a new
-// one on every single click — repeatedly spinning up contexts is wasteful and on
-// some browsers (mobile Safari especially) can make the UI feel like it's not
-// responding to taps at all once too many are left open.
-let sfxCtx = null;
-function getSfxCtx(){
-  if(!sfxCtx || sfxCtx.state === 'closed'){
-    sfxCtx = new (window.AudioContext||window.webkitAudioContext)();
-  }
-  if(sfxCtx.state === 'suspended') sfxCtx.resume().catch(()=>{});
-  return sfxCtx;
-}
-
-let soundsEnabled = localStorage.getItem('lcs_soundsEnabled') !== 'off';
-function toggleSounds(){
-  soundsEnabled = !soundsEnabled;
-  localStorage.setItem('lcs_soundsEnabled', soundsEnabled ? 'on' : 'off');
-  renderSoundToggle();
-}
-function renderSoundToggle(){
-  const btn = document.getElementById('soundToggleBtn');
-  if(!btn) return;
-  btn.textContent = soundsEnabled ? '🔊' : '🔇';
-  btn.title = soundsEnabled ? 'Button sounds on — click to mute' : 'Button sounds muted — click to unmute';
-}
-renderSoundToggle();
-
-function playTap(){
-  if(!soundsEnabled) return;
-  try{
-    const ctx=getSfxCtx();
-    const osc=ctx.createOscillator(), env=ctx.createGain();
-    osc.type='sine'; osc.frequency.value=1200;
-    osc.connect(env); env.connect(ctx.destination);
-    env.gain.setValueAtTime(0.001,ctx.currentTime);
-    env.gain.linearRampToValueAtTime(0.12,ctx.currentTime+0.005);
-    env.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.06);
-    osc.start(); osc.stop(ctx.currentTime+0.07);
-  }catch(e){}
-}
-function playAccept(){
-  if(!soundsEnabled) return;
-  try{
-    const ctx=getSfxCtx();
-    [880,1318.51].forEach((freq,i)=>{
-      const t=ctx.currentTime+i*0.08;
-      const osc=ctx.createOscillator(), env=ctx.createGain();
-      osc.type='sine'; osc.frequency.value=freq;
-      osc.connect(env); env.connect(ctx.destination);
-      env.gain.setValueAtTime(0,t); env.gain.linearRampToValueAtTime(0.18,t+0.015);
-      env.gain.exponentialRampToValueAtTime(0.001,t+0.18);
-      osc.start(t); osc.stop(t+0.18);
-    });
-  }catch(e){}
-}
-function playDecline(){
-  if(!soundsEnabled) return;
-  try{
-    const ctx=getSfxCtx();
-    [523.25,392.00].forEach((freq,i)=>{
-      const t=ctx.currentTime+i*0.09;
-      const osc=ctx.createOscillator(), env=ctx.createGain();
-      osc.type='sine'; osc.frequency.value=freq;
-      osc.connect(env); env.connect(ctx.destination);
-      env.gain.setValueAtTime(0,t); env.gain.linearRampToValueAtTime(0.16,t+0.015);
-      env.gain.exponentialRampToValueAtTime(0.001,t+0.2);
-      osc.start(t); osc.stop(t+0.2);
-    });
-  }catch(e){}
-}
-function playOnAir(){
-  if(!soundsEnabled) return;
-  try{
-    const ctx=getSfxCtx();
-    [660,880,1108.73].forEach((freq,i)=>{
-      const t=ctx.currentTime+i*0.06;
-      const osc=ctx.createOscillator(), env=ctx.createGain();
-      osc.type='triangle'; osc.frequency.value=freq;
-      osc.connect(env); env.connect(ctx.destination);
-      env.gain.setValueAtTime(0,t); env.gain.linearRampToValueAtTime(0.2,t+0.01);
-      env.gain.exponentialRampToValueAtTime(0.001,t+0.22);
-      osc.start(t); osc.stop(t+0.22);
-    });
-  }catch(e){}
-}
-document.addEventListener('click', (e)=>{
-  const el = e.target.closest('button, .card, .call-card');
-  if(!el) return;
-  if(el.id==='soundToggleBtn') { toggleSounds(); return; }
-  if(el.id==='callOnAirBtn' || el.dataset?.action==='video-air' || el.id==='previewAirBtn') { playOnAir(); return; }
-  if(el.id==='incomingAcceptBtn') { playAccept(); return; }
-  if(el.id==='incomingDeclineBtn' || el.id==='endBtn' || el.dataset?.action==='video-reject' || el.id==='previewRejectBtn') { playDecline(); return; }
-  playTap();
-});
-
-// ── Incoming Call / Video overlay — iOS/FaceTime-style, shared by both call types ──
-const incomingOverlay     = document.getElementById('incomingOverlay');
-const incomingKind        = document.getElementById('incomingKind');
-const incomingAvatar      = document.getElementById('incomingAvatar');
-const incomingName        = document.getElementById('incomingName');
-const incomingMore        = document.getElementById('incomingMore');
-const incomingAcceptBtn   = document.getElementById('incomingAcceptBtn');
-const incomingDeclineBtn  = document.getElementById('incomingDeclineBtn');
-const incomingAcceptLabel = document.getElementById('incomingAcceptLabel');
-let incomingActiveItem = null;
-
-function initialsFor(name){
-  const clean = (name || '').trim();
-  if(!clean) return '?';
-  return clean.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
-}
-
-function updateIncomingOverlay(){
-  // Exclude the call currently being answered (audio) or previewed (video).
-  // Status stays 'waiting' in Firestore during those moments, so without this
-  // the overlay + ring keep firing even after the producer has already engaged.
-  const waitingAudio = latestAudioCalls
-    .filter(c => c.status === 'waiting' && c.id !== connectingCallId)
-    .map(c => ({ ...c, _kind:'audio' }));
-  const waitingVideo = latestVideoCalls
-    .filter(c => c.status === 'waiting' && c.id !== previewCallId)
-    .map(c => ({ ...c, _kind:'video' }));
-  const combined = [...waitingAudio, ...waitingVideo].sort((a, b)=>{
-    const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-    const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-    return ta - tb; // oldest first, so nobody gets skipped over
-  });
-
-  if(combined.length === 0){
-    incomingOverlay.classList.remove('show');
-    incomingActiveItem = null;
-    return;
-  }
-
-  const item = combined[0];
-  incomingActiveItem = item;
-  incomingKind.textContent = item._kind === 'video' ? 'INCOMING VIDEO CALL' : 'INCOMING AUDIO CALL';
-  incomingAcceptLabel.textContent = item._kind === 'video' ? 'Preview' : 'Accept';
-  incomingName.textContent = item.callerName || (item._kind === 'video' ? 'Video Guest' : 'Anonymous Caller');
-  const cityEl = document.getElementById('incomingCity');
-  if(cityEl) cityEl.textContent = item.callerCity || '';
-  const subEl = document.getElementById('incomingSub');
-  if(subEl) subEl.textContent = item._kind === 'video' ? 'Video guest waiting for preview' : 'is calling…';
-  const av = document.getElementById('incomingAvatar');
-  if(av){
-    av.className = 'avatar lg' + (item._kind === 'video' ? ' video' : '');
-    av.textContent = avatarInitials(incomingName.textContent);
-  }
-  incomingAvatar.textContent = initialsFor(item.callerName);
-  const more = combined.length - 1;
-  incomingMore.style.display = more > 0 ? 'block' : 'none';
-  incomingMore.textContent = more > 0 ? `+${more} more waiting` : '';
-  incomingOverlay.classList.add('show');
-}
-
-incomingAcceptBtn.addEventListener('click', ()=>{
-  if(!incomingActiveItem) return;
-  const item = incomingActiveItem;
-  incomingOverlay.classList.remove('show');
-  if(item._kind === 'audio'){
-    answerCall(item.id, item.callerName, item.callerCity);
-  } else {
-    startVideoPreview(item.id);
-    if(typeof switchTab === 'function') switchTab('calls'); else document.querySelector('.tab-btn[data-tab="calls"]')?.click();
-  }
-});
-
-incomingDeclineBtn.addEventListener('click', async()=>{
-  if(!incomingActiveItem) return;
-  const item = incomingActiveItem;
-  incomingOverlay.classList.remove('show');
-  if(item._kind === 'audio'){
-    await setDoc(doc(db, 'liveCalls', item.id), { status: 'rejected' }, { merge: true }).catch(()=>{});
-  } else {
-    await updateDoc(doc(db, 'videoCalls', item.id), { status: 'rejected' }).catch(()=>{});
-  }
-});
-
-function parseTs(ts){
-  if(ts == null || ts === '') return null;
-  if(typeof ts.toDate === 'function') return ts.toDate();
-  if(typeof ts === 'number') return new Date(ts < 1e12 ? ts * 1000 : ts);
-  if(typeof ts === 'string'){
-    const d = new Date(ts);
-    return isNaN(d.getTime()) ? null : d;
-  }
-  if(typeof ts === 'object' && typeof ts.seconds === 'number'){
-    return new Date(ts.seconds * 1000 + Math.floor((ts.nanoseconds || 0) / 1e6));
-  }
-  const d = new Date(ts);
-  return isNaN(d.getTime()) ? null : d;
-}
-function formatWhen(ts){
-  const d = parseTs(ts);
-  if(!d) return '—';
-  const now = new Date();
-  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  const sameDay = d.toDateString() === now.toDateString();
-  if(sameDay) return time;
-  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-  if(d.toDateString() === yesterday.toDateString()) return 'Yesterday · ' + time;
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' · ' + time;
-}
-/** Full accurate local timestamp for history rows */
-function formatWhenFull(ts){
-  const d = parseTs(ts);
-  if(!d) return '—';
-  return d.toLocaleString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: 'numeric', minute: '2-digit', second: '2-digit'
-  });
-}
-function historyMoment(c){
-  // Prefer explicit ms, then endedAt, then Firestore createdAt
-  return c.createdAtMs || c.endedAt || c.createdAt || null;
-}
-
 function timeAgo(ts){
-  const d = parseTs(ts);
-  if(!d) return '';
-  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
-  if(diff < 0) return formatWhen(ts);
-  if(diff < 45) return 'just now';
-  if(diff < 3600) return Math.floor(diff / 60) + 'm ago';
-  if(diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-  if(diff < 86400 * 7) return Math.floor(diff / 86400) + 'd ago';
-  return formatWhen(ts);
+  if(!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const diff = Math.floor((Date.now() - d.getTime())/1000);
+  if(diff < 60) return 'just now';
+  if(diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if(diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  return d.toLocaleDateString();
 }
 
 function buildWaveformBars(count=40){
@@ -1696,6 +983,10 @@ function buildWaveformBars(count=40){
     html += `<span style="height:${h}px"></span>`;
   }
   return html;
+}
+
+function safeHttpsUrl(value){
+  try { const url = new URL(String(value || ''), location.href); return url.protocol === 'https:' ? url.href : ''; } catch (_) { return ''; }
 }
 
 function render(){
@@ -1720,26 +1011,7 @@ function render(){
   });
 
   const pendingCount = allMessages.filter(m=>m.status==='pending').length;
-  const approvedCount = allMessages.filter(m=>m.status==='approved').length;
-  const allCount = allMessages.length;
-  queueCount.textContent = String(pendingCount);
-  const chipVoice = document.getElementById('chipVoice');
-  if(chipVoice){
-    chipVoice.classList.toggle('show', pendingCount > 0);
-    chipVoice.classList.toggle('hot', pendingCount > 0);
-  }
-  const cp = document.getElementById('countPending');
-  const ca = document.getElementById('countAll');
-  const cap = document.getElementById('countApproved');
-  if(cp) cp.textContent = String(pendingCount);
-  if(ca) ca.textContent = String(allCount);
-  if(cap) cap.textContent = String(approvedCount);
-  const emptyText = document.getElementById('emptyStateText');
-  if(emptyText){
-    if(filter === 'pending') emptyText.textContent = "No pending messages. The queue is clear.";
-    else if(filter === 'approved') emptyText.textContent = "No approved messages yet.";
-    else emptyText.textContent = "No messages in the queue.";
-  }
+  queueCount.textContent = `${pendingCount} waiting`;
 
   if(list.length === 0){
     emptyState.style.display = 'block';
@@ -1748,7 +1020,6 @@ function render(){
   }
   emptyState.style.display = 'none';
 
-  bindQueueDrag(queueEl, 'voice');
   queueEl.innerHTML = list.map(m=>{
     const isNew = m.status === 'pending';
     const previewing = currentlyPlayingId === m.id;
@@ -1765,21 +1036,16 @@ function render(){
           ${m.city ? `<span class="card-city">· ${escapeHtml(m.city)}</span>` : ''}
           <span class="badge type-badge">${typeLabel(m.messageType)}</span>
           <span class="badge ${m.status==='approved' ? 'approved' : ''}">${m.status === 'approved' ? 'Played' : 'New'}</span>
-          ${m.onHold ? '<span class="badge-hold">HOLD</span>' : ''}
-          ${(m.priority||0)>0 ? `<span class="badge-pri">PRI ${m.priority}</span>` : ''}
           <span class="card-time">${timeAgo(m.createdAt)}</span>
         </div>
         ${typeDetail(m)}
         <div class="waveform ${previewing || isLive ? 'active' : ''}">${buildWaveformBars()}</div>
       </div>
       <div class="card-actions">
-        ${m.status==='pending' ? `<button class="ibtn" data-action="hold" data-id="${m.id}">${m.onHold ? '▶ Unhold' : '⏸ Hold'}</button>
-        <button class="ibtn" data-action="priority" data-id="${m.id}">⬆ Priority</button>
-        <button class="ibtn" data-action="priority-clear" data-id="${m.id}">Clear pri</button>` : ''}
         <button class="ibtn approve" data-action="approve" data-id="${m.id}">✓ Approve</button>
         <button class="ibtn favorite ${m.favorited ? 'active' : ''}" data-action="favorite" data-id="${m.id}">⭐ ${m.favorited ? 'Saved' : 'Favorite'}</button>
         <button class="ibtn on-air-btn ${isLive ? 'live' : ''}" data-action="golive" data-id="${m.id}">${isLive ? '⏹ Stop Live' : '🔴 Send Live On Air'}</button>
-        <a class="ibtn download" href="${m.audioUrl}" download target="_blank" rel="noopener">⬇ Download</a>
+        <a class="ibtn download" href="${safeHttpsUrl(m.audioUrl)}" download target="_blank" rel="noopener" ${safeHttpsUrl(m.audioUrl) ? "" : "aria-disabled=\"true\" tabindex=\"-1\""}>⬇ Download</a>
         <button class="ibtn delete" data-action="delete" data-id="${m.id}">🗑 Delete</button>
       </div>
     </div>`;
@@ -1811,19 +1077,8 @@ function typeDetail(m){
   return '';
 }
 
-function avatarInitials(name){
-  const n = String(name || '').trim();
-  if(!n) return '?';
-  const parts = n.split(/\s+/).filter(Boolean);
-  if(parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return n.slice(0, 2).toUpperCase();
-}
-function avatarHtml(name, opts={}){
-  const cls = ['avatar', opts.lg ? 'lg' : '', opts.sm ? 'sm' : '', opts.video ? 'video' : ''].filter(Boolean).join(' ');
-  return `<span class="${cls}" aria-hidden="true">${avatarInitials(name)}</span>`;
-}
 function escapeHtml(str){
-  return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 queueEl.addEventListener('click', async (e)=>{
@@ -1837,7 +1092,9 @@ queueEl.addEventListener('click', async (e)=>{
   if(action === 'play'){
     // PREVIEW ONLY — plays in this browser, never touches OBS or Firestore
     if(currentlyPlayingId === id){
-      stopLocalPreview();
+      hiddenPlayer.pause();
+      currentlyPlayingId = null;
+      render();
       return;
     }
     // Stop any live broadcast if switching to preview
@@ -1845,30 +1102,12 @@ queueEl.addEventListener('click', async (e)=>{
       hiddenPlayer.pause();
       livePlayingId = null;
       onAirBadge.classList.remove('show');
-      await setDoc(liveStateRef, { active: false, updatedAt: Date.now() }).catch(()=>{});
-    }
-    if(!msg.audioUrl){
-      alert('This message has no audio URL — it may have failed to upload.');
-      return;
+      await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
     }
     currentlyPlayingId = id;
-    updatePreviewBar(msg);
-    try{
-      hiddenPlayer.pause();
-      hiddenPlayer.muted = false;
-      hiddenPlayer.volume = 1;
-      hiddenPlayer.src = msg.audioUrl;
-      hiddenPlayer.load();
-      const playPromise = hiddenPlayer.play();
-      if(playPromise && typeof playPromise.then === 'function'){
-        await playPromise;
-      }
-    }catch(err){
-      console.error('[Audio] preview failed:', err);
-      currentlyPlayingId = null;
-      updatePreviewBar(null);
-      alert('Could not play this voice message. Check your connection or try Download.\n\n' + (err && err.message ? err.message : err));
-    }
+    hiddenPlayer.src = msg.audioUrl;
+    hiddenPlayer.muted = false; // audible in dashboard browser only
+    hiddenPlayer.play().catch(()=>{});
     render();
   }
 
@@ -1886,11 +1125,9 @@ queueEl.addEventListener('click', async (e)=>{
     // Stop any local preview first
     currentlyPlayingId = null;
     livePlayingId = id;
-    if(!msg.audioUrl){ alert('No audio URL on this message.'); livePlayingId = null; render(); return; }
-    hiddenPlayer.muted = true; // MUTED in browser — OBS overlay plays the real audio
     hiddenPlayer.src = msg.audioUrl;
-    hiddenPlayer.load();
-    hiddenPlayer.play().catch((err)=> console.warn('[Audio] golive local mute play:', err));
+    hiddenPlayer.muted = true; // MUTED in browser — OBS overlay plays the real audio
+    hiddenPlayer.play().catch(()=>{});
     onAirBadge.classList.add('show');
     await setDoc(liveStateRef, {
       active: true,
@@ -1917,23 +1154,7 @@ queueEl.addEventListener('click', async (e)=>{
     render();
   }
 
-  
-  if(action === 'hold'){
-    const msg = allMessages.find(x=>x.id===id);
-    await updateDoc(doc(db,'hotlineMessages',id), { onHold: !(msg && msg.onHold) });
-    return;
-  }
-  if(action === 'priority'){
-    const msg = allMessages.find(x=>x.id===id);
-    const next = Math.min(9, Number(msg?.priority||0) + 1);
-    await updateDoc(doc(db,'hotlineMessages',id), { priority: next });
-    return;
-  }
-  if(action === 'priority-clear'){
-    await updateDoc(doc(db,'hotlineMessages',id), { priority: 0 });
-    return;
-  }
-if(action === 'approve'){
+  if(action === 'approve'){
     await updateDoc(doc(db, 'hotlineMessages', id), { status: 'approved' });
   }
 
@@ -1951,24 +1172,11 @@ hiddenPlayer.addEventListener('ended', async ()=>{
   const wasLive = livePlayingId !== null;
   currentlyPlayingId = null;
   livePlayingId = null;
-  updatePreviewBar(null);
   if(wasLive){
     onAirBadge.classList.remove('show');
-    await setDoc(liveStateRef, { active: false, updatedAt: Date.now() }).catch(()=>{});
+    await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
   }
   render();
-});
-hiddenPlayer.addEventListener('error', ()=>{
-  if(!currentlyPlayingId && !livePlayingId) return;
-  console.error('[Audio] media error', hiddenPlayer.error);
-  const code = hiddenPlayer.error ? hiddenPlayer.error.code : '?';
-  currentlyPlayingId = null;
-  updatePreviewBar(null);
-  render();
-  alert('Audio failed to load (error ' + code + '). The file may be missing or blocked.');
-});
-document.getElementById('previewBarStop')?.addEventListener('click', ()=>{
-  stopLocalPreview();
 });
 
 searchInput.addEventListener('input', render);
@@ -1977,17 +1185,16 @@ filterSelect.addEventListener('change', render);
 // ── Tab switching ──
 const tabBtns = document.querySelectorAll('.tab-btn');
 const tabContents = document.querySelectorAll('.tab-content');
-function switchTab(target){
-  if(target === 'video' || target === 'history') target = 'calls'; // phone system holds calls + history
-  tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === target));
-  tabContents.forEach(c =>{
-    c.style.display = c.id === 'tab-' + target ? 'block' : 'none';
-  });
-  if(target === 'analytics') renderAnalytics();
-  if(typeof syncPhoneStageEmpty === 'function') syncPhoneStageEmpty();
-}
 tabBtns.forEach(btn =>{
-  btn.addEventListener('click', ()=> switchTab(btn.dataset.tab));
+  btn.addEventListener('click', ()=>{
+    tabBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const target = btn.dataset.tab;
+    tabContents.forEach(c =>{
+      c.style.display = c.id === 'tab-' + target ? 'block' : 'none';
+    });
+    if(target === 'analytics') renderAnalytics();
+  });
 });
 
 // ── Analytics ──
@@ -2057,107 +1264,30 @@ let queueListenerStarted = false;
 // ═══════════════════════════════════════════════════════
 //  LIVE CALLS — WebRTC via Firestore signaling
 // ═══════════════════════════════════════════════════════
-
-// ── Production TURN (recommended) ──
-// Replace Open Relay with your own Metered/Twilio/coturn credentials.
-// Prefer short-lived credentials from a backend; never commit long-lived secrets.
-// Example:
-// { urls: 'turn:your-turn.example.com:3478', username: '…', credential: '…' },
-// { urls: 'turns:your-turn.example.com:5349', username: '…', credential: '…' },
-// ICE config — multi-STUN pool + multi-path TURN fallback for NAT / mobile / strict firewalls
-// Order: fast STUN first, then UDP TURN, TCP TURN, TLS TURNS (last resort)
-const ICE_SERVERS = [
-  // STUN first (lowest latency) — US-friendly public pool
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:stun3.l.google.com:19302' },
-  { urls: 'stun:stun4.l.google.com:19302' },
-  { urls: 'stun:stun.cloudflare.com:3478' },
-  { urls: 'stun:stun.stunprotocol.org:3478' },
-  // Free Open Relay TURN (Metered) — UDP then TCP then TLS; used only when direct/STUN fails
-  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turns:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
-];
-
-// ── WebRTC latency / path quality (keeps free STUN + Open Relay TURN) ──
-let netStatsTimer = null;
-function setNetBadge(label, cls){
-  const el = document.getElementById('netQualityBadge');
-  if(!el) return;
-  el.textContent = label;
-  el.className = 'net-badge ' + (cls || 'idle');
-}
-function stopNetStats(){
-  if(netStatsTimer){ clearInterval(netStatsTimer); netStatsTimer = null; }
-  setNetBadge('Net —', 'idle');
-}
-async function samplePcStats(pc){
-  if(!pc) return null;
-  try{
-    const stats = await pc.getStats();
-    let rtt = null, pairType = '', lost = 0, packets = 0;
-    const cand = {};
-    stats.forEach(r=>{
-      if(r.type === 'local-candidate' || r.type === 'remote-candidate'){
-        cand[r.id] = r;
-      }
-    });
-    stats.forEach(r=>{
-      if(r.type === 'candidate-pair' && (r.state === 'succeeded' || r.nominated)){
-        if(typeof r.currentRoundTripTime === 'number'){
-          rtt = r.currentRoundTripTime * 1000;
-        }
-        const loc = cand[r.localCandidateId];
-        const rem = cand[r.remoteCandidateId];
-        const t = (loc && loc.candidateType) || (rem && rem.candidateType) || '';
-        if(t) pairType = t;
-      }
-      if(r.type === 'inbound-rtp' && (r.kind === 'audio' || r.mediaType === 'audio')){
-        if(typeof r.packetsLost === 'number') lost += r.packetsLost;
-        if(typeof r.packetsReceived === 'number') packets += r.packetsReceived;
-      }
-    });
-    return { rtt, pairType, lost, packets };
-  }catch(e){ return null; }
-}
-function startNetStats(getPc){
-  stopNetStats();
-  netStatsTimer = setInterval(async()=>{
-    const pc = typeof getPc === 'function' ? getPc() : getPc;
-    const s = await samplePcStats(pc);
-    if(!s){ setNetBadge('Net —', 'idle'); return; }
-    const path = s.pairType === 'relay' ? 'TURN' : (s.pairType === 'srflx' ? 'STUN' : (s.pairType === 'host' ? 'Direct' : 'Net'));
-    const rtt = s.rtt != null ? Math.round(s.rtt) : null;
-    let cls = 'fair', label = path;
-    if(rtt != null){
-      if(rtt < 80 && s.pairType !== 'relay') cls = 'good';
-      else if(rtt < 150) cls = 'fair';
-      else cls = 'poor';
-      label = path + ' · ' + rtt + 'ms';
-    } else if(s.pairType === 'relay'){
-      cls = 'fair';
-      label = 'TURN relay';
+// ICE config — STUN for direct connections + TURN relay for cross-network/NAT traversal
+// Open Relay Project is free, no account required — handles symmetric NAT and mobile networks
+const iceConfig = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
     }
-    setNetBadge(label, cls);
-  }, 2000);
-}
-
-
-function buildIceConfig(forceRelay){
-  return {
-    iceServers: ICE_SERVERS,
-    iceCandidatePoolSize: 8,           // enough pre-gather without long delay
-    iceTransportPolicy: forceRelay ? 'relay' : 'all',
-    bundlePolicy: 'max-bundle',
-    rtcpMuxPolicy: 'require'
-  };
-}
-
-const iceConfig = buildIceConfig(false);
+  ],
+  iceCandidatePoolSize: 10
+};
 
 let activePc = null;         // RTCPeerConnection for current call
 let activeCallId = null;     // current call Firestore ID
@@ -2168,8 +1298,6 @@ let callSeconds = 0;
 let callIsOnAir = false;
 let callIsOnHold = false;
 let callCandidateUnsub = null;
-let connectingCallId = null; // set the instant Answer is clicked, cleared once connected/failed —
-                              // closes the race where the ring/incoming-alert could re-fire mid-connect
 
 // DOM refs for call UI
 const activeCallPanel  = document.getElementById('activeCallPanel');
@@ -2205,7 +1333,9 @@ function startCallTimer(){
   clearInterval(callTimerInterval);
   callTimerInterval = setInterval(()=>{
     callSeconds++;
-    activeCallTimer.textContent = formatDur(callSeconds);
+    const m = Math.floor(callSeconds/60);
+    const s = callSeconds % 60;
+    activeCallTimer.textContent = `${m}:${s.toString().padStart(2,'0')}`;
   }, 1000);
 }
 
@@ -2215,7 +1345,6 @@ function setCallStatus(text, cls=''){
 }
 
 function cleanupActiveCall(){
-  stopNetStats();
   clearInterval(callTimerInterval);
   if(callCandidateUnsub){ callCandidateUnsub(); callCandidateUnsub = null; }
   if(activePc){ activePc.close(); activePc = null; }
@@ -2228,16 +1357,9 @@ function cleanupActiveCall(){
 }
 
 async function answerCall(callId, callerName, callerCity){
-  if(activePc || connectingCallId){ return; } // already on a call, or already mid-connect — ignore re-clicks/re-fires
+  if(activePc){ alert('End the current call before answering a new one.'); return; }
 
-  // Everything below happens synchronously, before any await, so there is no
-  // window where a re-render or a stray snapshot can make this call look
-  // "incoming" again or restart the ringtone.
-  connectingCallId = callId;
   stopPhoneRing();
-  callStartTime = Date.now(); // "Answer Time" — duration is measured from here, not from when the call arrived
-  document.querySelectorAll(`[data-action="answer"][data-id="${callId}"]`).forEach(b=>{ b.disabled = true; b.textContent = 'Connecting…'; });
-  renderCallsQueue(); // re-render immediately so this call drops out of the incoming list right away
 
   activeCallId = callId;
   activeCallRef = doc(db, 'liveCalls', callId);
@@ -2247,13 +1369,11 @@ async function answerCall(callId, callerName, callerCity){
     producerStream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true }, video:false });
   }catch(err){
     alert('Microphone access required to answer calls. Please allow mic permissions.');
-    activeCallId = null; activeCallRef = null; connectingCallId = null;
-    renderCallsQueue();
     return;
   }
 
   // 2. Create peer connection and add local tracks
-  activePc = new RTCPeerConnection(buildIceConfig(false));
+  activePc = new RTCPeerConnection(iceConfig);
   producerStream.getTracks().forEach(track => activePc.addTrack(track, producerStream));
 
   // 3. Play caller audio when remote track arrives
@@ -2272,69 +1392,26 @@ async function answerCall(callId, callerName, callerCity){
     }
   };
 
-  // WebRTC error handling — peer drop, ICE failure, or closed connection
-  let _activePcFailHandled = false;
-  const handleActivePcFail = (reason) => {
-    if(_activePcFailHandled || !activePc) return;
-    _activePcFailHandled = true;
-    console.warn('[WebRTC] active call failed:', reason);
-    setCallStatus('Connection lost — call ended');
-    if(activeCallRef){
-      setDoc(activeCallRef, { status: 'ended' }, { merge: true }).catch(()=>{});
-    }
-    stopHoldMusic();
-    if(isRecording){
-      stopCallRecording().then(url => saveCallHistory(url)).catch(()=>{});
-    } else {
-      saveCallHistory(null).catch(()=>{});
-    }
-    if(callIsOnAir){
-      setDoc(liveStateRef, { active: false, updatedAt: Date.now() }).catch(()=>{});
-    }
-    cleanupActiveCall();
-  };
-  activePc.onconnectionstatechange = ()=>{
-    if(!activePc) return;
-    const st = activePc.connectionState;
-    if(st === 'failed' || st === 'closed') handleActivePcFail('connectionState=' + st);
-  };
-  activePc.oniceconnectionstatechange = ()=>{
-    if(!activePc) return;
-    if(activePc.iceConnectionState === 'failed') handleActivePcFail('iceConnectionState=failed');
-  };
-
   // 5. Get caller's offer and set remote description
   const callSnap = await getDoc(activeCallRef);
   const callData = callSnap.data();
-  if(!callData?.offer){
-    alert('Could not read call offer from Firestore.');
-    connectingCallId = null;
-    cleanupActiveCall();
-    return;
-  }
+  if(!callData?.offer){ alert('Could not read call offer from Firestore.'); cleanupActiveCall(); return; }
 
-  try{
-    await activePc.setRemoteDescription(new RTCSessionDescription(callData.offer));
-    // 6. Create answer and set local description — ICE gathering starts here
-    const answer = await activePc.createAnswer();
-    await activePc.setLocalDescription(answer);
-    // 7. Save answer to Firestore
-    await setDoc(activeCallRef, {
-      answer: { type: answer.type, sdp: answer.sdp },
-      status: 'answered'
-    }, { merge: true });
-  }catch(err){
-    console.error('[WebRTC] answerCall SDP/signaling failed:', err);
-    alert('Could not complete the WebRTC handshake with this caller. Ask them to call in again.');
-    connectingCallId = null;
-    if(activeCallRef) setDoc(activeCallRef, { status: 'ended' }, { merge: true }).catch(()=>{});
-    cleanupActiveCall();
-    return;
-  }
+  await activePc.setRemoteDescription(new RTCSessionDescription(callData.offer));
+
+  // 6. Create answer and set local description — ICE gathering starts here (handler already wired)
+  const answer = await activePc.createAnswer();
+  await activePc.setLocalDescription(answer);
+
+  // 7. Save answer to Firestore
+  await setDoc(activeCallRef, {
+    answer: { type: answer.type, sdp: answer.sdp },
+    status: 'answered'
+  }, { merge: true });
 
   // 8. Listen for caller ICE candidates — start immediately, Firestore delivers existing docs too
   // No buffering needed on this side because setRemoteDescription already happened above
-  callCandidateUnsub = onSnapshot(
+  callCandidateUnsub = subscribe(
     collection(db, 'liveCalls', callId, 'callerCandidates'),
     (snap)=>{
       snap.docChanges().forEach(async(change)=>{
@@ -2349,14 +1426,14 @@ async function answerCall(callId, callerName, callerCity){
   activeCallerName.textContent = callerName || 'Anonymous Caller';
   activeCallerCity.textContent = callerCity || '';
   activeCallPanel.style.display = 'block';
-  startNetStats(() => activePc);
   setCallStatus('Screening — caller not on air yet');
   holdBtn.textContent = '⏸ Hold';
   holdBtn.classList.remove('on-hold');
   callOnAirBtn.textContent = '🔴 Send On Air';
   callOnAirBtn.classList.remove('live');
   callIsOnAir = false; callIsOnHold = false;
-  // Reset recording + mute state (callStartTime was already set at the moment Answer was clicked)
+  // Reset recording + mute state
+  callStartTime = Date.now();
   micMuted = false;
   micMuteBtn.textContent = '🎤 Mute Mic';
   micMuteBtn.classList.remove('muted');
@@ -2365,14 +1442,12 @@ async function answerCall(callId, callerName, callerCity){
   recordStatus.textContent = '';
   isRecording = false;
   startCallTimer();
-  connectingCallId = null; // fully connected now — safe for the ring/incoming logic to resume normally
 
   // Switch to Calls tab if not already there
-  if(typeof switchTab === 'function') switchTab('calls');
-  else {
-    document.querySelectorAll('.tab-btn').forEach(b=> b.classList.toggle('active', b.dataset.tab === 'calls'));
-    document.querySelectorAll('.tab-content').forEach(c=> c.style.display = c.id === 'tab-calls' ? 'block' : 'none');
-  }
+  document.querySelectorAll('.tab-btn').forEach(b=> b.classList.remove('active'));
+  document.querySelector('[data-tab="calls"]').classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c=> c.style.display = 'none');
+  document.getElementById('tab-calls').style.display = 'block';
 }
 
 // ── Hold music via WebRTC track replacement ──
@@ -2503,72 +1578,18 @@ recordBtn.addEventListener('click', ()=>{
 
 // ── Save call to history ──
 async function saveCallHistory(recordingUrl = null){
-  // Prefer live timer seconds; fall back to wall-clock from answer moment
-  let duration = (typeof callSeconds === 'number' && callSeconds > 0)
-    ? callSeconds
-    : (callStartTime ? Math.max(0, Math.floor((Date.now() - callStartTime) / 1000)) : 0);
+  const endTime = Date.now();
+  const duration = callStartTime ? Math.floor((endTime - callStartTime) / 1000) : 0;
   try{
-    const nowMs = Date.now();
     await addDoc(collection(db, 'callHistory'), {
       callerName: document.getElementById('activeCallerName').textContent || 'Unknown',
       callerCity: document.getElementById('activeCallerCity').textContent || null,
       duration,
       recordingUrl: recordingUrl || null,
       status: 'completed',
-      type: 'audio',
-      endedAt: nowMs,
-      createdAtMs: callStartTime || nowMs,
       createdAt: serverTimestamp()
     });
   }catch(e){ console.warn('Could not save call history:', e); }
-}
-
-// ── Missed calls — logged once per call/video request that never got answered ──
-const loggedMissedIds = new Set();
-const loggedVideoHistoryIds = new Set();
-async function logMissedCall(item, kind){
-  if(loggedMissedIds.has(item.id)) return;
-  loggedMissedIds.add(item.id);
-  try{
-    const nowMs = Date.now();
-    await addDoc(collection(db, 'callHistory'), {
-      callerName: item.callerName || (kind === 'video' ? 'Video Guest' : 'Unknown'),
-      callerCity: item.callerCity || null,
-      duration: 0,
-      recordingUrl: null,
-      status: 'missed',
-      type: kind,
-      endedAt: nowMs,
-      createdAtMs: nowMs,
-      createdAt: serverTimestamp()
-    });
-  }catch(e){ console.warn('Could not log missed call:', e); }
-}
-
-async function saveVideoCallHistory(item){
-  if(loggedVideoHistoryIds.has(item.id)) return;
-  loggedVideoHistoryIds.add(item.id);
-  let liveMs = item.liveSince;
-  if(liveMs && typeof liveMs.toDate === 'function') liveMs = liveMs.toDate().getTime();
-  else if(liveMs && typeof liveMs.seconds === 'number') liveMs = liveMs.seconds * 1000;
-  else if(typeof liveMs === 'string') liveMs = new Date(liveMs).getTime();
-  const duration = (typeof liveMs === 'number' && liveMs > 0)
-    ? Math.max(0, Math.floor((Date.now() - liveMs) / 1000))
-    : 0;
-  try{
-    const nowMs = Date.now();
-    await addDoc(collection(db, 'callHistory'), {
-      callerName: item.callerName || 'Video Guest',
-      callerCity: item.callerCity || null,
-      duration,
-      recordingUrl: null,
-      status: 'completed',
-      type: 'video',
-      endedAt: nowMs,
-      createdAtMs: (typeof liveMs === 'number' && liveMs > 0) ? liveMs : nowMs,
-      createdAt: serverTimestamp()
-    });
-  }catch(e){ console.warn('Could not save video call history:', e); }
 }
 
 // Send call on air — audio stays in dashboard (OBS captures via Browser Source)
@@ -2582,17 +1603,13 @@ callOnAirBtn.addEventListener('click', async()=>{
     callOnAirBtn.classList.add('live');
     setCallStatus('ON AIR — Live Call Broadcasting', 'on-air');
     onAirBadge.classList.add('show');
-    // Tell overlay to show the live-call lower third AND connect directly to this
-    // caller for audio — that direct connection is what actually gets the caller's
-    // voice onto the broadcast (OBS's Browser Source can only capture overlay.html
-    // itself, not a separate dashboard browser tab).
+    // Tell overlay to show live call lower-third (visual only — no audio URL)
     await setDoc(liveStateRef, {
       active: true,
       name: activeCallerName.textContent,
       city: activeCallerCity.textContent,
       messageType: 'livecall',
-      callId: activeCallId,
-      audioUrl: null,
+      audioUrl: null, // no audio URL — OBS captures call audio from dashboard browser source
       updatedAt: Date.now()
     });
     await setDoc(activeCallRef, { status: 'live' }, { merge: true });
@@ -2635,34 +1652,22 @@ endBtn.addEventListener('click', async()=>{
 
 // Calls Firestore listener — shows incoming calls queue
 function startCallsListener(){
-  onSnapshot(
+  subscribe(
     query(collection(db, 'liveCalls'), orderBy('createdAt', 'desc')),
     (snap)=>{
       const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
-      latestAudioCalls = calls;
 
-      // Incoming = waiting calls only, minus whichever call we're mid-connecting to
-      // (it's still 'waiting' in Firestore for a brief moment, but it must not
-      // render or ring as "incoming" again once Answer has been clicked)
-      const ringing = calls.filter(c => c.status === 'waiting' && c.id !== connectingCallId);
+      // Incoming = waiting calls only
+      const ringing = calls.filter(c => c.status === 'waiting');
       const count = ringing.length;
 
-      // Header + queue counters
+      // Header counter
       callCountNum.textContent = count;
-      const chipAudio = document.getElementById('chipAudio');
-      if(chipAudio){
-        chipAudio.classList.toggle('show', count > 0);
-        chipAudio.classList.toggle('hot', count > 0);
-      }
-      const aqc = document.getElementById('audioQueueCount');
-      if(aqc) aqc.textContent = String(count);
       count > 0 ? callCounter.classList.add('show') : callCounter.classList.remove('show');
 
-      // Phone ring — start when there are waiting calls, stop when queue is clear.
-      // Guarded on connectingCallId too, so a snapshot that fires mid-connect
-      // (before activePc exists) can never restart the ring for a call already
-      // being answered.
-      if(count > 0 && !activePc && !connectingCallId){
+      // Phone ring — start when there are waiting calls, stop when queue is clear
+      if(count > 0 && !activePc){
+        // Only start ring if a NEW call just arrived
         snap.docChanges().forEach(change=>{
           if(change.type === 'added' && change.doc.data().status === 'waiting'){
             startPhoneRing();
@@ -2672,81 +1677,40 @@ function startCallsListener(){
         stopPhoneRing();
       }
 
-      updateIncomingOverlay();
-
-      // Guest hung up (or was rejected elsewhere) while we still have an active call —
-      // mirror their hang-up on the producer side so the panel, timer, mic, and WebRTC
-      // connection all tear down instead of staying "live" with silence.
-      if(activeCallId){
-        const active = calls.find(c => c.id === activeCallId);
-        if(!active || active.status === 'ended' || active.status === 'rejected'){
-          stopHoldMusic();
-          stopPhoneRing();
-          if(isRecording){
-            stopCallRecording().then(url => saveCallHistory(url)).catch(()=>{});
-          } else {
-            saveCallHistory(null).catch(()=>{});
-          }
-          if(callIsOnAir){
-            setDoc(liveStateRef, { active: false, updatedAt: Date.now() }).catch(()=>{});
-          }
-          cleanupActiveCall();
-        }
+      // Render incoming call cards
+      if(ringing.length === 0 && !activePc){
+        callsEmpty.style.display = 'block';
+        callsQueue.innerHTML = '';
+        incomingCallsTitle.style.display = 'none';
+        return;
       }
+      callsEmpty.style.display = 'none';
+      incomingCallsTitle.style.display = ringing.length > 0 ? 'block' : 'none';
 
-      // Missed calls — rejected, or ended without ever being answered
-      calls.forEach(c=>{
-        if(c.status === 'rejected' || (c.status === 'ended' && !c.answer)){
-          logMissedCall(c, 'audio');
-        }
-      });
-
-      renderCallsQueue();
+      callsQueue.innerHTML = ringing.map(c=>`
+        <div class="call-card" data-id="${c.id}">
+          <div class="call-ring-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+          </div>
+          <div class="call-card-body">
+            <div class="call-card-name">${escapeHtml(c.callerName || 'Anonymous Caller')}</div>
+            <div class="call-card-city">${c.callerCity ? escapeHtml(c.callerCity) : ''}</div>
+            <div class="call-card-time">${timeAgo(c.createdAt)}</div>
+          </div>
+          <div class="call-card-actions">
+            <button class="ibtn ibtn-answer" data-action="answer" data-id="${c.id}"
+              data-name="${escapeHtml(c.callerName||'')}" data-city="${escapeHtml(c.callerCity||'')}">
+              ✆ Answer
+            </button>
+            <button class="ibtn ibtn-reject" data-action="reject" data-id="${c.id}">
+              ✕ Reject
+            </button>
+          </div>
+        </div>`).join('');
     }
   );
-}
-
-function renderCallsQueue(){
-  const calls = latestAudioCalls || [];
-  const ringing = calls.filter(c => c.status === 'waiting' && c.id !== connectingCallId);
-
-  const aqc = document.getElementById('audioQueueCount');
-  if(aqc) aqc.textContent = String(ringing.length);
-  const badge = document.getElementById('audioQueueCountBadge');
-  if(badge){
-    badge.textContent = String(ringing.length);
-    badge.classList.toggle('zero', ringing.length === 0);
-  }
-
-  if(!callsQueue) return;
-  if(ringing.length === 0 && !activePc){
-    if(callsEmpty) callsEmpty.style.display = 'block';
-    callsQueue.innerHTML = '';
-    if(incomingCallsTitle) incomingCallsTitle.style.display = 'none';
-    return;
-  }
-  if(callsEmpty) callsEmpty.style.display = 'none';
-  if(incomingCallsTitle) incomingCallsTitle.style.display = ringing.length > 0 ? 'flex' : 'none';
-
-  callsQueue.innerHTML = ringing.map((c, i)=>`
-    <div class="call-card" data-id="${c.id}">
-      <div class="queue-pos">${i + 1}</div>
-      ${avatarHtml(c.callerName || 'Anonymous Caller')}
-      <div class="call-card-body">
-        <div class="call-card-name">${escapeHtml(c.callerName || 'Anonymous Caller')}</div>
-        <div class="call-card-city">${c.callerCity ? escapeHtml(c.callerCity) : ''}</div>
-        <div class="call-card-time">${timeAgo(c.createdAt)}</div>
-      </div>
-      <div class="call-card-actions">
-        <button class="ibtn ibtn-answer" data-action="answer" data-id="${c.id}"
-          data-name="${escapeHtml(c.callerName||'')}" data-city="${escapeHtml(c.callerCity||'')}">
-          ✆ Answer
-        </button>
-        <button class="ibtn ibtn-reject" data-action="reject" data-id="${c.id}">
-          ✕ Reject
-        </button>
-      </div>
-    </div>`).join('');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2765,65 +1729,26 @@ const videoEndBtn = document.getElementById('videoEndBtn');
 
 let videoTimerInterval = null;
 let currentLiveVideoId = null;
-let latestVideoCalls = [];
-let latestAudioCalls = [];
 
 function startVideoTimer(sinceMs){
   clearInterval(videoTimerInterval);
   function tick(){
     const secs = Math.max(0, Math.floor((Date.now() - sinceMs) / 1000));
-    activeVideoTimer.textContent = formatDur(secs);
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    activeVideoTimer.textContent = `${m}:${s.toString().padStart(2,'0')}`;
   }
   tick();
   videoTimerInterval = setInterval(tick, 1000);
 }
 
 function startVideoCallsListener(){
-  onSnapshot(
+  subscribe(
     query(collection(db, 'videoCalls'), orderBy('createdAt', 'desc')),
     (snap)=>{
       const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
-      latestVideoCalls = calls;
-      // Treat the currently-previewed guest as "handled" so the ring and
-      // full-screen incoming overlay stop the moment the producer opens Preview.
-      const waiting = calls.filter(c => c.status === 'waiting' && c.id !== previewCallId);
+      const waiting = calls.filter(c => c.status === 'waiting');
       const live = calls.find(c => c.status === 'live');
-
-      // FaceTime-style ring — only for guests that are still truly waiting
-      // (not the one the producer is already previewing).
-      if(waiting.length > 0){
-        snap.docChanges().forEach(change=>{
-          if(change.type === 'added' && change.doc.data().status === 'waiting' && change.doc.id !== previewCallId){
-            startVideoRing();
-          }
-        });
-      } else {
-        stopVideoRing();
-      }
-
-      updateIncomingOverlay();
-
-      // Missed video guests — rejected, or ended without ever going live
-      // Completed video segments — ended after having been live at least once
-      calls.forEach(c=>{
-        if(c.status === 'rejected' || c.status === 'timeout' || (c.status === 'ended' && !c.liveSince)){
-          logMissedCall(c, 'video');
-        } else if(c.status === 'ended' && c.liveSince){
-          saveVideoCallHistory(c);
-        }
-      });
-
-      // Keep the talkback connection alive through screening AND on-air, so the
-      // producer and guest can always hear each other. Only auto-close it once
-      // the call is truly over (ended/rejected/gone) — not just because it went live.
-      if(previewCallId){
-        const tracked = calls.find(c => c.id === previewCallId);
-        if(!tracked || tracked.status === 'ended' || tracked.status === 'rejected'){
-          stopVideoPreview();
-        } else {
-          updatePreviewPanelForStatus(tracked.status);
-        }
-      }
 
       // Live guest panel
       if(live){
@@ -2840,41 +1765,29 @@ function startVideoCallsListener(){
         currentLiveVideoId = null;
       }
 
-      // Header video chip
-      const vChip = document.getElementById('chipVideo');
-      const vCount = waiting.length;
-      if(vChip){
-        document.getElementById('videoCountNum').textContent = String(vCount);
-        vChip.classList.toggle('show', vCount > 0);
-        vChip.classList.toggle('hot', vCount > 0);
-      }
-      const vqc = document.getElementById('videoQueueCount');
-      if(vqc) vqc.textContent = String(vCount);
-      const vSide = document.getElementById('videoWaitingSide');
-      if(vSide) vSide.textContent = String(vCount);
-
       // Waiting queue
       if(waiting.length === 0){
-        if(videoEmpty) videoEmpty.style.display = 'block';
-        if(videoQueue) videoQueue.innerHTML = '';
-        if(incomingVideoTitle) incomingVideoTitle.style.display = 'none';
+        videoEmpty.style.display = 'block';
+        videoQueue.innerHTML = '';
+        incomingVideoTitle.style.display = 'none';
         return;
       }
-      if(videoEmpty) videoEmpty.style.display = 'none';
-      if(incomingVideoTitle) incomingVideoTitle.style.display = 'flex';
-      if(!videoQueue) return;
+      videoEmpty.style.display = 'none';
+      incomingVideoTitle.style.display = 'block';
 
-      videoQueue.innerHTML = waiting.map((c, i)=>`
+      videoQueue.innerHTML = waiting.map(c=>`
         <div class="call-card" data-id="${c.id}">
-          <div class="queue-pos">${i + 1}</div>
-          ${avatarHtml(c.callerName || 'Guest', { video: true })}
+          <div class="call-ring-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+            </svg>
+          </div>
           <div class="call-card-body">
             <div class="call-card-name">${escapeHtml(c.callerName || 'Guest')}</div>
             <div class="call-card-city">${c.callerCity ? escapeHtml(c.callerCity) : ''}</div>
             <div class="call-card-time">${timeAgo(c.createdAt)}</div>
           </div>
           <div class="call-card-actions">
-            <button class="ibtn" data-action="video-preview" data-id="${c.id}">🔍 Preview</button>
             <button class="ibtn ibtn-answer" data-action="video-air" data-id="${c.id}">🔴 Send On Air</button>
             <button class="ibtn ibtn-reject" data-action="video-reject" data-id="${c.id}">✕ Reject</button>
           </div>
@@ -2886,235 +1799,6 @@ function startVideoCallsListener(){
 videoEndBtn.addEventListener('click', async()=>{
   if(!currentLiveVideoId) return;
   await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
-});
-
-// ═══════════════════════════════════════════════════════
-//  SCREENING PREVIEW — a separate, dashboard-only WebRTC connection so the
-//  producer can see/hear a waiting guest before sending them on air. This never
-//  touches the "air" connection (guest → overlay.html) — purely for review.
-// ═══════════════════════════════════════════════════════
-const videoPreviewPanel  = document.getElementById('videoPreviewPanel');
-const previewName        = document.getElementById('previewName');
-const previewCity         = document.getElementById('previewCity');
-const previewVideo        = document.getElementById('previewVideo');
-const previewVideoStatus  = document.getElementById('previewVideoStatus');
-const previewStatus       = document.getElementById('previewStatus');
-const previewAirBtn       = document.getElementById('previewAirBtn');
-const previewStopBtn      = document.getElementById('previewStopBtn');
-const previewRejectBtn    = document.getElementById('previewRejectBtn');
-const previewMicMuteBtn   = document.getElementById('previewMicMuteBtn');
-
-let previewPc = null;
-let previewCallId = null;
-let previewCandidateUnsub = null;
-let previewMicStream = null;   // producer's own mic, so they can talk back to the guest
-let previewMicMuted = false;
-
-function updatePreviewMicBtn(){
-  if(!previewMicStream){
-    previewMicMuteBtn.style.display = 'none';
-    return;
-  }
-  previewMicMuteBtn.style.display = 'inline-flex';
-  previewMicMuteBtn.textContent = previewMicMuted ? '🔇 Unmute My Mic' : '🎙️ Mute My Mic';
-  previewMicMuteBtn.classList.toggle('muted', previewMicMuted);
-}
-
-function stopVideoPreview(){
-  if(previewCandidateUnsub){ previewCandidateUnsub(); previewCandidateUnsub = null; }
-  if(previewPc){ previewPc.close(); previewPc = null; }
-  if(previewMicStream){ previewMicStream.getTracks().forEach(t => t.stop()); previewMicStream = null; }
-  previewMicMuted = false;
-  previewVideo.srcObject = null;
-  document.querySelector('.preview-video-wrap')?.classList.remove('is-landscape');
-  previewCallId = null;
-  videoPreviewPanel.style.display = 'none';
-  // Re-evaluate ring + incoming overlay now that this guest is no longer "handled"
-  updateIncomingOverlay();
-  const stillWaiting = latestVideoCalls.filter(c => c.status === 'waiting');
-  if(stillWaiting.length > 0) startVideoRing();
-  else stopVideoRing();
-}
-
-async function startVideoPreview(callId){
-  // Only one preview at a time
-  if(previewCallId && previewCallId !== callId) stopVideoPreview();
-  if(previewCallId === callId) return; // already previewing this one
-
-  const call = latestVideoCalls.find(c => c.id === callId);
-  if(!call || !call.screenOffer){
-    alert("This guest's preview connection isn't ready yet — try again in a moment.");
-    return;
-  }
-
-  previewCallId = callId;
-  // Immediately silence the ring + dismiss the full-screen incoming overlay.
-  // The guest is no longer "waiting" from the producer's point of view.
-  stopVideoRing();
-  updateIncomingOverlay();
-
-  previewName.textContent = call.callerName || 'Guest';
-  previewCity.textContent = call.callerCity || '';
-  previewVideoStatus.style.display = 'flex';
-  previewVideoStatus.textContent = "Connecting to guest's camera…";
-  previewStatus.textContent = 'Connecting…';
-  videoPreviewPanel.style.display = 'block';
-  updatePreviewMicBtn();
-  updatePreviewPanelForStatus(call.status);
-
-  previewPc = new RTCPeerConnection(buildIceConfig(false));
-
-  previewPc.ontrack = (event) => {
-    try{
-      const incoming = event.streams && event.streams[0]
-        ? event.streams[0]
-        : new MediaStream([event.track]);
-      // Merge tracks if audio/video arrive separately
-      if(!previewVideo.srcObject){
-        previewVideo.srcObject = incoming;
-      } else {
-        const existing = previewVideo.srcObject;
-        incoming.getTracks().forEach(tr=>{
-          if(!existing.getTracks().some(t => t.id === tr.id)) existing.addTrack(tr);
-        });
-        if(event.track && !existing.getTracks().some(t => t.id === event.track.id)){
-          existing.addTrack(event.track);
-        }
-      }
-      previewVideo.setAttribute('playsinline', '');
-      previewVideo.playsInline = true;
-      previewVideo.autoplay = true;
-      // Autoplay policies: try unmuted (so producer hears guest); fall back to muted video still showing
-      const playAttempt = previewVideo.play();
-      if(playAttempt && playAttempt.catch){
-        playAttempt.catch(()=>{
-          previewVideo.muted = true;
-          previewVideo.play().catch(()=>{});
-        });
-      }
-      previewVideoStatus.style.display = 'none';
-      startNetStats(() => previewPc);
-      const wrap = previewVideo.closest('.preview-video-wrap');
-      const applyAspect = ()=>{
-        const vw = previewVideo.videoWidth || 0, vh = previewVideo.videoHeight || 0;
-        if(!wrap || !vw || !vh) return;
-        if(vw > vh) wrap.classList.add('is-landscape');
-        else wrap.classList.remove('is-landscape');
-      };
-      previewVideo.onloadedmetadata = applyAspect;
-      applyAspect();
-      previewStatus.textContent = previewMicStream
-        ? 'Previewing — two-way audio, not on air yet'
-        : 'Previewing — not on air yet';
-    }catch(err){ console.warn('ontrack preview', err); }
-  };
-
-  previewPc.onicecandidate = (e) => {
-    if(e.candidate && previewCallId){
-      addDoc(collection(db, 'videoCalls', previewCallId, 'screenDashboardCandidates'), e.candidate.toJSON())
-        .catch((err)=> console.warn('[WebRTC] preview ICE upload failed:', err));
-    }
-  };
-  previewPc.onconnectionstatechange = () => {
-    if(!previewPc) return;
-    if(previewPc.connectionState === 'failed'){
-      console.warn('[WebRTC] preview connection failed');
-      previewVideoStatus.style.display = 'flex';
-      previewVideoStatus.textContent = 'Preview connection failed — try again.';
-      previewStatus.textContent = 'Connection failed';
-    }
-  };
-  previewPc.oniceconnectionstatechange = () => {
-    if(previewPc && previewPc.iceConnectionState === 'failed'){
-      console.warn('[WebRTC] preview ICE failed');
-      previewVideoStatus.style.display = 'flex';
-      previewVideoStatus.textContent = 'Preview ICE failed — try again.';
-    }
-  };
-
-  try{
-    // Producer mic BEFORE setRemoteDescription so answer SDP includes sendrecv audio
-    try{
-      previewMicStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation:true, noiseSuppression:true }
-      });
-      previewMicStream.getAudioTracks().forEach(track => previewPc.addTrack(track, previewMicStream));
-    }catch(micErr){
-      previewMicStream = null;
-      console.warn('Producer mic unavailable — preview will be one-way.', micErr);
-    }
-    updatePreviewMicBtn();
-
-    await previewPc.setRemoteDescription(new RTCSessionDescription(call.screenOffer));
-    const answer = await previewPc.createAnswer();
-    await previewPc.setLocalDescription(answer);
-    await setDoc(doc(db, 'videoCalls', callId), {
-      screenAnswer: { type: answer.type, sdp: answer.sdp }
-    }, { merge: true });
-  }catch(err){
-    previewVideoStatus.style.display = 'flex';
-    previewVideoStatus.textContent = 'Could not connect to preview.';
-    previewStatus.textContent = 'Handshake failed';
-    console.error('[WebRTC] startVideoPreview failed:', err);
-    return;
-  }
-
-  previewCandidateUnsub = onSnapshot(
-    collection(db, 'videoCalls', callId, 'screenCallerCandidates'),
-    (snap) => {
-      snap.docChanges().forEach(async(change) => {
-        if(change.type === 'added' && previewPc){
-          await previewPc.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(()=>{});
-        }
-      });
-    }
-  );
-}
-
-function updatePreviewPanelForStatus(status){
-  const isLive = status === 'live';
-  previewAirBtn.style.display = isLive ? 'none' : 'inline-flex';
-  previewRejectBtn.style.display = isLive ? 'none' : 'inline-flex';
-  previewStopBtn.textContent = isLive ? '🔇 Disconnect Talkback' : 'Stop Preview';
-  if(isLive){
-    previewStatus.textContent = previewMicStream
-      ? "🔴 On air — two-way audio still connected"
-      : "🔴 On air — you can see/hear them, they can't hear you";
-  } else {
-    previewStatus.textContent = previewMicStream
-      ? 'Previewing — two-way audio, not on air yet'
-      : 'Previewing — not on air yet';
-  }
-}
-
-previewMicMuteBtn.addEventListener('click', ()=>{
-  if(!previewMicStream) return;
-  previewMicMuted = !previewMicMuted;
-  previewMicStream.getAudioTracks().forEach(t => t.enabled = !previewMicMuted);
-  updatePreviewMicBtn();
-});
-
-// "Stop Preview" / "Disconnect Talkback" — always just closes the producer's own
-// listen/talk connection. It never takes the guest off air; that's a separate action.
-previewStopBtn.addEventListener('click', stopVideoPreview);
-
-previewAirBtn.addEventListener('click', async()=>{
-  if(!previewCallId) return;
-  const id = previewCallId;
-  if(currentLiveVideoId && currentLiveVideoId !== id){
-    await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
-  }
-  await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince: Date.now() }).catch(()=>{});
-  // Talkback connection (previewPc) is already open here — keep it running so
-  // the producer and guest can keep hearing each other while live.
-  updatePreviewPanelForStatus('live');
-});
-
-previewRejectBtn.addEventListener('click', async()=>{
-  if(!previewCallId) return;
-  const id = previewCallId;
-  stopVideoPreview();
-  await updateDoc(doc(db, 'videoCalls', id), { status: 'rejected' }).catch(()=>{});
 });
 
 document.addEventListener('click', async(e)=>{
@@ -3129,21 +1813,10 @@ document.addEventListener('click', async(e)=>{
       await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
     }
     await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince: Date.now() }).catch(()=>{});
-    // Make sure a two-way talkback connection exists for this guest, even if the
-    // producer sent them on air straight from the card without previewing first.
-    await startVideoPreview(id);
-    updatePreviewPanelForStatus('live');
   }
   if(action === 'video-reject'){
-    if(previewCallId === id) stopVideoPreview();
     await updateDoc(doc(db, 'videoCalls', id), { status: 'rejected' }).catch(()=>{});
   }
-});
-
-document.addEventListener('click', (e)=>{
-  const btn = e.target.closest('[data-action="video-preview"]');
-  if(!btn) return;
-  startVideoPreview(btn.dataset.id);
 });
 
 // ── Call History & Recordings delete actions ──
@@ -3182,7 +1855,7 @@ function startCallHistoryListener(){
   const histAvgDur = document.getElementById('histAvgDur');
   const histRec    = document.getElementById('histRecorded');
 
-  onSnapshot(
+  subscribe(
     query(collection(db, 'callHistory'), orderBy('createdAt', 'desc')),
     (snap)=>{
       const calls = snap.docs.map(d=>({ id:d.id, ...d.data() }));
@@ -3190,8 +1863,8 @@ function startCallHistoryListener(){
 
       histTotal.textContent = calls.length;
       histToday.textContent = calls.filter(c=>{
-        const d = parseTs(historyMoment(c));
-        return d && d >= today;
+        const t = c.createdAt?.toDate ? c.createdAt.toDate() : null;
+        return t && t >= today;
       }).length;
       histRec.textContent = calls.filter(c=> c.recordingUrl).length;
       const durations = calls.filter(c=> c.duration > 0).map(c=> c.duration);
@@ -3206,69 +1879,23 @@ function startCallHistoryListener(){
       }
       histEmpty.style.display = 'none';
 
-      histList.innerHTML = calls.map(c=>{
-        const isMissed = c.status === 'missed';
-        const isVideo = c.type === 'video';
-        const icon = isMissed ? (isVideo ? '🎥' : '📵') : (isVideo ? '🎥' : (c.recordingUrl ? '🔴' : '📞'));
-        return `
-        <div class="hist-card ${isMissed ? 'missed' : ''}" data-histid="${c.id}">
-          <div class="hist-icon">${icon}</div>
+      histList.innerHTML = calls.map(c=>`
+        <div class="hist-card" data-histid="${c.id}">
+          <div class="hist-icon">${c.recordingUrl ? '🔴' : '📞'}</div>
           <div class="hist-body">
-            <div class="hist-name">${escapeHtml(c.callerName || 'Unknown')}${isMissed ? '<span class="hist-missed-badge">Missed</span>' : ''}</div>
-            <div class="hist-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${isVideo ? 'Video' : 'Audio'}${isMissed ? ' · Never answered' : ''}</div>
+            <div class="hist-name">${escapeHtml(c.callerName || 'Unknown')}</div>
+            <div class="hist-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${c.status || ''}</div>
           </div>
           <div class="hist-right">
             <div class="hist-dur">${formatDur(c.duration || 0)}</div>
-            <div class="hist-time" title="${escapeHtml(formatWhenFull(historyMoment(c)))}">${formatWhen(historyMoment(c))} · ${timeAgo(historyMoment(c))}</div>
+            <div class="hist-time">${timeAgo(c.createdAt)}</div>
             <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
               ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" target="_blank" rel="noopener">▶ Play</a>` : ''}
               ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}
               <button class="hist-delete" data-action="delete-history" data-id="${c.id}" title="Delete">🗑</button>
             </div>
           </div>
-        </div>`;
-      }).join('');
-
-      
-      // Full history on Phone System board (audio + video)
-      const phoneList = document.getElementById('phoneHistList');
-      const phoneCount = document.getElementById('phoneHistCount');
-      if(phoneCount){
-        phoneCount.textContent = String(calls.length);
-        phoneCount.classList.toggle('zero', calls.length === 0);
-      }
-      if(phoneList){
-        if(calls.length === 0){
-          phoneList.innerHTML = '<div class="empty" style="display:block;"><div class="ic">📋</div><div>No call history yet</div></div>';
-        } else {
-          phoneList.innerHTML = calls.slice(0, 40).map(c=>{
-            const missed = c.status === 'missed';
-            const isVid = (c.type || c.callType || '') === 'video' || String(c.type||'').toLowerCase().includes('video');
-            const when = historyMoment(c);
-            const timeLabel = formatWhen(when);
-            const fullLabel = formatWhenFull(when);
-            const ago = timeAgo(when);
-            const typeBadge = missed
-              ? '<span class="ph-badge missed">Missed</span>'
-              : (isVid ? '<span class="ph-badge video">Video</span>' : '<span class="ph-badge audio">Audio</span>');
-            return `<div class="phone-hist-row ${missed ? 'missed' : ''}" title="${escapeHtml(fullLabel)}">
-              ${avatarHtml(c.callerName || '?', { sm: true, video: isVid })}
-              <div class="ph-main">
-                <div class="ph-name">${escapeHtml(c.callerName || 'Unknown')}${typeBadge}</div>
-                <div class="ph-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${ago}</div>
-              </div>
-              <div class="ph-right">
-                <div class="ph-time">${escapeHtml(timeLabel)}</div>
-                <div class="ph-dur">${missed ? '—' : formatDur(c.duration || 0)}</div>
-                <button type="button" class="hist-delete" data-action="delete-history" data-id="${c.id}" title="Delete" style="margin-top:4px;">🗑</button>
-              </div>
-            </div>`;
-          }).join('');
-        }
-      }
-      // Keep strip in sync if present
-      const strip = document.getElementById('phoneHistStrip');
-      if(strip && strip.style.display !== 'none'){ /* optional */ }
+        </div>`).join('');
 
       // ── Recordings section ──
       const recorded = calls.filter(c => c.recordingUrl);
@@ -3287,7 +1914,7 @@ function startCallHistoryListener(){
               <div class="rec-icon">🎙️</div>
               <div class="rec-body">
                 <div class="rec-name">${escapeHtml(c.callerName || 'Unknown')}</div>
-                <div class="rec-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${formatDur(c.duration || 0)} · ${formatWhen(c.createdAt)}</div>
+                <div class="rec-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${formatDur(c.duration || 0)} · ${timeAgo(c.createdAt)}</div>
               </div>
               <div class="rec-actions">
                 <audio class="rec-audio" src="${c.recordingUrl}" controls preload="none"></audio>
@@ -3304,259 +1931,15 @@ function startCallHistoryListener(){
 }
 
 function formatDur(s){
-  s = Math.max(0, Math.floor(Number(s) || 0));
-  const h = Math.floor(s/3600);
-  const m = Math.floor((s%3600)/60);
-  const sec = s%60;
-  if(h > 0) return `${h}:${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
-  return `${m}:${sec.toString().padStart(2,'0')}`;
+  const m = Math.floor(s/60);
+  return `${m}:${(s%60).toString().padStart(2,'0')}`;
 }
-
-
-// ── Text song requests queue ──
-let latestSongRequests = [];
-function startSongRequestsListener(){
-  onSnapshot(
-    query(collection(db, 'songRequests'), orderBy('createdAt', 'desc')),
-    (snap)=>{
-      latestSongRequests = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-      renderSongsQueue();
-    },
-    (err)=>{
-      console.warn('songRequests listener', err);
-      const el = document.getElementById('songsEmpty');
-      if(el) el.innerHTML = `<div class="ic">⚠️</div><div>Could not load song requests: ${err.message}</div>`;
-    }
-  );
-}
-
-function renderSongsQueue(){
-  const list = sortQueueItems(latestSongRequests.filter(s => s.status === 'pending'));
-  const n = list.length;
-  const chip = document.getElementById('chipSongs');
-  const num = document.getElementById('songCountNum');
-  const head = document.getElementById('songQueueHead');
-  const countEl = document.getElementById('songQueueCount');
-  const empty = document.getElementById('songsEmpty');
-  const queue = document.getElementById('songsQueue');
-  if(num) num.textContent = String(n);
-  if(countEl) countEl.textContent = String(n);
-  if(chip){
-    chip.classList.toggle('show', n > 0);
-    chip.classList.toggle('hot', n > 0);
-  }
-  if(!queue) return;
-  if(n === 0){
-    if(empty) empty.style.display = 'block';
-    if(head) head.style.display = 'none';
-    queue.innerHTML = '';
-    return;
-  }
-  if(empty) empty.style.display = 'none';
-  if(head) head.style.display = 'flex';
-  bindQueueDrag(queue, 'song');
-  queue.innerHTML = list.map((s, i)=>`
-    <div class="call-card ${s.onHold ? 'hold' : ''} ${(s.priority||0)>0 ? 'priority-hi' : ''}" data-songid="${s.id}" draggable="true">
-      <span class="drag-handle" title="Drag to reorder">⠿</span>
-      <div class="queue-pos">${i + 1}</div>
-      <div class="call-card-body">
-        <div class="call-card-name">${escapeHtml(s.songTitle || '—')}${s.onHold ? ' <span class="badge-hold">HOLD</span>' : ''}${(s.priority||0)>0 ? ` <span class="badge-pri">PRI ${s.priority}</span>` : ''}</div>
-        <div class="call-card-city">${escapeHtml(s.artist || '')}</div>
-        <div class="call-card-time">${escapeHtml([s.name, s.city].filter(Boolean).join(' · ') || 'Anonymous')}${s.createdAt ? ' · ' + timeAgo(s.createdAt) : ''}</div>
-      </div>
-      <div class="call-card-actions">
-        <button class="ibtn" data-action="song-hold" data-id="${s.id}">${s.onHold ? '▶ Unhold' : '⏸ Hold'}</button>
-        <button class="ibtn" data-action="song-priority" data-id="${s.id}">⬆ Priority</button>
-        <button class="ibtn ibtn-answer" data-action="song-air" data-id="${s.id}">🎵 On Overlay</button>
-        <button class="ibtn" data-action="song-played" data-id="${s.id}">✓ Played</button>
-        <button class="ibtn ibtn-reject" data-action="song-dismiss" data-id="${s.id}">✕ Dismiss</button>
-      </div>
-    </div>`).join('');
-}
-
-document.getElementById('songsQueue')?.addEventListener('click', async (e)=>{
-  const btn = e.target.closest('[data-action]');
-  if(!btn) return;
-  const id = btn.dataset.id;
-  const action = btn.dataset.action;
-  const item = latestSongRequests.find(s => s.id === id);
-  if(!item) return;
-
-  if(action === 'song-hold'){
-    await updateDoc(doc(db, 'songRequests', id), { onHold: !item.onHold }).catch(()=>{});
-    return;
-  }
-  if(action === 'song-priority'){
-    const next = Math.min(9, Number(item.priority || 0) + 1);
-    await updateDoc(doc(db, 'songRequests', id), { priority: next }).catch(()=>{});
-    return;
-  }
-  if(action === 'song-air'){
-    await setDoc(songRequestLiveRef, {
-      active: true,
-      songTitle: item.songTitle || '',
-      artist: item.artist || '',
-      name: item.name || null,
-      city: item.city || null,
-      requestId: id,
-      updatedAt: Date.now()
-    });
-    // Keep status pending until explicitly played/dismissed so queue stays visible
-  }
-  if(action === 'song-played'){
-    await updateDoc(doc(db, 'songRequests', id), { status: 'played' }).catch(()=>{});
-    // Clear overlay if this request was showing
-    const live = await getDoc(songRequestLiveRef).catch(()=>null);
-    if(live && live.exists() && live.data().requestId === id){
-      await setDoc(songRequestLiveRef, { active: false, updatedAt: Date.now() }, { merge: true });
-    }
-  }
-  if(action === 'song-dismiss'){
-    await updateDoc(doc(db, 'songRequests', id), { status: 'dismissed' }).catch(()=>{});
-    const live = await getDoc(songRequestLiveRef).catch(()=>null);
-    if(live && live.exists() && live.data().requestId === id){
-      await setDoc(songRequestLiveRef, { active: false, updatedAt: Date.now() }, { merge: true });
-    }
-  }
-});
-
-
-async function clearPendingSongRequests(asPlayed){
-  const pending = latestSongRequests.filter(s => s.status === 'pending');
-  if(pending.length === 0){ alert('No pending song requests.'); return; }
-  const label = asPlayed ? 'mark as played' : 'clear';
-  if(!confirm(label.charAt(0).toUpperCase() + label.slice(1) + ' all ' + pending.length + ' pending song request(s)?')) return;
-  const status = asPlayed ? 'played' : 'dismissed';
-  for(const s of pending){
-    await updateDoc(doc(db, 'songRequests', s.id), { status }).catch(()=>{});
-  }
-  await setDoc(songRequestLiveRef, { active: false, updatedAt: Date.now() }, { merge: true }).catch(()=>{});
-}
-document.getElementById('clearSongsBtn')?.addEventListener('click', ()=> clearPendingSongRequests(true));
-document.getElementById('clearPendingSongsBtn')?.addEventListener('click', ()=> clearPendingSongRequests(true));
-document.getElementById('clearSongOverlayBtn')?.addEventListener('click', async()=>{
-  await setDoc(songRequestLiveRef, { active: false, updatedAt: Date.now() }, { merge: true }).catch(()=>{});
-});
-
-
-
-
-// ── Drag-to-reorder (voice + songs) ──
-let dragId = null;
-let dragKind = null; // 'voice' | 'song'
-
-function bindQueueDrag(container, kind){
-  if(!container || container.dataset.dndBound === '1') return;
-  container.dataset.dndBound = '1';
-  container.addEventListener('dragstart', (e)=>{
-    const card = e.target.closest('[data-qid],[data-songid]');
-    if(!card || e.target.closest('button,a,input')){ e.preventDefault(); return; }
-    dragId = card.dataset.qid || card.dataset.songid;
-    dragKind = kind;
-    card.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    try{ e.dataTransfer.setData('text/plain', dragId); }catch(_){}
-  });
-  container.addEventListener('dragend', (e)=>{
-    container.querySelectorAll('.dragging,.drag-over').forEach(el=>el.classList.remove('dragging','drag-over'));
-    dragId = null; dragKind = null;
-  });
-  container.addEventListener('dragover', (e)=>{
-    e.preventDefault();
-    const card = e.target.closest('[data-qid],[data-songid]');
-    if(!card) return;
-    container.querySelectorAll('.drag-over').forEach(el=>{ if(el!==card) el.classList.remove('drag-over'); });
-    card.classList.add('drag-over');
-  });
-  container.addEventListener('drop', async (e)=>{
-    e.preventDefault();
-    const target = e.target.closest('[data-qid],[data-songid]');
-    if(!target || !dragId) return;
-    const targetId = target.dataset.qid || target.dataset.songid;
-    if(targetId === dragId) return;
-
-    if(kind === 'voice'){
-      const pending = sortQueueItems(allMessages.filter(m=>m.status==='pending'));
-      const ids = pending.map(m=>m.id);
-      const from = ids.indexOf(dragId);
-      const to = ids.indexOf(targetId);
-      if(from < 0 || to < 0) return;
-      ids.splice(from, 1);
-      ids.splice(to, 0, dragId);
-      await Promise.all(ids.map((id,i)=> updateDoc(doc(db,'hotlineMessages',id), { sortOrder: i }).catch(()=>{})));
-    }
-    if(kind === 'song'){
-      const pending = sortQueueItems(latestSongRequests.filter(s=>s.status==='pending'));
-      const ids = pending.map(s=>s.id);
-      const from = ids.indexOf(dragId);
-      const to = ids.indexOf(targetId);
-      if(from < 0 || to < 0) return;
-      ids.splice(from, 1);
-      ids.splice(to, 0, dragId);
-      await Promise.all(ids.map((id,i)=> updateDoc(doc(db,'songRequests',id), { sortOrder: i }).catch(()=>{})));
-    }
-  });
-}
-
-
-// Phone system: video tab is folded into calls
-(function(){
-  const origShow = window.showTab;
-  // intercept tab buttons
-  document.querySelectorAll('.tab-btn[data-tab="video"]').forEach(btn=>{
-    btn.addEventListener('click', (e)=>{
-      e.stopImmediatePropagation();
-      document.querySelectorAll('.tab-btn[data-tab="calls"]').forEach(b=>b.click());
-    }, true);
-  });
-})();
-
-function syncPhoneStageEmpty(){
-  const empty = document.getElementById('phoneStageEmpty');
-  if(!empty) return;
-  const a = document.getElementById('activeCallPanel');
-  const v = document.getElementById('activeVideoPanel');
-  const p = document.getElementById('videoPreviewPanel');
-  const any = (a && a.style.display !== 'none' && a.style.display !== '')
-    || (v && v.style.display !== 'none' && v.style.display !== '')
-    || (p && p.style.display !== 'none' && p.style.display !== '');
-  // panels use display block when shown
-  const aOn = a && getComputedStyle(a).display !== 'none';
-  const vOn = v && getComputedStyle(v).display !== 'none';
-  const pOn = p && getComputedStyle(p).display !== 'none';
-  empty.style.display = (aOn || vOn || pOn) ? 'none' : 'flex';
-}
-// Observe stage panels
-['activeCallPanel','activeVideoPanel','videoPreviewPanel'].forEach(id=>{
-  const el = document.getElementById(id);
-  if(!el) return;
-  const obs = new MutationObserver(syncPhoneStageEmpty);
-  obs.observe(el, { attributes:true, attributeFilter:['style','class'] });
-});
-setInterval(syncPhoneStageEmpty, 800);
-
-function syncAudioQueueBadge(){
-  const n = document.getElementById('audioQueueCount');
-  const b = document.getElementById('audioQueueCountBadge');
-  const side = document.getElementById('videoWaitingSide');
-  const v = document.getElementById('videoQueueCount');
-  if(n && b){
-    b.textContent = n.textContent || '0';
-    b.classList.toggle('zero', (n.textContent||'0') === '0');
-  }
-  if(side && v) side.textContent = v.textContent || '0';
-  if(v){
-    const badge = v;
-    // videoQueueCount is also the panel header count
-  }
-}
-setInterval(syncAudioQueueBadge, 500);
 
 function startQueueListener(){
   if(queueListenerStarted) return;
   queueListenerStarted = true;
   const q = query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc'));
-  onSnapshot(q, (snapshot)=>{
+  subscribe(q, (snapshot)=>{
     allMessages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
     if(!firstLoad){
