@@ -572,24 +572,12 @@
   </div>
 </header>
 
-<div class="top-line-control">
-  <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Toggle whether phone lines are accepting live calls">
-    <span class="lines-dot"></span>
-    <span id="linesToggleText">Lines Open</span>
-  </button>
-  <span class="top-line-hint">Audio calls</span>
-  <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video calls can join">
-    <span class="lines-dot"></span>
-    <span id="videoToggleText">Video Guests Open</span>
-  </button>
-  <span class="top-line-hint">Video calls</span>
-</div>
-
 <div class="alert-banner" id="alertBanner">🎤 Incoming Voice Message</div>
 
 <!-- Tab Navigation -->
 <nav class="tab-nav">
   <button class="tab-btn active" data-tab="queue">📥 Queue</button>
+  <button class="tab-btn" data-tab="songs">🎵 Song Requests</button>
   <button class="tab-btn" data-tab="calls">☎️ Phone Lines</button>
   <button class="tab-btn" data-tab="history">📋 History</button>
   <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
@@ -603,11 +591,8 @@
       <div>No messages waiting. The queue's clear.</div>
     </div>
     <div class="queue" id="queue"></div>
-  </div>
 
-  <!-- CALLS TAB -->
-  <div class="tab-content" id="tab-calls" style="display:none;">
-
+    <!-- Incoming audio/video calls remain in the main control center, not in Phone Lines settings. -->
     <!-- Active call panel — shown when a call is connected -->
     <div class="active-call-panel" id="activeCallPanel" style="display:none;">
       <div class="active-call-header">
@@ -670,6 +655,24 @@
     </div>
     <div class="queue" id="videoQueue"></div>
   </section>
+  </div>
+
+  <!-- SONG REQUESTS TAB -->
+  <div class="tab-content" id="tab-songs" style="display:none;">
+    <div class="calls-section-title">Incoming Song Requests <span id="songRequestCount" class="badge">0 waiting</span></div>
+    <div class="empty" id="songRequestsEmpty"><div class="ic">🎵</div><div>No song requests waiting. New text requests will appear here automatically.</div></div>
+    <div class="queue" id="songRequestsQueue"></div>
+  </div>
+
+  <!-- CALLS TAB -->
+  <div class="tab-content" id="tab-calls" style="display:none;">
+
+    <div class="top-line-control" style="margin:0 0 22px;">
+      <span class="top-line-hint">Audio calls</span>
+      <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Toggle whether audio calls are accepting calls"><span class="lines-dot"></span><span id="linesToggleText">OPEN</span></button>
+      <span class="top-line-hint">Video calls</span>
+      <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video calls are accepting calls"><span class="lines-dot"></span><span id="videoToggleText">OPEN</span></button>
+    </div>
   </div>
 
   <!-- ANALYTICS TAB -->
@@ -847,7 +850,7 @@ let linesOpen = true;
 function renderLinesToggle(){
   linesToggleBtn.classList.toggle('open', linesOpen);
   linesToggleBtn.classList.toggle('closed', !linesOpen);
-  linesToggleText.textContent = linesOpen ? 'Lines Open' : 'Lines Closed';
+  linesToggleText.textContent = linesOpen ? 'OPEN' : 'CLOSED';
 }
 
 function startLinesToggleListener(){
@@ -888,7 +891,7 @@ let videoOpen = true;
 function renderVideoToggle(){
   videoToggleBtn.classList.toggle('open', videoOpen);
   videoToggleBtn.classList.toggle('closed', !videoOpen);
-  videoToggleText.textContent = videoOpen ? 'Video Guests Open' : 'Video Guests Closed';
+  videoToggleText.textContent = videoOpen ? 'OPEN' : 'CLOSED';
 }
 
 function startVideoToggleListener(){
@@ -926,6 +929,9 @@ let currentlyPlayingId = null; // local browser preview
 let livePlayingId = null;       // sent to OBS (muted locally)
 
 const queueEl = document.getElementById('queue');
+const songRequestsQueue = document.getElementById('songRequestsQueue');
+const songRequestsEmpty = document.getElementById('songRequestsEmpty');
+const songRequestCount = document.getElementById('songRequestCount');
 const emptyState = document.getElementById('emptyState');
 const queueCount = document.getElementById('queueCount');
 const alertBanner = document.getElementById('alertBanner');
@@ -1026,6 +1032,7 @@ function render(){
   if(list.length === 0){
     emptyState.style.display = 'block';
     queueEl.innerHTML = '';
+    renderSongRequests();
     return;
   }
   emptyState.style.display = 'none';
@@ -1063,6 +1070,29 @@ function render(){
       </div>
     </div>`;
   }).join('');
+  renderSongRequests();
+}
+
+function renderSongRequests(){
+  if(!songRequestsQueue) return;
+  const songs = allMessages.filter(m => m.messageType === 'song' && (m.status || 'pending') === 'pending')
+    .sort((a,b)=>{
+      const ta=a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+      const tb=b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+      return ta-tb;
+    });
+  songRequestCount.textContent = `${songs.length} waiting`;
+  songRequestsEmpty.style.display = songs.length ? 'none' : 'block';
+  songRequestsQueue.innerHTML = songs.map(m=>`
+    <div class="card new" data-id="${m.id}">
+      <button class="play-btn ${currentlyPlayingId===m.id?'playing':''}" data-action="play" data-id="${m.id}" aria-label="Preview song request">${currentlyPlayingId===m.id?'Ⅱ':'▶'}</button>
+      <div class="card-body"><div class="card-top"><span class="card-name">${escapeHtml(m.name||'Anonymous Listener')}</span><span class="badge type-badge">🎵 Song Request</span><span class="card-time">${timeAgo(m.createdAt)}</span></div>
+      <div class="card-song">${escapeHtml([m.songArtist,m.songTrack].filter(Boolean).join(' — ') || m.text || m.message || 'Song details not provided')}</div>
+      ${m.city?`<div class="card-city">${escapeHtml(m.city)}</div>`:''}</div>
+      <div class="card-actions"><button class="ibtn on-air-btn ${livePlayingId===m.id?'live':''}" data-action="golive" data-id="${m.id}">${livePlayingId===m.id?'⏹ Stop Live':'🔴 Play On Air'}</button>
+      <button class="ibtn approve" data-action="approve" data-id="${m.id}">✓ Mark Played / Remove</button>
+      <button class="ibtn ibtn-reject" data-action="delete" data-id="${m.id}">✕ Reject</button></div>
+    </div>`).join('');
 }
 
 function typeLabel(type){
@@ -1094,7 +1124,8 @@ function escapeHtml(str){
   return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-queueEl.addEventListener('click', async (e)=>{
+document.addEventListener('click', async (e)=>{
+  if(!e.target.closest('#queue, #songRequestsQueue')) return;
   const btn = e.target.closest('[data-action]');
   if(!btn) return;
   const id = btn.dataset.id;
@@ -1168,7 +1199,7 @@ queueEl.addEventListener('click', async (e)=>{
   }
 
   if(action === 'approve'){
-    await updateDoc(doc(db, 'hotlineMessages', id), { status: 'approved' });
+    await updateDoc(doc(db, 'hotlineMessages', id), { status: 'approved', ...(msg.messageType === 'song' ? { playedAt: Date.now() } : {}) });
   }
 
   if(action === 'delete'){
@@ -1182,12 +1213,17 @@ queueEl.addEventListener('click', async (e)=>{
 });
 
 hiddenPlayer.addEventListener('ended', async ()=>{
-  const wasLive = livePlayingId !== null;
+  const finishedId = livePlayingId;
+  const wasLive = finishedId !== null;
   currentlyPlayingId = null;
   livePlayingId = null;
   if(wasLive){
     onAirBadge.classList.remove('show');
     await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
+    const finishedMessage = allMessages.find(m=>m.id===finishedId);
+    if(finishedMessage?.messageType === 'song'){
+      await updateDoc(doc(db, 'hotlineMessages', finishedId), { status:'approved', playedAt:Date.now() }).catch(err=>console.error('Could not mark song request played:',err));
+    }
   }
   render();
 });
@@ -1475,9 +1511,9 @@ async function answerCall(callId, callerName, callerCity){
 
   // Switch to Calls tab if not already there
   document.querySelectorAll('.tab-btn').forEach(b=> b.classList.remove('active'));
-  document.querySelector('[data-tab="calls"]').classList.add('active');
+  document.querySelector('[data-tab="queue"]').classList.add('active');
   document.querySelectorAll('.tab-content').forEach(c=> c.style.display = 'none');
-  document.getElementById('tab-calls').style.display = 'block';
+  document.getElementById('tab-queue').style.display = 'block';
 }
 
 // ── Hold music via WebRTC track replacement ──

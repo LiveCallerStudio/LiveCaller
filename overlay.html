@@ -1,313 +1,61 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Live Caller Studio — OBS Overlay</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Live Caller Studio OBS Overlay</title>
 <style>
-  :root{--green:#53fc18;--red:#ff3b3b;--panel:rgba(10,10,10,.94);--line:rgba(83,252,24,.6);--muted:#b7b7b7}
-  *{box-sizing:border-box}
-  html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:#fff}
-  body{display:flex;align-items:flex-end;justify-content:flex-start;padding:28px}
-  #overlay{width:min(720px,95vw);opacity:1;transition:opacity .25s ease}
-  #overlay.hidden{opacity:0;pointer-events:none}
-  .card{display:flex;align-items:center;gap:18px;padding:18px 22px;border:1px solid var(--line);border-left:5px solid var(--green);border-radius:15px;background:linear-gradient(110deg,rgba(10,10,10,.97),rgba(22,22,22,.92));box-shadow:0 10px 35px #0008;backdrop-filter:blur(8px);min-height:112px}
-  .bolt{display:grid;place-items:center;flex:0 0 58px;width:58px;height:58px;border-radius:13px;background:#53fc181a;color:var(--green);font-size:34px;font-weight:900}
-  .content{min-width:0;flex:1}
-  .eyebrow{display:flex;align-items:center;gap:8px;color:var(--green);font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;margin-bottom:7px}
-  .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green);animation:pulse 1.3s infinite}
-  h1{font-size:clamp(19px,2.4vw,28px);line-height:1.12;margin:0 0 6px;font-weight:900;overflow-wrap:anywhere}
-  #subtitle{font-size:13px;color:var(--muted);line-height:1.35;overflow-wrap:anywhere}
-  .pill{align-self:center;flex-shrink:0;border:1px solid #53fc1866;border-radius:999px;padding:8px 11px;color:var(--green);font-size:10px;font-weight:900;letter-spacing:1px;white-space:nowrap}
-  #fallback{position:fixed;right:12px;top:12px;padding:6px 9px;border-radius:6px;background:#111d;color:#aaa;font-size:10px;letter-spacing:.5px}
-  #pendingCounters{position:fixed;right:22px;bottom:22px;display:flex;flex-direction:column;align-items:flex-end;gap:9px;z-index:20;max-width:min(460px,94vw)}
-  .pending-counter{display:flex;align-items:center;gap:12px;padding:12px 17px;border:2px solid var(--green);border-radius:14px;background:rgba(5,8,5,.97);box-shadow:0 5px 24px #000b;color:#fff;font-size:15px;font-weight:900;letter-spacing:.5px;text-transform:uppercase}
-  .pending-counter[hidden]{display:none}
-  .pending-counter .count{display:grid;place-items:center;min-width:38px;height:38px;padding:0 8px;border-radius:10px;background:var(--green);color:#071000;font-size:22px;letter-spacing:0}
-  #notificationToast{position:fixed;right:22px;top:22px;display:none;align-items:center;gap:15px;max-width:min(620px,94vw);padding:18px 22px;border:3px solid var(--green);border-left-width:10px;border-radius:15px;background:rgba(3,8,2,.98);box-shadow:0 8px 34px #000c;color:#fff;z-index:30;animation:notifyPulse 1.2s ease-in-out infinite alternate}
-  #notificationToast.show{display:flex}
-  #notificationIcon{font-size:36px;line-height:1}
-  #notificationTitle{font-size:clamp(20px,2.7vw,34px);font-weight:1000;letter-spacing:.5px;line-height:1.05}
-  #notificationDetail{font-size:15px;color:#e6e6e6;margin-top:5px;font-weight:700}
-  @keyframes notifyPulse{from{box-shadow:0 0 12px #53fc1844,0 8px 28px #000b}to{box-shadow:0 0 28px #53fc18aa,0 8px 28px #000b}}
-  #fallback.error{color:#ff7777;border:1px solid #ff777766}
-  audio#liveAudio{position:fixed;width:1px;height:1px;left:-10px;bottom:0;opacity:.01;pointer-events:none}
-  #guestVideo{display:none;position:fixed;left:28px;bottom:160px;width:min(720px,72vw);max-height:58vh;object-fit:contain;object-position:left bottom;background:#050505;border:2px solid var(--green);border-radius:14px;box-shadow:0 8px 34px #000c;z-index:10}
-  #guestVideo.show{display:block}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-  @media(max-width:500px){body{padding:12px}.card{gap:11px;padding:13px}.bolt{width:42px;height:42px;flex-basis:42px;font-size:25px}.pill{display:none}}
+:root{--green:#53fc18;--red:#ff3939}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:#fff;font-family:Arial,Helvetica,sans-serif}
+#stage{position:relative;width:100vw;height:100vh;display:flex;align-items:flex-end;justify-content:flex-end;padding:3.2%;pointer-events:none}
+#video{position:absolute;right:3.2%;bottom:3.2%;width:min(38vw,640px);max-height:72vh;aspect-ratio:16/9;object-fit:cover;border:3px solid var(--green);border-radius:14px;background:#090909;box-shadow:0 0 24px #000;display:none}
+#lower{position:absolute;left:3.2%;bottom:5%;display:none;min-width:300px;max-width:62vw;background:rgba(5,5,5,.94);border-left:7px solid var(--green);padding:16px 22px;border-radius:7px;box-shadow:0 8px 32px #0009;animation:enter .22s ease-out}
+#kind{font-weight:900;font-size:clamp(14px,1.8vw,24px);letter-spacing:1.2px;color:var(--green);text-transform:uppercase}#name{font-size:clamp(20px,3vw,42px);font-weight:900;margin-top:4px;text-shadow:0 2px 4px #000}#city{font-size:clamp(12px,1.3vw,18px);color:#ddd;margin-top:4px}
+#status{position:absolute;top:12px;right:12px;padding:6px 9px;border-radius:5px;background:#111c;color:#ddd;font-size:11px;opacity:.8}#status.bad{color:#ff6868}#audio{display:none}
+@keyframes enter{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+@media(max-width:700px){#lower{min-width:0;max-width:90vw;left:4%;bottom:4%;padding:12px 15px}#video{width:92vw;right:4%;bottom:24%;max-height:60vh}}
 </style>
-</head>
-<body>
-  <main id="overlay" class="hidden" aria-live="polite">
-    <section class="card">
-      <div class="bolt">ϟ</div>
-      <div class="content">
-        <div class="eyebrow"><span class="dot"></span><span id="eyebrow">LIVE CALLER STUDIO</span></div>
-        <h1 id="headline">Sending Scene On Air</h1>
-        <div id="subtitle">Waiting for Approval</div>
-      </div>
-      <div class="pill" id="pill">ON AIR</div>
-    </section>
-  </main>
-  <div id="fallback">LIVE CALLER STUDIO • CONNECTING</div>
-  <div id="notificationToast" role="alert" aria-live="assertive"><span id="notificationIcon">🎤</span><div><div id="notificationTitle">NEW VOICE MESSAGE</div><div id="notificationDetail">Waiting in queue</div></div></div>
-  <div id="pendingCounters" aria-live="polite">
-    <div class="pending-counter" id="voiceCounter" hidden><span class="count" id="voiceCount">0</span><span>Voice Messages Pending</span></div>
-    <div class="pending-counter" id="audioCallCounter" hidden><span class="count" id="audioCallCount">0</span><span>Audio Calls Waiting</span></div>
-    <div class="pending-counter" id="videoCallCounter" hidden><span class="count" id="videoCallCount">0</span><span>Video Calls Waiting</span></div>
-  </div>
-  <video id="guestVideo" autoplay playsinline></video>
-  <audio id="liveAudio" autoplay playsinline></audio>
+</head><body>
+<div id="stage"><div id="status">OBS media: waiting</div><video id="video" autoplay playsinline></video><audio id="audio" autoplay playsinline></audio><section id="lower"><div id="kind">LIVE CALL</div><div id="name">Caller</div><div id="city"></div></section></div>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
-import { getFirestore, doc, collection, onSnapshot, addDoc, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
-
-const firebaseConfig = {
-  apiKey: 'AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc',
-  authDomain: 'djdeeze-hotline.firebaseapp.com',
-  projectId: 'djdeeze-hotline',
-  storageBucket: 'djdeeze-hotline.firebasestorage.app',
-  messagingSenderId: '663942225296',
-  appId: '1:663942225296:web:c6117cf6c23656b9842715'
-};
-const overlay = document.getElementById('overlay');
-const headline = document.getElementById('headline');
-const subtitle = document.getElementById('subtitle');
-const eyebrow = document.getElementById('eyebrow');
-const pill = document.getElementById('pill');
-const fallback = document.getElementById('fallback');
-const liveAudio = document.getElementById('liveAudio');
-const guestVideo = document.getElementById('guestVideo');
-let currentAudioUrl = '';
-let activeCallId = '';
-let overlayCallPc = null;
-let overlayCallSessionRef = null;
-let overlayCallUnsubs = [];
-let overlayRemoteStream = null;
-const iceConfig = { iceServers: [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-] };
-function stopOverlayCallAudio(){
-  overlayCallUnsubs.forEach(unsub=>{try{unsub()}catch(e){}}); overlayCallUnsubs=[];
-  if(overlayCallPc){try{overlayCallPc.close()}catch(e){} overlayCallPc=null;}
-  overlayCallSessionRef=null; activeCallId=''; overlayRemoteStream=null;
-  liveAudio.pause(); liveAudio.srcObject=null; liveAudio.removeAttribute('src'); liveAudio.muted=false; liveAudio.volume=1; currentAudioUrl='';
-  guestVideo.pause(); guestVideo.srcObject=null; guestVideo.classList.remove('show');
+import { getFirestore, doc, onSnapshot, collection, addDoc } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
+const firebaseConfig={apiKey:'AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc',authDomain:'djdeeze-hotline.firebaseapp.com',projectId:'djdeeze-hotline',storageBucket:'djdeeze-hotline.firebasestorage.app',messagingSenderId:'663942225296',appId:'1:663942225296:web:c6117cf6c23656b9842715'};
+const db=getFirestore(initializeApp(firebaseConfig));
+// Expose the Firestore instance for any overlay integrations that use the global scope.
+window.db = db; window.firebaseDb = db;
+const stateRef=doc(db,'hotlineLive','nowPlaying');const routeRef=doc(db,'hotlineLive','overlayCall');
+const statusEl=document.getElementById('status'),lower=document.getElementById('lower'),kind=document.getElementById('kind'),nameEl=document.getElementById('name'),cityEl=document.getElementById('city'),videoEl=document.getElementById('video'),audioEl=document.getElementById('audio');
+const ice={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},{urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'}]};
+let pc=null,activeCallId=null,offerCandidateUnsub=null,answerCandidateUnsub=null,seenOfferKey='';
+function status(t,bad=false){statusEl.textContent=t;statusEl.classList.toggle('bad',bad)}
+function closeMedia(){if(pc){pc.close();pc=null}if(offerCandidateUnsub){offerCandidateUnsub();offerCandidateUnsub=null}if(answerCandidateUnsub){answerCandidateUnsub();answerCandidateUnsub=null}videoEl.srcObject=null;audioEl.srcObject=null;videoEl.style.display='none';lower.style.display='none';activeCallId=null;seenOfferKey=''}
+async function connectOffer(data){
+ if(!data?.active||!data.offer||!data.callId){closeMedia();status('OBS media: waiting');return}
+ const key=data.callId+':'+data.offer.sdp;if(key===seenOfferKey)return;closeMedia();seenOfferKey=key;activeCallId=data.callId;
+ pc=new RTCPeerConnection(ice);const thisPc=pc;const stream=new MediaStream();
+ pc.ontrack=e=>{const incoming=e.streams?.[0];if(incoming){incoming.getTracks().forEach(t=>{if(!stream.getTracks().some(x=>x.id===t.id))stream.addTrack(t)})}else stream.addTrack(e.track);audioEl.srcObject=stream;audioEl.play().catch(()=>{});if(stream.getVideoTracks().length){videoEl.srcObject=stream;videoEl.style.display='block';videoEl.play().catch(()=>{})}status(`OBS media: connected · ${stream.getAudioTracks().length?'audio':'no audio'} · ${stream.getVideoTracks().length?'video':'audio only'}`)};
+ pc.onconnectionstatechange=()=>{if(thisPc!==pc)return;status('OBS media: '+pc.connectionState,pc.connectionState==='failed')};
+ pc.onicecandidate=e=>{if(e.candidate&&activeCallId)addDoc(collection(db,'hotlineLive','overlayCall','sessions',activeCallId,'answerCandidates'),e.candidate.toJSON()).catch(err=>status('ICE write failed',true))};
+ try{await pc.setRemoteDescription(new RTCSessionDescription(data.offer));const answer=await pc.createAnswer();await pc.setLocalDescription(answer);await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js').then(async m=>m.updateDoc(routeRef,{answer:{type:answer.type,sdp:answer.sdp}}));
+ offerCandidateUnsub=onSnapshot(collection(db,'hotlineLive','overlayCall','sessions',activeCallId,'offerCandidates'),snap=>{snap.docChanges().forEach(c=>{if(c.type==='added'&&pc===thisPc)thisPc.addIceCandidate(new RTCIceCandidate(c.doc.data())).catch(()=>{})})});
+ }catch(err){status('OBS connection error: '+(err?.message||err),true);console.error(err)}
 }
-async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVideo=false){
-  if(!callId) return;
-  // Reuse a healthy connection, but allow a failed connection to be retried.
-  if(callId===activeCallId && overlayCallPc && ['connected','connecting'].includes(overlayCallPc.connectionState)) return;
-  stopOverlayCallAudio();
-  activeCallId=callId;
-  const sessionId = (crypto.randomUUID ? crypto.randomUUID() : 'overlay-'+Date.now()+'-'+Math.random().toString(36).slice(2));
-  const sessionRef = doc(db,collectionName,callId,'overlaySessions',sessionId);
-  overlayCallSessionRef=sessionRef;
-  const pc = new RTCPeerConnection(iceConfig); overlayCallPc=pc;
-  overlayRemoteStream = new MediaStream();
-  pc.addTransceiver('audio',{direction:'recvonly'});
-  if(isVideo) pc.addTransceiver('video',{direction:'recvonly'});
-  let remoteSet=false; const pending=[];
-  pc.ontrack = async (event)=>{
-    try {
-      if(!overlayRemoteStream) overlayRemoteStream = new MediaStream();
-      if(!overlayRemoteStream.getTracks().some(t=>t.id===event.track.id)) overlayRemoteStream.addTrack(event.track);
-      liveAudio.srcObject=overlayRemoteStream;
-      liveAudio.muted=false; liveAudio.volume=1;
-      if(event.track.kind==='video'){
-        guestVideo.srcObject=overlayRemoteStream;
-        guestVideo.classList.add('show');
-        await guestVideo.play().catch(()=>{});
-      }
-      if(event.track.kind==='audio'){
-        await liveAudio.play().catch(()=>{ fallback.textContent='CALL AUDIO CONNECTED • CHECK OBS BROWSER-SOURCE AUDIO'; });
-      }
-      fallback.textContent = isVideo ? 'VIDEO CALL MEDIA • '+event.track.kind.toUpperCase()+' TRACK RECEIVED' : 'AUDIO CALL • AUDIO TRACK RECEIVED';
-      fallback.classList.remove('error');
-    } catch(err) { showError('Media track: '+(err.message||'playback failed')); }
-  };
-  pc.onconnectionstatechange=()=>{
-    if(overlayCallPc!==pc) return;
-    if(pc.connectionState==='connected'){
-      fallback.textContent=isVideo?'VIDEO CALL CONNECTED':'AUDIO CALL CONNECTED';
-      fallback.classList.remove('error');
-    } else if(pc.connectionState==='failed' || pc.connectionState==='disconnected') {
-      showError('WebRTC '+pc.connectionState+' — check guest connection and TURN/ICE');
-    }
-  };
-  pc.oniceconnectionstatechange=()=>{
-    if(overlayCallPc===pc && ['failed','disconnected'].includes(pc.iceConnectionState)) showError('ICE '+pc.iceConnectionState+' — media path unavailable');
-  };
-  pc.onicecandidate = (event)=>{ if(event.candidate) addDoc(collection(sessionRef,'overlayCandidates'),event.candidate.toJSON()).catch(err=>showError(err.code||'ICE write failed')); };
-  // Subscribe before publishing the offer so fast answers/candidates are not missed.
-  overlayCallUnsubs.push(onSnapshot(sessionRef, async snap=>{
-    const data=snap.data(); if(!data || !data.answer || remoteSet || overlayCallPc!==pc) return;
-    try{
-      await pc.setRemoteDescription(new RTCSessionDescription(data.answer)); remoteSet=true;
-      for(const c of pending) await pc.addIceCandidate(c).catch(()=>{});
-      pending.length=0;
-    }catch(err){showError('Call audio/video answer: '+(err.message||'failed'));}
-  }, err=>showError('Call signaling: '+(err.code||err.message||'read failed'))));
-  overlayCallUnsubs.push(onSnapshot(collection(sessionRef,'dashboardCandidates'),snap=>{
-    snap.docChanges().forEach(change=>{
-      if(change.type!=='added' || overlayCallPc!==pc) return;
-      const candidate=new RTCIceCandidate(change.doc.data());
-      if(remoteSet) pc.addIceCandidate(candidate).catch(()=>{}); else pending.push(candidate);
-    });
-  }, err=>showError('Call ICE: '+(err.code||err.message||'read failed'))));
-  try {
-    const offer=await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    await setDoc(sessionRef,{ offer:{type:offer.type,sdp:offer.sdp}, createdAt:Date.now(), client:'obs-overlay', mediaType:isVideo?'video':'audio' });
-    fallback.textContent=isVideo?'CONNECTING VIDEO CALL MEDIA…':'CONNECTING AUDIO CALL…';
-    fallback.classList.remove('error');
-  } catch(err) {
-    stopOverlayCallAudio();
-    throw err;
+onSnapshot(routeRef,snap=>{connectOffer(snap.data()).catch(e=>status('OBS connection error',true))},err=>status('Firestore error: '+err.code,true));
+onSnapshot(stateRef,snap=>{
+ const d=snap.data();
+ if(d?.active){
+  lower.style.display='block';nameEl.textContent=d.name||'Live Caller';cityEl.textContent=d.city||'';
+  kind.textContent=d.messageType==='videocall'?'LIVE VIDEO CALL':d.messageType==='livecall'?'LIVE AUDIO CALL':(d.messageType==='voice'||d.audioUrl)?'VOICE / SONG REQUEST':'LIVE CALL';
+  // For recorded voice messages and song-request recordings, play the Firestore nowPlaying URL
+  // directly in OBS. Live caller audio/video continues to use the WebRTC overlay route.
+  if(d.audioUrl && d.messageType!=='livecall' && d.messageType!=='videocall'){
+   if(audioEl.srcObject) audioEl.srcObject=null;
+   if(audioEl.src!==d.audioUrl){audioEl.src=d.audioUrl;audioEl.currentTime=0;}
+   audioEl.play().then(()=>status('OBS media: playing request audio')).catch(()=>status('OBS media: click to allow audio',true));
   }
-}
-function showError(message){
-  fallback.textContent = 'OVERLAY ERROR • ' + message;
-  fallback.classList.add('error');
-  // Keep transparent output clean; the status chip is only a debugging hint.
-}
-function clean(value, max=120){return String(value ?? '').replace(/[<>]/g,'').trim().slice(0,max)}
-function render(data){
-  if(!data || data.active !== true){
-    overlay.classList.add('hidden');
-    if(!liveAudio.paused) liveAudio.pause();
-    currentAudioUrl='';
-    if(liveAudio.srcObject) liveAudio.srcObject=null;
-    if(guestVideo.srcObject) guestVideo.srcObject=null;
-    guestVideo.classList.remove('show');
-    headline.textContent='Sending Scene On Air';
-    subtitle.textContent='Waiting for Approval';
-    eyebrow.textContent='LIVE CALLER STUDIO';
-    pill.textContent='STANDBY';
-    return;
-  }
-  overlay.classList.remove('hidden');
-  const type = clean(data.messageType || 'general').toLowerCase();
-  const name = clean(data.name || 'Anonymous Caller');
-  const city = clean(data.city || '');
-  if(type === 'livecall'){
-    eyebrow.textContent='LIVE CALL • ON AIR';
-    headline.textContent=name;
-    subtitle.textContent=city ? city + ' • Sending Scene On Air' : 'Sending Scene On Air';
-    pill.textContent='LIVE';
-  } else if(type === 'livevideo'){
-    eyebrow.textContent='VIDEO CALL • ON AIR';
-    headline.textContent=name;
-    subtitle.textContent=city ? city + ' • Sending Scene On Air' : 'Sending Scene On Air';
-    pill.textContent='LIVE VIDEO';
-  } else {
-    eyebrow.textContent='VOICE MESSAGE • ON AIR';
-    headline.textContent=name;
-    const details = [city, data.songArtist ? clean(data.songArtist,80) : '', data.songTrack ? clean(data.songTrack,100) : ''].filter(Boolean);
-    subtitle.textContent=details.length ? details.join(' • ') : 'Sending Scene On Air';
-    pill.textContent='ON AIR';
-  }
-  const url = typeof data.audioUrl === 'string' && /^https:\/\//i.test(data.audioUrl) ? data.audioUrl : '';
-  if(type === 'livecall' || type === 'livevideo'){
-    if(liveAudio.srcObject) return;
-    if(url && url !== currentAudioUrl){ liveAudio.src=url; currentAudioUrl=url; liveAudio.play().catch(()=>{}); }
-  } else if(url && url !== currentAudioUrl){
-    currentAudioUrl=url;
-    liveAudio.src=url;
-    liveAudio.play().catch(()=>{ /* OBS/browser autoplay policy may block audio; visual overlay remains active. */ });
-  } else if(!url && !liveAudio.paused){liveAudio.pause();currentAudioUrl='';}
-}
-
-try {
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const counters = {
-    voice: { box: document.getElementById('voiceCounter'), number: document.getElementById('voiceCount') },
-    audio: { box: document.getElementById('audioCallCounter'), number: document.getElementById('audioCallCount') },
-    video: { box: document.getElementById('videoCallCounter'), number: document.getElementById('videoCallCount') }
-  };
-  const toast = document.getElementById('notificationToast');
-  const toastIcon = document.getElementById('notificationIcon');
-  const toastTitle = document.getElementById('notificationTitle');
-  const toastDetail = document.getElementById('notificationDetail');
-  let toastTimer = null;
-  function notifyIncoming(kind, person='') {
-    const config = {
-      voice: ['🎤','NEW VOICE MESSAGE','Voice message added to the queue'],
-      audio: ['📞','INCOMING AUDIO CALL','A caller is waiting — check the Calls tab'],
-      video: ['🎥','INCOMING VIDEO CALL','A video guest is waiting — check Video Guests']
-    }[kind];
-    if (!config) return;
-    toastIcon.textContent = config[0];
-    toastTitle.textContent = config[1];
-    toastDetail.textContent = person ? `${person} • ${config[2]}` : config[2];
-    toast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 10000);
-  }
-  function updateTypeCounter(kind, count) {
-    counters[kind].number.textContent = String(count);
-    counters[kind].box.hidden = count < 1;
-  }
-  // Counters are separated by incoming type. A toast only appears for a newly
-  // arriving pending item, never for old items when OBS first connects.
-  let firstVoiceSnapshot = true;
-  const previousVoiceStatuses = new Map();
-  onSnapshot(collection(db,'hotlineMessages'), snapshot => {
-    const waiting = snapshot.docs.filter(d => (d.data().status || 'pending') === 'pending');
-    updateTypeCounter('voice', waiting.length);
-    if (!firstVoiceSnapshot) {
-      snapshot.docChanges().forEach(change => {
-        const data = change.doc.data();
-        const oldStatus = previousVoiceStatuses.get(change.doc.id) || 'pending';
-        if (change.type === 'added' && (data.status || 'pending') === 'pending') notifyIncoming('voice', clean(data.name || 'Listener', 60));
-        if (change.type === 'modified' && (data.status || 'pending') === 'pending' && oldStatus !== 'pending') notifyIncoming('voice', clean(data.name || 'Listener', 60));
-      });
-    }
-    snapshot.docs.forEach(d => previousVoiceStatuses.set(d.id, d.data().status || 'pending'));
-    firstVoiceSnapshot = false;
-  }, err => showError('Voice message counter: ' + (err.code || err.message || 'read failed')));
-
-  function watchWaitingCalls(collectionName, kind) {
-    let firstSnapshot = true;
-    const previousStatuses = new Map();
-    onSnapshot(collection(db, collectionName), snapshot => {
-      const waiting = snapshot.docs.filter(d => d.data().status === 'waiting');
-      updateTypeCounter(kind, waiting.length);
-      if (!firstSnapshot) {
-        snapshot.docChanges().forEach(change => {
-          const data = change.doc.data();
-          const oldStatus = previousStatuses.get(change.doc.id);
-          if (data.status === 'waiting' && (change.type === 'added' || oldStatus !== 'waiting')) {
-            notifyIncoming(kind, clean(data.callerName || (kind === 'video' ? 'Video guest' : 'Caller'), 60));
-          }
-        });
-      }
-      snapshot.docs.forEach(d => previousStatuses.set(d.id, d.data().status));
-      firstSnapshot = false;
-    }, err => showError((kind === 'video' ? 'Video' : 'Audio call') + ' counter: ' + (err.code || err.message || 'read failed')));
-  }
-  watchWaitingCalls('liveCalls', 'audio');
-  watchWaitingCalls('videoCalls', 'video');
-  onSnapshot(doc(db,'hotlineLive','nowPlaying'), snap => {
-    fallback.textContent='LIVE CALLER STUDIO • CONNECTED';
-    fallback.classList.remove('error');
-    const data = snap.exists() ? snap.data() : null;
-    render(data);
-    if(data && data.active === true && ['livecall','livevideo'].includes(String(data.messageType||'').toLowerCase()) && data.callId){
-      const isVideo=String(data.messageType).toLowerCase()==='livevideo';
-      connectOverlayCallAudio(data.callId, isVideo?'videoCalls':'liveCalls', isVideo).catch(err=>showError('Call audio/video: '+(err.code||err.message||'connection failed')));
-    } else if(activeCallId){ stopOverlayCallAudio(); }
-  }, err => showError(err.code || err.message || 'Firestore connection failed'));
-} catch(err){showError(err.message || 'Firebase initialization failed');}
-
-// If loaded directly as a URL, a small debug label confirms the page itself rendered.
-window.addEventListener('error', e => showError(e.message || 'JavaScript error'));
-</script>
-</body>
-</html>
+ }else{
+  lower.style.display='none';
+  if(!routeRef) return;
+  if(!audioEl.srcObject){audioEl.pause();audioEl.removeAttribute('src');audioEl.load();}
+ }
+});
+</script></body></html>
