@@ -518,6 +518,35 @@
   button,a,select,input{touch-action:manipulation}
   button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--green);outline-offset:2px}
   @media(min-width:900px){header{position:sticky;top:0}.tab-nav{top:74px}.queue{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));align-items:start}}
+  
+  /* Song requests are a compact, accessible list rather than dashboard tiles. */
+  .song-list{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--line);}
+  .song-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;padding:15px 8px;border-bottom:1px solid var(--line);background:transparent;}
+  .song-main{display:flex;align-items:flex-start;gap:12px;min-width:0;}
+  .song-note{font-size:25px;line-height:1.2;flex:0 0 30px;}
+  .song-details{min-width:0;flex:1;}
+  .song-title-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15px;font-weight:800;overflow-wrap:anywhere;}
+  .song-artist-line{color:var(--sub);font-size:13px;margin-top:4px;overflow-wrap:anywhere;}
+  .song-meta{color:#777;font-size:11px;margin-top:5px;overflow-wrap:anywhere;}
+  .song-status{display:inline-flex;align-items:center;border:1px solid #555;color:#aaa;background:#242424;border-radius:5px;padding:3px 7px;font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;}
+  .song-status.played{color:#0a0a0a;background:var(--green);border-color:var(--green);}
+  .song-status.queued{color:#b8ff3c;border-color:#557a42;background:rgba(83,252,24,.08);}
+  .song-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;}
+  .song-actions .ibtn{white-space:nowrap;padding:8px 10px;}
+  .ibtn.played-btn{border-color:#555;color:#b7b7b7;background:#202020;}
+  .ibtn.played-btn.done{border-color:var(--green);color:var(--green);background:rgba(83,252,24,.08);}
+  .ibtn.queue-btn{border-color:#666;color:#bbb;}
+  .ibtn.queue-btn.active{border-color:var(--green);color:var(--green);background:rgba(83,252,24,.08);}
+  .ibtn.reject{border-color:#d98b37;color:#f0ad62;}
+  .ibtn.reject:hover{background:#d98b37;color:#111;}
+  .ibtn:disabled{opacity:.35;cursor:not-allowed;filter:none;}
+  @media(max-width:760px){
+    .song-row{grid-template-columns:minmax(0,1fr);gap:10px;padding:14px 2px;}
+    .song-actions{justify-content:flex-start;padding-left:42px;}
+    .song-actions .ibtn{flex:1 1 auto;justify-content:center;min-width:95px;}
+    .song-title-line{font-size:14px;}
+  }
+
   @media(max-width:760px){header{position:relative;align-items:flex-start}.header-right{justify-content:flex-start;width:100%}.search{width:100%;flex:1 1 140px}.tab-nav{top:0}.tab-content{padding:10px 8px 28px}.queue{gap:8px}.card{align-items:flex-start}.card-body{min-width:150px}.ibtn{padding:9px 10px}}
 
 </style>
@@ -597,6 +626,7 @@
       <label for="songStatusFilter" style="font-size:12px;color:var(--sub);font-weight:700;">Song queue</label>
       <select id="songStatusFilter" aria-label="Filter song request queue">
         <option value="incoming" selected>Incoming — play in order</option>
+        <option value="queued">Queued for OBS</option>
         <option value="all">All songs ever requested</option>
         <option value="approved">Played</option>
         <option value="rejected">Rejected</option>
@@ -2102,12 +2132,21 @@ function startSongRequestsListener(){
   if(!startListenerOnce('startSongRequestsListener')) return;
   onSnapshot(query(collection(db, 'songRequests'), orderBy('createdAt', 'desc')), (snap)=>{
     allSongRequests = snap.docs.map(d=>({id:d.id,...d.data()}));
-    pendingSongCount = allSongRequests.filter(r=>r.status === 'pending').length;
+    pendingSongCount = allSongRequests.filter(r=>(r.status||'pending') === 'pending').length;
     updateActivityCounters();
     renderSongRequests();
     if(document.getElementById('tab-analytics').style.display !== 'none') renderAnalytics();
   }, (err)=>{ pendingSongCountEl.textContent = 'Unavailable'; document.getElementById('songQueue').innerHTML = '<div class="empty">Song requests are unavailable. Check Firestore permissions.</div>'; console.warn('Song request listener failed:', err && err.code); });
+
+  // The dedicated song-request overlay listens to this document, not overlay.html.
+  onSnapshot(doc(db, 'songRequestLive', 'now'), (snap)=>{
+    const d = snap.data() || {};
+    liveSongRequestId = d.active ? (d.requestId || null) : null;
+    renderSongRequests();
+  }, (err)=>console.warn('Song request on-air state unavailable:',err && err.code));
 }
+let liveSongRequestId = null;
+
 function renderSongRequests(){
   const listEl = document.getElementById('songQueue');
   const emptyEl = document.getElementById('songEmpty');
@@ -2116,30 +2155,44 @@ function renderSongRequests(){
   let list = allSongRequests.filter(r=>{
     const status = r.status || 'pending';
     if(state === 'incoming' && status !== 'pending') return false;
+    if(state === 'queued' && (!r.queuedForOverlay || status === 'rejected')) return false;
     if(state === 'approved' && status !== 'approved') return false;
     if(state === 'rejected' && status !== 'rejected') return false;
-    return !term || [r.artist,r.songTitle,r.name,r.city,status].some(v=>String(v||'').toLowerCase().includes(term));
+    return !term || [r.artist,r.songTitle,r.name,r.city,status,r.queuedForOverlay?'queued':''].some(v=>String(v||'').toLowerCase().includes(term));
   });
-  const stamp = r => r.createdAt?.toMillis ? r.createdAt.toMillis() : (r.createdAt?.toDate ? r.createdAt.toDate().getTime() : 0);
-  list = list.slice().sort((a,b)=> state === 'incoming' ? stamp(a)-stamp(b) : stamp(b)-stamp(a));
+  const stamp = r => r.createdAt?.toMillis ? r.createdAt.toMillis() : (r.createdAt?.toDate ? r.createdAt.toDate().getTime() : (typeof r.createdAt === 'number' ? r.createdAt : 0));
+  list = list.slice().sort((a,b)=> state === 'incoming' || state === 'queued' ? stamp(a)-stamp(b) : stamp(b)-stamp(a));
   const nextIncomingId = allSongRequests.filter(r=>(r.status||'pending')==='pending').slice().sort((a,b)=>stamp(a)-stamp(b))[0]?.id;
   document.getElementById('songPendingStat').textContent = pendingSongCount;
   document.getElementById('songTotalStat').textContent = allSongRequests.length;
   emptyEl.style.display = list.length ? 'none' : 'block';
+  listEl.className = 'song-list';
   listEl.innerHTML = list.map(r=>{
-    const status = r.status || 'pending', incoming = status === 'pending', played = status === 'approved';
-    const isNext = r.id === nextIncomingId, stampText = formatStamp(r.createdAt);
+    const status = r.status || 'pending';
+    const incoming = status === 'pending', played = status === 'approved', rejected = status === 'rejected';
+    const isNext = r.id === nextIncomingId, queued = !!r.queuedForOverlay, isLive = liveSongRequestId === r.id;
+    const stampText = formatStamp(r.createdAt);
+    const statusText = played ? 'Played' : rejected ? 'Rejected' : isLive ? 'Now Playing' : queued ? 'Queued' : 'Incoming';
     return `
-    <article class="card song-queue-item" style="align-items:flex-start" data-song-id="${escapeHtml(r.id)}">
-      <div style="font-size:28px;min-width:36px">${played?'✅':'🎵'}</div>
-      <div class="card-body">
-        <div class="card-top"><span class="card-name">${escapeHtml(r.songTitle || 'Untitled request')}</span><span class="badge ${played?'approved':''}">${played?'Played':incoming?'Incoming':escapeHtml(status)}</span>${incoming && isNext ? '<span class="badge" style="background:rgba(83,252,24,.12);color:var(--green)">NEXT IN QUEUE</span>' : ''}</div>
-        <div class="card-song">${escapeHtml(r.artist || 'Artist not supplied')}</div>
-        <div class="hist-meta">${escapeHtml(r.name || 'Listener')}${r.city ? ' · '+escapeHtml(r.city) : ''}${stampText ? ' · '+escapeHtml(stampText) : ''}</div>
-        ${incoming && !isNext ? '<div class="hist-meta" style="margin-top:6px">Waiting for the earlier requests to be marked played.</div>' : ''}
+    <article class="song-row" data-song-id="${escapeHtml(r.id)}">
+      <div class="song-main">
+        <div class="song-note" aria-hidden="true">🎵</div>
+        <div class="song-details">
+          <div class="song-title-line">
+            <span>${escapeHtml(r.songTitle || 'Untitled request')}</span>
+            <span class="song-status ${played?'played':queued?'queued':''}">${escapeHtml(statusText)}</span>
+            ${incoming && isNext ? '<span class="song-status queued">NEXT IN QUEUE</span>' : ''}
+          </div>
+          <div class="song-artist-line">${escapeHtml(r.artist || 'Artist not supplied')}</div>
+          <div class="song-meta">${escapeHtml(r.name || 'Listener')}${r.city ? ' · '+escapeHtml(r.city) : ''}${stampText ? ' · '+escapeHtml(stampText) : ''}${queued ? ' · Included in OBS queue overlay' : ''}</div>
+          ${incoming && !isNext ? '<div class="song-meta">Waiting for earlier requests to be marked played.</div>' : ''}
+        </div>
       </div>
-      <div class="card-actions">
-        ${incoming ? `<button class="ibtn approve" data-song-action="played" data-id="${escapeHtml(r.id)}" ${isNext?'':'disabled title="Play requests in queue order"'}>✓ Played</button>` : ''}
+      <div class="song-actions">
+        ${incoming ? `<button class="ibtn played-btn" data-song-action="played" data-id="${escapeHtml(r.id)}" ${isNext?'':'disabled title="Mark earlier requests played first"'}>✓ Mark Played</button>` : played ? '<button class="ibtn played-btn done" disabled>✓ Played</button>' : ''}
+        ${!rejected ? `<button class="ibtn queue-btn ${queued?'active':''}" data-song-action="queue" data-id="${escapeHtml(r.id)}">${queued?'✓ Queued for OBS':'＋ Queue'}</button>` : ''}
+        ${!rejected ? `<button class="ibtn on-air-btn ${isLive?'live':''}" data-song-action="now-playing" data-id="${escapeHtml(r.id)}">${isLive?'⏹ Stop On Air':'🔴 Now Playing'}</button>` : ''}
+        ${incoming ? `<button class="ibtn reject" data-song-action="reject" data-id="${escapeHtml(r.id)}">✕ Reject</button>` : ''}
         <button class="ibtn delete" data-song-action="delete" data-id="${escapeHtml(r.id)}">🗑 Delete</button>
       </div>
     </article>`;
@@ -2148,15 +2201,34 @@ function renderSongRequests(){
 document.getElementById('songQueue').addEventListener('click',async e=>{
   const btn=e.target.closest('[data-song-action]'); if(!btn)return;
   const r=allSongRequests.find(x=>x.id===btn.dataset.id); if(!r)return;
+  const action = btn.dataset.songAction;
   btn.disabled=true;
   try{
-    if(btn.dataset.songAction==='played'){
-      const stamp = x => x.createdAt?.toMillis ? x.createdAt.toMillis() : (x.createdAt?.toDate ? x.createdAt.toDate().getTime() : 0);
+    if(action==='played'){
+      const stamp = x => x.createdAt?.toMillis ? x.createdAt.toMillis() : (x.createdAt?.toDate ? x.createdAt.toDate().getTime() : (typeof x.createdAt === 'number' ? x.createdAt : 0));
       const firstPending = allSongRequests.filter(x=>(x.status||'pending')==='pending').slice().sort((a,b)=>stamp(a)-stamp(b))[0];
       if(!firstPending || firstPending.id !== r.id){alert('Please mark the earlier incoming song as played first.');return;}
       await updateDoc(doc(db,'songRequests',r.id),{status:'approved',playedAt:serverTimestamp(),reviewedAt:serverTimestamp()});
-    } else if(btn.dataset.songAction==='delete'){
-      if(!confirm('Permanently delete this song request?')) return;
+    } else if(action==='reject'){
+      if(!confirm('Reject this song request? It will be removed from Incoming and the OBS queue.')) return;
+      await updateDoc(doc(db,'songRequests',r.id),{status:'rejected',queuedForOverlay:false,rejectedAt:serverTimestamp(),reviewedAt:serverTimestamp()});
+    } else if(action==='queue'){
+      const queued = !r.queuedForOverlay;
+      await updateDoc(doc(db,'songRequests',r.id),{queuedForOverlay:queued,queueUpdatedAt:serverTimestamp()});
+    } else if(action==='now-playing'){
+      if(liveSongRequestId === r.id){
+        await setDoc(doc(db,'songRequestLive','now'),{active:false,requestId:null,updatedAt:Date.now()},{merge:true});
+      } else {
+        await setDoc(doc(db,'songRequestLive','now'),{
+          active:true,requestId:r.id,songTitle:r.songTitle||'Untitled request',artist:r.artist||'',
+          name:r.name||'',city:r.city||'',updatedAt:Date.now()
+        },{merge:true});
+        // A song being played should no longer appear as an upcoming queued item.
+        if(r.queuedForOverlay) await updateDoc(doc(db,'songRequests',r.id),{queuedForOverlay:false,queueUpdatedAt:serverTimestamp()});
+      }
+    } else if(action==='delete'){
+      if(!confirm('Permanently delete this song request? This cannot be undone.')) return;
+      if(liveSongRequestId === r.id) await setDoc(doc(db,'songRequestLive','now'),{active:false,requestId:null,updatedAt:Date.now()},{merge:true});
       await deleteDoc(doc(db,'songRequests',r.id));
     }
   }catch(err){console.error('Song request action failed:',err);alert('Could not update this song request. Check Firestore permissions and try again.');}
