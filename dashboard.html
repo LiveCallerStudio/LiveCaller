@@ -1732,7 +1732,6 @@ async function stopCallRecording(){
         fd.append('file', blob, blob.type.includes('mp4')?'call-recording.mp4':'call-recording.webm');
         fd.append('upload_preset', 'djdeeze_hotline_recordings');
         fd.append('resource_type', 'video');
-        fd.append('folder', 'livecaller/call-recordings');
         const res = await fetch('https://api.cloudinary.com/v1_1/vz1v6nzp/video/upload',{ method:'POST', body:fd, signal:controller.signal });
         const data = await res.json().catch(()=>({}));
         if(!res.ok) throw new Error(data.error?.message||'Upload rejected (HTTP '+res.status+').');
