@@ -534,6 +534,19 @@ async function startCall(){
   }
 
   pc = new RTCPeerConnection(STUN);
+  pc.onconnectionstatechange = () => {
+    if (!pc) return;
+    console.info('Caller WebRTC connection:', pc.connectionState, 'ICE:', pc.iceConnectionState);
+    if (pc.connectionState === 'failed') showError('Call connection failed. Check the producer connection and TURN relay availability.');
+  };
+  pc.oniceconnectionstatechange = () => {
+    if (!pc) return;
+    console.info('Caller ICE state:', pc.iceConnectionState);
+    if (pc.iceConnectionState === 'failed') showError('ICE negotiation failed. Check network connectivity and Firestore candidate permissions.');
+  };
+  pc.onicecandidateerror = event => console.warn('Caller ICE candidate error:', {
+    code: event.errorCode, text: event.errorText, url: event.url
+  });
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
   // Play remote audio (producer's voice)
