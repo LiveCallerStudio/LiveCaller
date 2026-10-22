@@ -615,10 +615,11 @@
 
   // Nothing is open until Firestore has confirmed it.
   applyLines(UNKNOWN_LINES);
+  document.documentElement.dataset.lineStatus = 'loading';
 
   onSnapshot(doc(db, 'hotlineSettings', 'callLines'),
-    (snap) => applyLines(resolveLineStates(snap)),
-    (err)  => { console.warn('Line status read failed:', err && err.code); applyLines(UNKNOWN_LINES); }
+    (snap) => { applyLines(resolveLineStates(snap)); document.documentElement.dataset.lineStatus = 'ready'; },
+    (err)  => { console.warn('Line status read failed:', err && err.code); applyLines(UNKNOWN_LINES); document.documentElement.dataset.lineStatus = 'unavailable'; }
   );
 </script>
 </body>
