@@ -1,52 +1,301 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0a0a0a"><title>Live Caller Studio — Video Call</title>
-<style>
-:root{--green:#53fc18;--bg:#0a0a0a;--panel:#151515;--muted:#999;--red:#ff4141}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#17210f,var(--bg) 60%);color:#fff;font-family:Arial,Helvetica,sans-serif;min-height:100vh;display:grid;place-items:center;padding:18px}.app{width:min(560px,100%);background:#111;border:1px solid #2c2c2c;border-radius:22px;padding:24px;box-shadow:0 20px 70px #0009}.brand{color:var(--green);font-size:12px;font-weight:900;letter-spacing:2px}h1{font-size:32px;margin:12px 0 8px}p{color:var(--muted);line-height:1.5}.field{width:100%;padding:14px 15px;border-radius:10px;border:1px solid #333;background:#090909;color:#fff;margin:7px 0 12px;font-size:16px}.btn{width:100%;padding:15px;border:0;border-radius:12px;background:var(--green);color:#080808;font-weight:900;font-size:15px;cursor:pointer}.btn:disabled{opacity:.5}.video-wrap{display:none;margin-top:16px}.video-wrap.show{display:block}video{width:100%;max-height:380px;background:#000;border-radius:14px;object-fit:cover}.status{padding:12px;border:1px solid #303030;border-radius:10px;margin-top:14px;color:var(--green);font-weight:700}.small{font-size:12px;color:#777}
-</style></head><body><main class="app"><div class="brand">ϟ LIVE CALLER STUDIO</div><h1>Video Call In</h1><p>Join the live show with your camera and microphone. Your audio and video are sent to the OBS overlay only after the producer sends you on air.</p><div id="form"><label for="name">Your name</label><input class="field" id="name" maxlength="40" placeholder="Enter your name" autocomplete="name"><label for="city">City (optional)</label><input class="field" id="city" maxlength="40" placeholder="Your city"><button class="btn" id="join" disabled>Checking video line…</button></div><div class="video-wrap" id="videoWrap"><video id="preview" autoplay playsinline muted></video></div><div class="status" id="status">Waiting to join…</div><p class="small">Keep this page open while you are in the queue or on air.</p></main>
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
-import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
-import { LINE, resolveLineStates } from './lib/line-state.js';
-const firebaseConfig={apiKey:'AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc',authDomain:'djdeeze-hotline.firebaseapp.com',projectId:'djdeeze-hotline',storageBucket:'djdeeze-hotline.firebasestorage.app',messagingSenderId:'663942225296',appId:'1:663942225296:web:c6117cf6c23656b9842715'};
-const db=getFirestore(initializeApp(firebaseConfig));const join=document.getElementById('join'),statusEl=document.getElementById('status'),form=document.getElementById('form'),preview=document.getElementById('preview'),videoWrap=document.getElementById('videoWrap');let stream=null,callRef=null,sessionUnsub=null,pcMap=new Map();let videoLineState=LINE.UNKNOWN,joinInProgress=false;function renderJoinAvailability(){join.disabled=videoLineState!==LINE.OPEN||joinInProgress;if(callRef)return;if(videoLineState===LINE.OPEN){join.textContent='Join Video Queue';statusEl.textContent='Video line is open. Enter your name to join the queue.';}else if(videoLineState===LINE.CLOSED){join.textContent='Video Line Closed';statusEl.textContent='Video guests are currently closed. Please check back soon.';}else{join.textContent='Checking Video Line…';statusEl.textContent='Checking whether video guests are being accepted…';}}onSnapshot(doc(db,'hotlineSettings','callLines'),{includeMetadataChanges:true},snap=>{videoLineState=resolveLineStates(snap).video;renderJoinAvailability();},err=>{videoLineState=LINE.UNKNOWN;renderJoinAvailability();console.warn('Video line status unavailable:',err&&err.code);});const ice={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},{urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'},{urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'}]};
-join.addEventListener('click',async()=>{if(videoLineState!==LINE.OPEN){renderJoinAvailability();return;}joinInProgress=true;renderJoinAvailability();try{const name=document.getElementById('name').value.trim();if(!name)throw new Error('Enter your name first.');stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:{facingMode:'user'}});preview.srcObject=stream;videoWrap.classList.add('show');callRef=await addDoc(collection(db,'videoCalls'),{callerName:name,callerCity:document.getElementById('city').value.trim()||null,status:'waiting',createdAt:serverTimestamp()});form.style.display='none';statusEl.textContent='In queue — waiting for producer approval.';onSnapshot(callRef,snap=>{const d=snap.data();if(!d)return;if(d.status==='live')statusEl.textContent='ON AIR — your camera and microphone are live.';else if(d.status==='rejected'||d.status==='ended'){statusEl.textContent=d.status==='rejected'?'The producer declined this call.':'The call has ended.';stopMedia();}});sessionUnsub=onSnapshot(collection(db,'videoCalls',callRef.id,'overlaySessions'),snap=>{
-  snap.docChanges().forEach(async change=>{
-    if(change.type!=='added')return;
-    const sessionId=change.doc.id,sessionData=change.doc.data();
-    if(!sessionData.offer||pcMap.has(sessionId)||!stream)return;
-    const sessionRef=doc(db,'videoCalls',callRef.id,'overlaySessions',sessionId),pc=new RTCPeerConnection(ice);
-    pcMap.set(sessionId,pc);
-    pc.onicecandidate=e=>{if(e.candidate)addDoc(collection(sessionRef,'dashboardCandidates'),e.candidate.toJSON()).catch(err=>console.warn('OBS candidate write failed',err));};
-    pc.onconnectionstatechange=()=>{
-      console.info('OBS guest media peer:',pc.connectionState);
-      if(pc.connectionState==='failed'||pc.connectionState==='disconnected') statusEl.textContent='OBS media connection '+pc.connectionState+'. Check the overlay Browser Source/network.';
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>Live Caller Studio — Video Call</title>
+  <style>
+    :root{--green:#53fc18;--bg:#0a0a0a;--panel:#151515;--muted:#999;--red:#ff4141}
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(ellipse at top,#17210f,var(--bg) 60%);color:#fff;font-family:Arial,Helvetica,sans-serif;min-height:100vh;display:grid;place-items:center;padding:18px}
+    .app{width:min(560px,100%);background:#111;border:1px solid #2c2c2c;border-radius:22px;padding:24px;box-shadow:0 20px 70px #0009}
+    .brand{color:var(--green);font-size:12px;font-weight:900;letter-spacing:2px}
+    h1{font-size:32px;margin:12px 0 8px}
+    p{color:var(--muted);line-height:1.5}
+    .field{width:100%;padding:14px 15px;border-radius:10px;border:1px solid #333;background:#090909;color:#fff;margin:7px 0 12px;font-size:16px}
+    .btn{width:100%;padding:15px;border:0;border-radius:12px;background:var(--green);color:#080808;font-weight:900;font-size:15px;cursor:pointer}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .video-wrap{display:none;margin-top:16px}
+    .video-wrap.show{display:block}
+    video{width:100%;max-height:380px;background:#000;border-radius:14px;object-fit:cover}
+    .status{padding:12px;border:1px solid #303030;border-radius:10px;margin-top:14px;color:var(--green);font-weight:700;overflow-wrap:anywhere}
+    .small{font-size:12px;color:#777}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="brand">ϟ LIVE CALLER STUDIO</div>
+    <h1>Video Call In</h1>
+    <p>Join the live show with your camera and microphone. Your audio and video are sent to the OBS overlay only after the producer sends you on air.</p>
+    <div id="form">
+      <label for="name">Your name</label>
+      <input class="field" id="name" maxlength="40" placeholder="Enter your name" autocomplete="name">
+      <label for="city">City (optional)</label>
+      <input class="field" id="city" maxlength="40" placeholder="Your city">
+      <button class="btn" id="join" disabled>Checking video line…</button>
+    </div>
+    <div class="video-wrap" id="videoWrap"><video id="preview" autoplay playsinline muted></video></div>
+    <div class="status" id="status">Checking video line…</div>
+    <p class="small">Keep this page open while you are in the queue or on air.</p>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
+    import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js';
+    import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
+    import { LINE, resolveLineStates } from './lib/line-state.js';
+
+    const firebaseConfig = {
+      apiKey: 'AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc',
+      authDomain: 'djdeeze-hotline.firebaseapp.com',
+      projectId: 'djdeeze-hotline',
+      storageBucket: 'djdeeze-hotline.firebasestorage.app',
+      messagingSenderId: '663942225296',
+      appId: '1:663942225296:web:c6117cf6c23656b9842715'
     };
-    try{
-      // The overlay offers recvonly audio/video sections. Set that offer first,
-      // then attach microphone/camera to those exact transceivers before answering.
-      await pc.setRemoteDescription(new RTCSessionDescription(sessionData.offer));
-      for(const transceiver of pc.getTransceivers()){
-        const kind=transceiver.receiver?.track?.kind;
-        // Only the video guest's own camera/mic tracks are sent to OBS.
-        // The producer microphone is never part of this guest stream.
-        const track=kind==='audio' ? stream.getAudioTracks()[0] : kind==='video' ? stream.getVideoTracks()[0] : null;
-        if(track){
-          transceiver.direction='sendonly';
-          await transceiver.sender.replaceTrack(track);
-        } else {
-          transceiver.direction='inactive';
-        }
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const join = document.getElementById('join');
+    const statusEl = document.getElementById('status');
+    const form = document.getElementById('form');
+    const preview = document.getElementById('preview');
+    const videoWrap = document.getElementById('videoWrap');
+
+    let stream = null;
+    let callRef = null;
+    let callUnsub = null;
+    let sessionUnsub = null;
+    let lineUnsub = null;
+    let pcMap = new Map();
+    let candidateUnsubs = [];
+    let videoLineState = LINE.UNKNOWN;
+    let joinInProgress = false;
+    let guestUid = null;
+    let leavingPage = false;
+
+    const ice = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+      ]
+    };
+
+    function renderJoinAvailability() {
+      join.disabled = videoLineState !== LINE.OPEN || joinInProgress;
+      if (callRef) return;
+      if (videoLineState === LINE.OPEN) {
+        join.textContent = 'Join Video Queue';
+        statusEl.textContent = 'Video line is open. Enter your name to join the queue.';
+      } else if (videoLineState === LINE.CLOSED) {
+        join.textContent = 'Video Line Closed';
+        statusEl.textContent = 'Video guests are currently closed. Please check back soon.';
+      } else {
+        join.textContent = 'Checking Video Line…';
+        statusEl.textContent = 'Checking whether video guests are being accepted…';
       }
-      const answer=await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      await updateDoc(sessionRef,{answer:{type:answer.type,sdp:answer.sdp},updatedAt:Date.now()});
-      onSnapshot(collection(sessionRef,'overlayCandidates'),cs=>cs.docChanges().forEach(cc=>{
-        if(cc.type==='added'&&pc.signalingState!=='closed')pc.addIceCandidate(new RTCIceCandidate(cc.doc.data())).catch(err=>console.warn('OBS ICE add failed',err));
-      }),err=>console.warn('OBS overlay candidate listener failed',err));
-    }catch(err){console.error('OBS video overlay connection failed',err);statusEl.textContent='OBS connection problem: '+err.message;pc.close();pcMap.delete(sessionId);}
-  });
-},err=>{console.error('OBS video session listener failed',err);statusEl.textContent='OBS signaling error: '+err.message;});
-}catch(err){statusEl.textContent=err.message||'Could not start camera/microphone.';joinInProgress=false;renderJoinAvailability();statusEl.textContent=err.message||'Could not start camera/microphone.';}});
-function stopMedia(){if(sessionUnsub){sessionUnsub();sessionUnsub=null;}pcMap.forEach(pc=>pc.close());pcMap.clear();if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}preview.srcObject=null;}
-window.addEventListener('beforeunload',()=>{stopMedia();if(callRef)updateDoc(callRef,{status:'ended'}).catch(()=>{});});
-</script></body></html>
+    }
+
+    lineUnsub = onSnapshot(
+      doc(db, 'hotlineSettings', 'callLines'),
+      { includeMetadataChanges: true },
+      snap => {
+        videoLineState = resolveLineStates(snap).video;
+        renderJoinAvailability();
+      },
+      err => {
+        videoLineState = LINE.UNKNOWN;
+        renderJoinAvailability();
+        console.warn('Video line status unavailable:', err?.code || err?.message || err);
+      }
+    );
+
+    function stopMedia() {
+      if (sessionUnsub) { sessionUnsub(); sessionUnsub = null; }
+      if (callUnsub) { callUnsub(); callUnsub = null; }
+      candidateUnsubs.forEach(unsub => { try { unsub(); } catch (_) {} });
+      candidateUnsubs = [];
+      pcMap.forEach(pc => { try { pc.close(); } catch (_) {} });
+      pcMap.clear();
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+      preview.srcObject = null;
+    }
+
+    function showFriendlyError(err) {
+      const code = err?.code || '';
+      if (code === 'auth/operation-not-allowed') {
+        return 'Firebase Anonymous Authentication is disabled. Enable Authentication → Sign-in method → Anonymous in your Firebase project, then try again.';
+      }
+      if (code === 'permission-denied' || code === 'firestore/permission-denied') {
+        return 'Firestore denied this action. Confirm the published rules match the supplied rules and that Anonymous Authentication is enabled. Details: ' + (err?.message || code);
+      }
+      if (err?.name === 'NotAllowedError') {
+        return 'Camera or microphone permission was denied. Allow camera and microphone access for this site, then try again.';
+      }
+      if (err?.name === 'NotFoundError') {
+        return 'No camera or microphone was found on this device.';
+      }
+      return err?.message || 'Could not start the video call. Please try again.';
+    }
+
+    join.addEventListener('click', async () => {
+      if (videoLineState !== LINE.OPEN || joinInProgress) {
+        renderJoinAvailability();
+        return;
+      }
+
+      joinInProgress = true;
+      renderJoinAvailability();
+
+      try {
+        const name = document.getElementById('name').value.trim();
+        const city = document.getElementById('city').value.trim();
+        if (!name) throw new Error('Enter your name first.');
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error('Camera access requires a secure HTTPS page and a supported browser.');
+        }
+
+        statusEl.textContent = 'Signing in securely…';
+        const credential = await signInAnonymously(auth);
+        guestUid = credential.user.uid;
+
+        statusEl.textContent = 'Requesting camera and microphone access…';
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true },
+          video: { facingMode: 'user' }
+        });
+        preview.srcObject = stream;
+        videoWrap.classList.add('show');
+
+        statusEl.textContent = 'Joining the video queue…';
+        callRef = await addDoc(collection(db, 'videoCalls'), {
+          callerName: name,
+          callerCity: city || null,
+          status: 'waiting',
+          createdAt: serverTimestamp(),
+          guestUid: guestUid
+        });
+
+        form.style.display = 'none';
+        joinInProgress = false;
+        join.disabled = true;
+        statusEl.textContent = 'In queue — waiting for producer approval.';
+
+        callUnsub = onSnapshot(callRef, snap => {
+          const data = snap.data();
+          if (!data) return;
+          if (data.status === 'live') {
+            statusEl.textContent = 'ON AIR — your camera and microphone are live.';
+          } else if (data.status === 'rejected' || data.status === 'ended') {
+            statusEl.textContent = data.status === 'rejected'
+              ? 'The producer declined this call.'
+              : 'The call has ended.';
+            stopMedia();
+          }
+        }, err => {
+          console.error('Video call status listener failed:', err);
+          statusEl.textContent = 'Could not read call status: ' + showFriendlyError(err);
+        });
+
+        // OBS overlay session signaling is separate from pre-air screeningSessions.
+        sessionUnsub = onSnapshot(
+          collection(db, 'videoCalls', callRef.id, 'overlaySessions'),
+          snap => {
+            snap.docChanges().forEach(async change => {
+              if (change.type !== 'added') return;
+              const sessionId = change.doc.id;
+              const sessionData = change.doc.data();
+              if (!sessionData.offer || pcMap.has(sessionId) || !stream) return;
+
+              const sessionRef = doc(db, 'videoCalls', callRef.id, 'overlaySessions', sessionId);
+              const pc = new RTCPeerConnection(ice);
+              pcMap.set(sessionId, pc);
+
+              pc.onicecandidate = event => {
+                if (!event.candidate) return;
+                addDoc(collection(sessionRef, 'dashboardCandidates'), event.candidate.toJSON())
+                  .catch(err => console.warn('OBS candidate write failed:', err?.code || err?.message || err));
+              };
+
+              pc.onconnectionstatechange = () => {
+                console.info('OBS guest media peer:', pc.connectionState);
+                if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+                  statusEl.textContent = 'OBS media connection ' + pc.connectionState + '. Check the overlay Browser Source/network.';
+                }
+              };
+
+              try {
+                await pc.setRemoteDescription(new RTCSessionDescription(sessionData.offer));
+                for (const transceiver of pc.getTransceivers()) {
+                  const kind = transceiver.receiver?.track?.kind;
+                  const track = kind === 'audio'
+                    ? stream.getAudioTracks()[0]
+                    : kind === 'video' ? stream.getVideoTracks()[0] : null;
+                  if (track) {
+                    transceiver.direction = 'sendonly';
+                    await transceiver.sender.replaceTrack(track);
+                  } else {
+                    transceiver.direction = 'inactive';
+                  }
+                }
+
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                await updateDoc(sessionRef, {
+                  answer: { type: answer.type, sdp: answer.sdp },
+                  updatedAt: Date.now()
+                });
+
+                const candidateUnsub = onSnapshot(
+                  collection(sessionRef, 'overlayCandidates'),
+                  candidateSnap => candidateSnap.docChanges().forEach(candidateChange => {
+                    if (candidateChange.type === 'added' && pc.signalingState !== 'closed') {
+                      pc.addIceCandidate(new RTCIceCandidate(candidateChange.doc.data()))
+                        .catch(err => console.warn('OBS ICE add failed:', err));
+                    }
+                  }),
+                  err => console.warn('OBS overlay candidate listener failed:', err?.code || err?.message || err)
+                );
+                candidateUnsubs.push(candidateUnsub);
+              } catch (err) {
+                console.error('OBS video overlay connection failed:', err);
+                statusEl.textContent = 'OBS connection problem: ' + showFriendlyError(err);
+                pc.close();
+                pcMap.delete(sessionId);
+              }
+            });
+          },
+          err => {
+            console.error('OBS video session listener failed:', err);
+            statusEl.textContent = 'OBS signaling error: ' + showFriendlyError(err);
+          }
+        );
+      } catch (err) {
+        console.error('Could not join video queue:', err);
+        statusEl.textContent = showFriendlyError(err);
+        stopMedia();
+        callRef = null;
+        guestUid = null;
+        joinInProgress = false;
+        renderJoinAvailability();
+      }
+    });
+
+    window.addEventListener('beforeunload', () => {
+      leavingPage = true;
+      if (lineUnsub) lineUnsub();
+      stopMedia();
+      // The rules permit a guest to end their own call by changing status only.
+      if (callRef) updateDoc(callRef, { status: 'ended' }).catch(() => {});
+    });
+  </script>
+</body>
+</html>
