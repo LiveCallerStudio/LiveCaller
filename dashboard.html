@@ -791,6 +791,7 @@ onAuthStateChanged(auth, (user)=>{
     startVideoToggleListener();
     startVideoCallsListener();
   } else {
+    stopQueueListener();
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
   }
@@ -1236,10 +1237,13 @@ function renderAnalytics(){
 }
 
 // ── Tips Firestore listener ──
-// Live Firestore listener — auto-refreshes, no polling needed
-// Only starts after login succeeds (see onAuthStateChanged below) so the queue
-// is never queried while logged out.
-let queueListenerStarted = false;
+// Live Firestore listener — auto-refreshes, no polling needed.
+// Keep the unsubscribe handle so sign-out tears down the private queue listener
+// and a later sign-in can safely start a fresh subscription.
+let queueUnsubscribe = null;
+function stopQueueListener(){
+  if(queueUnsubscribe){ queueUnsubscribe(); queueUnsubscribe = null; }
+}
 // ═══════════════════════════════════════════════════════
 //  LIVE CALLS — WebRTC via Firestore signaling
 // ═══════════════════════════════════════════════════════
@@ -2023,10 +2027,9 @@ function formatDur(s){
 }
 
 function startQueueListener(){
-  if(queueListenerStarted) return;
-  queueListenerStarted = true;
+  if(queueUnsubscribe) return;
   const q = query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc'));
-  onSnapshot(q, (snapshot)=>{
+  queueUnsubscribe = onSnapshot(q, (snapshot)=>{
     allMessages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
     if(!firstLoad){
@@ -2044,7 +2047,8 @@ function startQueueListener(){
 
     render();
   }, (err)=>{
-    queueEl.innerHTML = `<div class="empty">Couldn't connect to Firebase: ${err.message}<br><br>Check your firebaseConfig and Firestore security rules.</div>`;
+    queueUnsubscribe = null;
+    queueEl.innerHTML = `<div class="empty">Couldn't connect to Firebase: ${escapeHtml(err.message || 'unknown error')}<br><br>Check your firebaseConfig and Firestore security rules.</div>`;
   });
 }
 </script>
