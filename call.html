@@ -248,7 +248,7 @@
 
     <!-- Setup Screen -->
     <div id="setupScreen">
-      <a class="back-btn" href="home.html">
+      <a class="back-btn" href="home-v2.html">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
         Home
       </a>
@@ -733,7 +733,7 @@ function applyPhoneLine(state){
   callBtn.style.opacity = linesOpen ? '' : '.4';
 }
 applyPhoneLine(LINE.UNKNOWN); // nothing is open until Firestore confirms it
-onSnapshot(doc(db, 'hotlineSettings', 'callLines'),
+onSnapshot(doc(db, 'hotlineSettings', 'callLines'), { includeMetadataChanges: true },
   (snap)=> applyPhoneLine(resolveLineStates(snap).phone),
   (err)=>{ console.warn('Phone line status read failed:', err && err.code); applyPhoneLine(LINE.UNKNOWN); }
 );

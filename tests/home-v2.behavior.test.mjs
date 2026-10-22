@@ -12,23 +12,29 @@ function makeEl(id) { const cls = new Set(); return { id, style: {}, textContent
 
 function run(deliver) {                       // deliver(onNext, onError) simulates Firestore
   const els = {}; const get = id => (els[id] ??= makeEl(id));
-  let next, error;
+  let next, error, snapshotOptions;
   const ctx = { console: { warn() {} }, document: { getElementById: get, documentElement: { dataset: {} } },
     initializeApp: () => ({}), getFirestore: () => ({}), doc: () => ({}),
-    onSnapshot: (_ref, n, e) => { next = n; error = e; }, firebaseConfig: undefined,
+    onSnapshot: (_ref, options, n, e) => {
+      if (typeof options === 'function') { snapshotOptions = {}; next = options; error = n; }
+      else { snapshotOptions = options; next = n; error = e; }
+    }, firebaseConfig: undefined,
     LINE, UNKNOWN_LINES, resolveLineStates };
   vm.runInNewContext(mod.replace('const firebaseConfig', 'var firebaseConfig'), ctx);
   const snapshot = (data, fromCache = false) => ({ data: () => data, metadata: { fromCache } });
   const state = () => ({ callOpen: get('callOpen').style.display, callClosed: get('callClosed').style.display,
     videoOpen: get('videoLink').style.display, videoClosed: get('videoClosed').style.display,
     phoneChip: get('phoneChipLabel').textContent, videoChip: get('videoChipLabel').textContent });
-  return { initial: state(), after: (() => { deliver({ next, error, snapshot }); return state(); })() };
+  return { initial: state(), snapshotOptions, after: (() => { deliver({ next, error, snapshot }); return state(); })() };
 }
 let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok -', name); };
 
 t('before Firestore answers: both lines unavailable, nothing open', () => {
   const r = run(() => {}); assert.equal(r.initial.callOpen, 'none'); assert.equal(r.initial.videoOpen, 'none');
   assert.equal(r.initial.phoneChip, 'Phone status unknown'); });
+t('Firestore metadata changes are enabled so cached UNKNOWN can resolve from server', () => {
+  const r = run(() => {}); assert.equal(r.snapshotOptions.includeMetadataChanges, true);
+});
 t('phone open, video closed -> only phone link shown (video boolean no longer fed into setEntry as an element)', () => {
   const r = run(({ next, snapshot }) => next(snapshot({ open: true, videoOpen: false })));
   assert.equal(r.after.callOpen, 'grid'); assert.equal(r.after.callClosed, 'none');

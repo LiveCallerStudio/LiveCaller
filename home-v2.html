@@ -618,7 +618,7 @@
   applyLines(UNKNOWN_LINES);
   document.documentElement.dataset.lineStatus = 'loading';
 
-  onSnapshot(doc(db, 'hotlineSettings', 'callLines'),
+  onSnapshot(doc(db, 'hotlineSettings', 'callLines'), { includeMetadataChanges: true },
     (snap) => { applyLines(resolveLineStates(snap)); document.documentElement.dataset.lineStatus = 'ready'; },
     (err)  => { console.warn('Line status read failed:', err && err.code); applyLines(UNKNOWN_LINES); document.documentElement.dataset.lineStatus = 'unavailable'; }
   );
