@@ -417,6 +417,10 @@
   }
   .tab-btn:hover{color:var(--text);}
   .tab-btn.active{color:var(--green); border-bottom-color:var(--green);}
+  .tab-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;margin-left:5px;border-radius:999px;background:#202020;border:1px solid #333;color:#b8b8b8;font-size:10px;font-weight:900;line-height:1;vertical-align:middle}
+  .tab-btn.active .tab-count{border-color:rgba(83,252,24,.45);color:var(--green);background:rgba(83,252,24,.08)}
+  .tab-btn .call-counter{display:none}
+  .tab-btn .call-counter.show{display:inline-flex;animation:none;border-color:rgba(83,252,24,.5);background:rgba(83,252,24,.1);padding:0 6px;border-radius:999px;font-size:10px}
 
   /* ── Analytics ── */
   .analytics-grid{
@@ -548,9 +552,8 @@
     </div>
   </div>
   <div class="header-right">
-    <div class="call-counter" id="callCounter">📞 <span id="callCountNum">0</span> Incoming</div>
     <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
-    <div class="counter"><span class="dot"></span><span>Messages <b id="pendingMessageCount">—</b></span></div><div class="counter"><span>📵</span><span>Missed <b id="missedCallCount">—</b></span></div><div class="counter"><span>♪</span><span>Songs <b id="pendingSongCount">—</b></span></div><div class="counter"><span class="dot"></span><span>Total pending <b id="totalPendingCount">—</b></span></div><span id="queueCount" hidden>0 waiting</span>
+    <span id="queueCount" hidden>0 waiting</span>
     <input class="search" id="searchInput" placeholder="Search name, city, song…">
     <select id="filterSelect">
       <option value="pending">Pending only</option>
@@ -565,14 +568,15 @@
   </div>
 </header>
 
-<div class="alert-banner" id="alertBanner">🎤 Incoming Voice Message</div><section id="activityCenter" aria-live="polite" style="max-width:1400px;margin:12px auto 0;padding:0 12px"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#131313;border:1px solid #262626;border-radius:12px;padding:12px 16px"><div><strong style="color:#53FC18">LIVE ACTIVITY</strong><div id="activitySummary" style="font-size:12px;color:#aaa;margin-top:4px">Waiting for Firebase activity…</div></div><button type="button" id="openPhoneStudio" class="home-btn">Open Phone Studio ↓</button></div></section>
+<div class="alert-banner" id="alertBanner">🎤 Incoming Voice Message</div>
 
 <!-- Tab Navigation -->
 <nav class="tab-nav">
-  <button class="tab-btn active" data-tab="calls">📞 Phone Studio</button>
-  <button class="tab-btn" data-tab="queue">📥 Messages</button>
-  <button class="tab-btn" data-tab="songs">🎵 Song Requests</button>
-  <button class="tab-btn" data-tab="history">📋 History</button>
+  <button class="tab-btn active" data-tab="calls">📞 Phone Studio <span class="tab-count call-counter" id="callCounter"><span id="callCountNum">0</span></span></button>
+  <button class="tab-btn" data-tab="queue">📥 Messages <span class="tab-count" id="pendingMessageCount">—</span></button>
+  <button class="tab-btn" data-tab="songs">🎵 Song Requests <span class="tab-count" id="pendingSongCount">—</span></button>
+  <button class="tab-btn" data-tab="history">📋 History <span class="tab-count" id="missedCallCount">—</span></button>
+  <button class="tab-btn" data-tab="recordings">🎙️ Recordings <span class="tab-count" id="recordingCount">—</span></button>
   <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
 </nav>
 
@@ -590,14 +594,14 @@
   <div class="tab-content" id="tab-songs" style="display:none;">
     <div class="analytics-grid" style="margin-bottom:16px;"><div class="stat-card"><div class="stat-value" id="songPendingStat">—</div><div class="stat-label">Awaiting approval</div></div><div class="stat-card"><div class="stat-value" id="songTotalStat">—</div><div class="stat-label">All-time requests</div></div></div>
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px;">
-      <label for="songStatusFilter" style="font-size:12px;color:var(--sub);font-weight:700;">Request history</label>
-      <select id="songStatusFilter" aria-label="Filter song request history">
+      <label for="songStatusFilter" style="font-size:12px;color:var(--sub);font-weight:700;">Song queue</label>
+      <select id="songStatusFilter" aria-label="Filter song request queue">
+        <option value="incoming" selected>Incoming — play in order</option>
         <option value="all">All songs ever requested</option>
-        <option value="pending">Pending</option>
-        <option value="approved">Approved</option>
+        <option value="approved">Played</option>
         <option value="rejected">Rejected</option>
       </select>
-      <span style="font-size:12px;color:var(--sub);">Newest requests first</span>
+      <span style="font-size:12px;color:var(--sub);">Incoming requests are queued oldest first. Only the next song can be marked played.</span>
     </div>
     <div id="songQueue" class="queue"></div>
     <div id="songEmpty" class="empty" style="display:none;"><div class="ic">🎵</div><div>No song requests match your search.</div></div>
@@ -699,6 +703,8 @@
         <div class="stat-value" id="statFavorited">—</div>
         <div class="stat-label">Favorited</div>
       </div>
+      <div class="stat-card"><div class="stat-value" id="statSongs">—</div><div class="stat-label">Song Requests</div></div>
+      <div class="stat-card"><div class="stat-value" id="statCalls">—</div><div class="stat-label">Total Calls</div></div>
     </div>
 
     <div class="analytics-section">
@@ -743,16 +749,18 @@
     </div>
     <div class="queue" id="histList"></div>
 
-    <!-- Recordings Section -->
-    <div id="recordingsSection" style="margin-top:32px;">
-      <div class="section-title" style="margin-bottom:14px;">🎙️ Recorded Calls</div>
-      <div class="empty" id="recordingsEmpty" style="display:none;">
-        <div class="ic">🎙️</div>
-        <div>No recordings yet. Start recording calls using the Record button.</div>
-      </div>
-      <div id="recordingsList"></div>
-    </div>
   </div>
+
+  <!-- RECORDINGS TAB -->
+  <div class="tab-content" id="tab-recordings" style="display:none;"><div id="recordingsSection">
+    <div class="section-title" style="margin-bottom:14px;">🎙️ Recorded Calls</div>
+    <p style="color:var(--sub);font-size:13px;margin:0 0 16px;">Review, play, save, and delete recorded calls. Newest recordings appear first.</p>
+    <div class="empty" id="recordingsEmpty" style="display:none;">
+      <div class="ic">🎙️</div>
+      <div>No recordings yet. Start recording calls using the Record button.</div>
+    </div>
+    <div id="recordingsList"></div>
+  </div></div>
 </main>
 
 <audio id="hiddenPlayer" class="hiddenplayer"></audio>
@@ -963,18 +971,15 @@ const queueCount = document.getElementById('queueCount');
 const pendingMessageCountEl = document.getElementById('pendingMessageCount');
 const missedCallCountEl = document.getElementById('missedCallCount');
 const pendingSongCountEl = document.getElementById('pendingSongCount');
-const totalPendingCountEl = document.getElementById('totalPendingCount');
-const activitySummaryEl = document.getElementById('activitySummary');
 let pendingMessageCount = 0, missedCallCount = 0, pendingSongCount = 0;
-let allSongRequests = [];
+let allSongRequests = [], allCallHistory = [];
 function updateActivityCounters(){
   pendingMessageCountEl.textContent = String(pendingMessageCount);
   missedCallCountEl.textContent = String(missedCallCount);
   pendingSongCountEl.textContent = String(pendingSongCount);
-  totalPendingCountEl.textContent = String(pendingMessageCount + pendingSongCount + Number(callCountNum.textContent || 0));
-  activitySummaryEl.textContent = (callCountNum.textContent || '0') + ' incoming calls · ' + pendingMessageCount + ' messages awaiting approval · ' + missedCallCount + ' missed calls to review · ' + pendingSongCount + ' song requests awaiting approval';
+  document.getElementById('recordingCount').textContent = String(allCallHistory.filter(c=>c.recordingUrl).length);
 }
-document.getElementById('openPhoneStudio').addEventListener('click',()=>{ const b=document.querySelector('.tab-btn[data-tab="calls"]'); if(b)b.click(); document.getElementById('tab-calls').scrollIntoView({behavior:'smooth',block:'start'}); });
+
 const alertBanner = document.getElementById('alertBanner');
 const searchInput = document.getElementById('searchInput');
 const filterSelect = document.getElementById('filterSelect');
@@ -1030,6 +1035,7 @@ function stopPhoneRing(){
 function timeAgo(ts){
   if(!ts) return '';
   const d = ts.toDate ? ts.toDate() : new Date(ts);
+  if(!d || Number.isNaN(d.getTime())) return '';
   const diff = Math.floor((Date.now() - d.getTime())/1000);
   if(diff < 60) return 'just now';
   if(diff < 3600) return Math.floor(diff/60) + 'm ago';
@@ -1271,6 +1277,7 @@ tabBtns.forEach(btn =>{
     });
     if(target === 'analytics') renderAnalytics();
     if(target === 'songs') renderSongRequests();
+    if(target === 'recordings') startCallHistoryListener();
   });
 });
 
@@ -1279,6 +1286,8 @@ function renderAnalytics(){
   const msgs = allMessages;
   const today = new Date(); today.setHours(0,0,0,0);
 
+  document.getElementById('statSongs').textContent = allSongRequests.length;
+  document.getElementById('statCalls').textContent = allCallHistory.length;
   document.getElementById('statTotal').textContent = msgs.length;
   document.getElementById('statApproved').textContent = msgs.filter(m=>m.status==='approved').length;
   document.getElementById('statFavorited').textContent = msgs.filter(m=>m.favorited).length;
@@ -1996,8 +2005,13 @@ function startCallHistoryListener(){
   onSnapshot(
     query(collection(db, 'callHistory'), orderBy('createdAt', 'desc')),
     (snap)=>{
-      const calls = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      const calls = snap.docs.map(d=>({ id:d.id, ...d.data() })).sort((a,b)=>{
+        const stamp = c => c.createdAt?.toMillis ? c.createdAt.toMillis() : (c.createdAt?.toDate ? c.createdAt.toDate().getTime() : 0);
+        return stamp(b)-stamp(a);
+      });
+      allCallHistory = calls;
       const today = new Date(); today.setHours(0,0,0,0);
+      updateActivityCounters();
 
       histTotal.textContent = calls.length;
       histToday.textContent = calls.filter(c=>{
@@ -2026,7 +2040,7 @@ function startCallHistoryListener(){
           </div>
           <div class="hist-right">
             <div class="hist-dur">${formatDur(c.duration || 0)}</div>
-            <div class="hist-time" title="${timeAgo(c.createdAt)}">${formatStamp(c.createdAt)}</div>
+            ${formatStamp(c.createdAt) ? `<div class="hist-time">${escapeHtml(formatStamp(c.createdAt))}</div>` : ''}
             <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
               ${c.recordingUrl ? `<a class="hist-play" href="${safeUrl(c.recordingUrl)}" target="_blank" rel="noopener">▶ Play</a>` : ''}
               ${c.recordingUrl ? `<a class="hist-play" href="${safeUrl(c.recordingUrl)}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}
@@ -2035,8 +2049,8 @@ function startCallHistoryListener(){
           </div>
         </div>`).join('');
 
-      // ── Recordings section ──
-      const recorded = calls.filter(c => c.recordingUrl).slice(0, 20);
+      // ── Dedicated Recordings tab: show all recordings, newest first ──
+      const recorded = calls.filter(c => c.recordingUrl);
       const recSection = document.getElementById('recordingsSection');
       const recList    = document.getElementById('recordingsList');
       const recEmpty   = document.getElementById('recordingsEmpty');
@@ -2065,6 +2079,7 @@ function startCallHistoryListener(){
         }
       }
       applyGlobalSearchToCards();
+      if(document.getElementById('tab-analytics').style.display !== 'none') renderAnalytics();
     }
   );
 }
@@ -2073,7 +2088,7 @@ function startCallHistoryListener(){
 const DISPLAY_TZ = 'America/Chicago';
 function formatStamp(ts){
   const d = ts && ts.toDate ? ts.toDate() : (ts ? new Date(ts) : null);
-  if(!d || isNaN(d.getTime())) return 'Date unavailable';
+  if(!d || isNaN(d.getTime())) return '';
   return new Intl.DateTimeFormat('en-US', { timeZone: DISPLAY_TZ, month:'short', day:'numeric', year:'numeric',
     hour:'numeric', minute:'2-digit', timeZoneName:'short' }).format(d);
 }
@@ -2090,6 +2105,7 @@ function startSongRequestsListener(){
     pendingSongCount = allSongRequests.filter(r=>r.status === 'pending').length;
     updateActivityCounters();
     renderSongRequests();
+    if(document.getElementById('tab-analytics').style.display !== 'none') renderAnalytics();
   }, (err)=>{ pendingSongCountEl.textContent = 'Unavailable'; document.getElementById('songQueue').innerHTML = '<div class="empty">Song requests are unavailable. Check Firestore permissions.</div>'; console.warn('Song request listener failed:', err && err.code); });
 }
 function renderSongRequests(){
@@ -2097,34 +2113,52 @@ function renderSongRequests(){
   const emptyEl = document.getElementById('songEmpty');
   const term = searchInput.value.trim().toLowerCase();
   const state = document.getElementById('songStatusFilter').value;
-  const list = allSongRequests.filter(r=>{
-    if(state !== 'all' && (r.status || 'pending') !== state) return false;
-    return !term || [r.artist,r.songTitle,r.name,r.city,r.status].some(v=>String(v||'').toLowerCase().includes(term));
+  let list = allSongRequests.filter(r=>{
+    const status = r.status || 'pending';
+    if(state === 'incoming' && status !== 'pending') return false;
+    if(state === 'approved' && status !== 'approved') return false;
+    if(state === 'rejected' && status !== 'rejected') return false;
+    return !term || [r.artist,r.songTitle,r.name,r.city,status].some(v=>String(v||'').toLowerCase().includes(term));
   });
+  const stamp = r => r.createdAt?.toMillis ? r.createdAt.toMillis() : (r.createdAt?.toDate ? r.createdAt.toDate().getTime() : 0);
+  list = list.slice().sort((a,b)=> state === 'incoming' ? stamp(a)-stamp(b) : stamp(b)-stamp(a));
+  const nextIncomingId = allSongRequests.filter(r=>(r.status||'pending')==='pending').slice().sort((a,b)=>stamp(a)-stamp(b))[0]?.id;
   document.getElementById('songPendingStat').textContent = pendingSongCount;
   document.getElementById('songTotalStat').textContent = allSongRequests.length;
   emptyEl.style.display = list.length ? 'none' : 'block';
-  listEl.innerHTML = list.map(r=>`
-    <article class="card" style="align-items:flex-start" data-song-id="${escapeHtml(r.id)}">
-      <div style="font-size:28px;min-width:36px">🎵</div>
+  listEl.innerHTML = list.map(r=>{
+    const status = r.status || 'pending', incoming = status === 'pending', played = status === 'approved';
+    const isNext = r.id === nextIncomingId, stampText = formatStamp(r.createdAt);
+    return `
+    <article class="card song-queue-item" style="align-items:flex-start" data-song-id="${escapeHtml(r.id)}">
+      <div style="font-size:28px;min-width:36px">${played?'✅':'🎵'}</div>
       <div class="card-body">
-        <div class="card-top"><span class="card-name">${escapeHtml(r.songTitle || 'Untitled request')}</span><span class="badge ${r.status==='approved'?'approved':''}">${escapeHtml(r.status || 'pending')}</span></div>
+        <div class="card-top"><span class="card-name">${escapeHtml(r.songTitle || 'Untitled request')}</span><span class="badge ${played?'approved':''}">${played?'Played':incoming?'Incoming':escapeHtml(status)}</span>${incoming && isNext ? '<span class="badge" style="background:rgba(83,252,24,.12);color:var(--green)">NEXT IN QUEUE</span>' : ''}</div>
         <div class="card-song">${escapeHtml(r.artist || 'Artist not supplied')}</div>
-        <div class="hist-meta">${escapeHtml(r.name || 'Listener')}${r.city ? ' · '+escapeHtml(r.city) : ''} · ${formatStamp(r.createdAt)}</div>
+        <div class="hist-meta">${escapeHtml(r.name || 'Listener')}${r.city ? ' · '+escapeHtml(r.city) : ''}${stampText ? ' · '+escapeHtml(stampText) : ''}</div>
+        ${incoming && !isNext ? '<div class="hist-meta" style="margin-top:6px">Waiting for the earlier requests to be marked played.</div>' : ''}
       </div>
       <div class="card-actions">
-        <button class="ibtn" data-song-action="approve" data-id="${escapeHtml(r.id)}">✓ Approve</button>
-        <button class="ibtn delete" data-song-action="reject" data-id="${escapeHtml(r.id)}">✕ Reject</button>
+        ${incoming ? `<button class="ibtn approve" data-song-action="played" data-id="${escapeHtml(r.id)}" ${isNext?'':'disabled title="Play requests in queue order"'}>✓ Played</button>` : ''}
+        <button class="ibtn delete" data-song-action="delete" data-id="${escapeHtml(r.id)}">🗑 Delete</button>
       </div>
-    </article>`).join('');
+    </article>`;
+  }).join('');
 }
 document.getElementById('songQueue').addEventListener('click',async e=>{
   const btn=e.target.closest('[data-song-action]'); if(!btn)return;
   const r=allSongRequests.find(x=>x.id===btn.dataset.id); if(!r)return;
   btn.disabled=true;
   try{
-    if(btn.dataset.songAction==='approve') await updateDoc(doc(db,'songRequests',r.id),{status:'approved',reviewedAt:serverTimestamp()});
-    else if(btn.dataset.songAction==='reject') await updateDoc(doc(db,'songRequests',r.id),{status:'rejected',reviewedAt:serverTimestamp()});
+    if(btn.dataset.songAction==='played'){
+      const stamp = x => x.createdAt?.toMillis ? x.createdAt.toMillis() : (x.createdAt?.toDate ? x.createdAt.toDate().getTime() : 0);
+      const firstPending = allSongRequests.filter(x=>(x.status||'pending')==='pending').slice().sort((a,b)=>stamp(a)-stamp(b))[0];
+      if(!firstPending || firstPending.id !== r.id){alert('Please mark the earlier incoming song as played first.');return;}
+      await updateDoc(doc(db,'songRequests',r.id),{status:'approved',playedAt:serverTimestamp(),reviewedAt:serverTimestamp()});
+    } else if(btn.dataset.songAction==='delete'){
+      if(!confirm('Permanently delete this song request?')) return;
+      await deleteDoc(doc(db,'songRequests',r.id));
+    }
   }catch(err){console.error('Song request action failed:',err);alert('Could not update this song request. Check Firestore permissions and try again.');}
   finally{btn.disabled=false;}
 });
@@ -2151,6 +2185,7 @@ function startQueueListener(){
     firstLoad = false;
 
     render();
+    if(document.getElementById('tab-analytics').style.display !== 'none') renderAnalytics();
   }, (err)=>{
     queueEl.innerHTML = `<div class="empty">Couldn't connect to Firebase: ${err.message}<br><br>Check your firebaseConfig and Firestore security rules.</div>`;
   });
