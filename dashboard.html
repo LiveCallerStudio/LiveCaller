@@ -1470,6 +1470,29 @@ const callCounter      = document.getElementById('callCounter');
 const callCountNum     = document.getElementById('callCountNum');
 const incomingCallsTitle = document.getElementById('incomingCallsTitle');
 const callerAudio      = document.getElementById('callerAudio');
+let callerPlaybackContext = null;
+const callerPlaybackTrackIds = new Set();
+const callerPlaybackSources = new Set();
+function unlockCallerPlayback(){
+  try{
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if(!AudioContextClass) return;
+    if(!callerPlaybackContext) callerPlaybackContext = new AudioContextClass();
+    callerPlaybackContext.resume().catch(err=>console.warn('Caller audio context resume:',err.message||err));
+  }catch(err){ console.warn('Caller audio output unavailable:',err.message||err); }
+}
+function routeCallerTrackToDashboard(track){
+  if(!track || track.kind!=='audio' || callerPlaybackTrackIds.has(track.id)) return;
+  try{
+    unlockCallerPlayback();
+    if(!callerPlaybackContext) return;
+    const source = callerPlaybackContext.createMediaStreamSource(new MediaStream([track]));
+    source.connect(callerPlaybackContext.destination);
+    callerPlaybackSources.add(source);
+    callerPlaybackTrackIds.add(track.id);
+  }catch(err){ console.warn('Could not play caller microphone in dashboard:',err.message||err); }
+}
+
 const callerVideo      = document.getElementById('callerVideo');
 const producerVideo    = document.getElementById('producerVideo');
 const producerVideoStage = document.getElementById('producerVideoStage');
@@ -1545,6 +1568,9 @@ function cleanupActiveCall(){
   if(producerStream){ producerStream.getTracks().forEach(t=>t.stop()); producerStream = null; }
   if(callerRemoteStream){ callerRemoteStream.getTracks().forEach(t=>{try{callerRemoteStream.removeTrack(t)}catch(e){}}); callerRemoteStream=null; }
   callerAudio.srcObject = null;
+  callerPlaybackSources.forEach(source=>{try{source.disconnect()}catch(e){}});
+  callerPlaybackSources.clear();
+  callerPlaybackTrackIds.clear();
   callerVideo.srcObject = null; producerVideo.srcObject = null; producerVideoStage.style.display='none';
   activePc = null; activeCallId = null; activeCallRef = null;
   callIsOnAir = false; callIsOnHold = false;
@@ -1637,6 +1663,8 @@ async function requestAudioBitrate(peer, bitrate = 128000){
 
 async function answerCall(callId, callerName, callerCity){
   if(activePc){ alert('End the current call before answering a new one.'); return; }
+  // Unlock dashboard audio synchronously from the producer's click gesture.
+  unlockCallerPlayback();
 
   stopPhoneRing();
 
@@ -1681,9 +1709,12 @@ async function answerCall(callId, callerName, callerCity){
   callerRemoteStream = new MediaStream();
   activePc.ontrack = async (event)=>{
     if(!callerRemoteStream.getTracks().some(t=>t.id===event.track.id)) callerRemoteStream.addTrack(event.track);
+    if(event.track.kind==='audio') routeCallerTrackToDashboard(event.track);
     overlayRelayPeers.forEach(record=>syncOverlayRelayTracks(record));
     callerAudio.srcObject = callerRemoteStream;
-    callerAudio.play().catch(e => console.warn('callerAudio play blocked:', e));
+    // Audio is routed through the user-gesture-unlocked AudioContext above to
+    // avoid browser autoplay blocking the producer's caller-monitor audio.
+    callerAudio.muted = true;
     if(callData && callData.mediaType==='video'){
       callerVideo.srcObject = callerRemoteStream;
       producerVideoStage.style.display='block';
