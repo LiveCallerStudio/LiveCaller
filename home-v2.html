@@ -553,6 +553,7 @@
 <script>
   // This watchdog runs independently of Firebase/module imports, so a blocked CDN or
   // syntax/import error cannot leave the page showing "Checking" forever.
+  document.documentElement.dataset.lineStatus = 'loading';
   window.__lineStatusWatchdogTimer = window.setTimeout(() => {
     if (document.documentElement.dataset.lineStatus !== 'loading') return;
     const statusCopy = {
