@@ -550,6 +550,28 @@
 <script>
   if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
+<script>
+  // This watchdog runs independently of Firebase/module imports, so a blocked CDN or
+  // syntax/import error cannot leave the page showing "Checking" forever.
+  window.__lineStatusWatchdogTimer = window.setTimeout(() => {
+    if (document.documentElement.dataset.lineStatus !== 'loading') return;
+    const statusCopy = {
+      phone: ['Phone status not connected', 'Phone status script did not connect to the live status service.', 'Unavailable'],
+      video: ['Video status not connected', 'Video status script did not connect to the live status service.', 'Unavailable']
+    };
+    for (const kind of ['phone', 'video']) {
+      const label = document.getElementById(kind + 'ChipLabel');
+      const title = document.getElementById(kind + 'ClosedTitle');
+      const copy = document.getElementById(kind + 'ClosedCopy');
+      const badge = document.getElementById(kind + 'ClosedBadge');
+      if (label) label.textContent = statusCopy[kind][0];
+      if (title) title.textContent = statusCopy[kind][0];
+      if (copy) copy.textContent = statusCopy[kind][1];
+      if (badge) badge.textContent = statusCopy[kind][2];
+    }
+    document.documentElement.dataset.lineStatus = 'startup-timeout';
+  }, 10000);
+</script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
   import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
@@ -619,12 +641,7 @@
   document.documentElement.dataset.lineStatus = 'loading';
 
   let lineStatusReceived = false;
-  const lineStatusTimeout = setTimeout(() => {
-    if (lineStatusReceived) return;
-    phoneLabel.textContent = 'Phone status not connected';
-    videoLabel.textContent = 'Video status not connected';
-    document.documentElement.dataset.lineStatus = 'timeout';
-  }, 10000);
+  const lineStatusTimeout = window.__lineStatusWatchdogTimer;
 
   onSnapshot(doc(db, 'hotlineSettings', 'callLines'), { includeMetadataChanges: true },
     (snap) => {
