@@ -228,7 +228,13 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
   }
 }
 function showError(message){
-  fallback.textContent = 'OVERLAY ERROR • ' + message;
+  const raw = String(message || 'unknown error');
+  const permissionDenied = /permission-denied|missing or insufficient permissions/i.test(raw);
+  const displayMessage = permissionDenied
+    ? 'FIRESTORE PERMISSION DENIED • rules must allow overlay session signaling and ICE under liveCalls/{callId}/overlaySessions/{sessionId}'
+    : raw;
+  console.error('OBS overlay error:', raw);
+  fallback.textContent = 'OVERLAY ERROR • ' + displayMessage;
   fallback.classList.add('error');
   // Keep transparent output clean; the status chip is only a debugging hint.
 }
