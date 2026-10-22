@@ -310,7 +310,7 @@ try {
     fallback.classList.remove('error');
     const data = snap.exists() ? snap.data() : null;
     render(data);
-    if(data && data.active === true && ['livecall','livevideo'].includes(String(data.messageType||'').toLowerCase()) && data.callId){
+    if(data && data.active === true && data.mediaProvider !== 'livekit' && ['livecall','livevideo'].includes(String(data.messageType||'').toLowerCase()) && data.callId){
       const isVideo=String(data.messageType).toLowerCase()==='livevideo';
       connectOverlayCallAudio(data.callId, isVideo?'videoCalls':'liveCalls', isVideo).catch(err=>showError('Call audio/video: '+(err.code||err.message||'connection failed')));
     } else if(activeCallId){ stopOverlayCallAudio(); }
