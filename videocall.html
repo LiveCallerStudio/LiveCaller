@@ -337,6 +337,7 @@
 <audio id="remoteAudio" autoplay playsinline style="display:none;"></audio>
 
 <script type="module">
+import { LINE, resolveLineStates } from "./lib/line-state.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
   getFirestore, collection, doc, addDoc, updateDoc,
@@ -473,9 +474,10 @@ let callMode = 'video';
 const errorBanner      = document.getElementById('errorBanner');
 const linesClosedBanner= document.getElementById('linesClosedBanner');
 
-let linesOpen = true; // defaults open until the settings doc says otherwise
+let phoneLineState = LINE.UNKNOWN;
+let videoLineState = LINE.UNKNOWN;
 
-document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{callMode=btn.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>{b.classList.toggle('active',b===btn);b.setAttribute('aria-pressed',String(b===btn));});callBtn.innerHTML=callMode==='video'?'🎥 Start FaceTime Video Call':'📞 Start FaceTime Audio Call';}));
+document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{callMode=btn.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>{b.classList.toggle('active',b===btn);b.setAttribute('aria-pressed',String(b===btn));});updateLineUi();}));
 function showError(msg){ errorBanner.textContent = msg; errorBanner.classList.add('show'); }
 function clearError(){ errorBanner.classList.remove('show'); }
 
@@ -500,7 +502,14 @@ function stopTimer(){ clearInterval(timerInterval); }
 
 async function startCall(){
   clearError();
-  if(!linesOpen){
+  // Never create a live call unless the matching producer line is confirmed open.
+  // Unknown/offline/error states route safely to voicemail rather than failing open.
+  if(callMode==='video' && videoLineState!==LINE.OPEN){
+    const params = new URLSearchParams({source:'voicemail', name:callerNameInput.value.trim(), city:callerCityInput.value.trim(), callType:callMode});
+    window.location.href = 'voicemessage.html?' + params.toString();
+    return;
+  }
+  if(callMode==='audio' && phoneLineState!==LINE.OPEN){
     const params = new URLSearchParams({source:'voicemail', name:callerNameInput.value.trim(), city:callerCityInput.value.trim(), callType:callMode});
     window.location.href = 'voicemessage.html?' + params.toString();
     return;
@@ -694,22 +703,35 @@ callerNameInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') startCall
 
 window.addEventListener('beforeunload', ()=>{ stopOutgoingRing(); stopHoldMusicCaller(); cleanup(true); });
 
-// ── Phone lines open/closed ── set by the producer in the dashboard.
-// Missing doc / missing field defaults to OPEN so this never blocks calls
-// before a producer has ever touched the toggle.
-onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
-  const d = snap.data();
-  linesOpen = d ? d.open !== false : true;
-  linesClosedBanner.classList.toggle('show', !linesOpen);
-  callBtn.disabled = false;
+// Producer-controlled line states. A cached snapshot or read error is UNKNOWN,
+// and UNKNOWN must never be treated as permission to start a live call.
+function updateLineUi(){
+  const state = callMode==='video' ? videoLineState : phoneLineState;
+  const open = state === LINE.OPEN;
+  linesClosedBanner.classList.toggle('show', !open);
+  callBtn.disabled = false; // closed/unknown lines can still route to voicemail
   callBtn.style.opacity = '';
-  if(!linesOpen){
-    callBtn.innerHTML = '📮 Leave Voicemail';
-    linesClosedBanner.innerHTML = '<strong>📞 Phone Lines Are Closed</strong><br>Tap “Leave Voicemail” to record a message for the producer’s Messages queue.';
-  }else{
+  if(open){
     callBtn.innerHTML = callMode==='video' ? '🎥 Start FaceTime Video Call' : '📞 Start FaceTime Audio Call';
+  }else{
+    callBtn.innerHTML = '📮 Leave Voicemail';
+    linesClosedBanner.innerHTML = state === LINE.UNKNOWN
+      ? '<strong>📡 Line Status Unavailable</strong><br>Live calls are paused until the producer line status can be verified. You can leave a voicemail instead.'
+      : `<strong>${callMode==='video' ? '🎥 Video' : '📞 Phone'} Line Is Closed</strong><br>Tap “Leave Voicemail” to send a message to the producer.`;
   }
-}, ()=>{ /* if this ever errors, leave calls enabled rather than block listeners */ });
+}
+
+onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
+  const states = resolveLineStates(snap);
+  phoneLineState = states.phone;
+  videoLineState = states.video;
+  updateLineUi();
+}, (error)=>{
+  console.error('Unable to verify producer call-line state:', error);
+  phoneLineState = LINE.UNKNOWN;
+  videoLineState = LINE.UNKNOWN;
+  updateLineUi();
+});
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
