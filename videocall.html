@@ -129,12 +129,18 @@
   /* Caller-first full-screen video while ringing, screening, and connected. */
   .video-stage{display:none;position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;max-height:none;aspect-ratio:auto;margin:0;border:0;border-radius:0;overflow:hidden;background:#000;z-index:20;}
   .video-stage.show{display:block;}
-  /* Keep the caller's own camera full-screen; producer video stays in a small PiP window. */
+  /* Caller camera fills the screen. The unused producer-video PiP is hidden. */
   .local-video{position:absolute;inset:0;width:100%;height:100%;max-height:none;aspect-ratio:auto;object-fit:cover;border:0;border-radius:0;background:#050505;transform:scaleX(-1);}
-  .remote-video{position:absolute;right:max(14px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));width:27vw;height:36vw;max-width:150px;max-height:200px;object-fit:cover;background:#111;border:2px solid var(--green);border-radius:14px;z-index:2;box-shadow:0 5px 24px #000a;}
-  /* Controls and call status remain reachable above the full-screen camera. */
-  #callScreen{position:relative;z-index:21;}
-  #callScreen .status-badge,#callScreen .call-status,#callScreen .call-timer,#callScreen .call-sub,#callScreen .call-controls{position:relative;z-index:22;background:rgba(0,0,0,.72);border-radius:10px;padding:8px 12px;}
+  .remote-video{display:none!important;}
+  /* Keep call UI in safe-area docks at the top/bottom, not over the caller's face. */
+  #callScreen{position:fixed;inset:0;width:100%;height:100%;height:100dvh;max-width:none;z-index:21;display:none;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 18px);pointer-events:none;}
+  #callScreen .status-badge,#callScreen .call-status,#callScreen .call-timer,#callScreen .call-sub,#callScreen .call-controls{position:relative;z-index:22;background:rgba(0,0,0,.72);border-radius:10px;padding:8px 12px;pointer-events:auto;}
+  #callScreen .status-badge{align-self:center;margin:0;}
+  #callScreen .call-status{align-self:center;margin:0;max-width:90%;}
+  #callScreen .call-timer{align-self:center;margin:0;}
+  #callScreen .call-sub{align-self:center;margin:0;max-width:90%;}
+  #callScreen .call-controls{position:relative;align-self:center;width:min(100%,420px);gap:10px;margin-top:auto;padding:12px;background:rgba(0,0,0,.78);backdrop-filter:blur(12px);border:1px solid #ffffff20;border-radius:18px;}
+  #callScreen .ctrl-btn{min-height:50px;}
   .disclaimer{
     font-family:Arial,sans-serif;font-size:12.5px;color:#666;
     text-align:center;line-height:1.5;margin:4px 0 18px;
@@ -307,7 +313,7 @@
         </svg>
       </div>
 
-      <div class="video-stage" id="videoStage"><video class="remote-video" id="remoteVideo" autoplay playsinline></video><video class="local-video" id="localVideo" autoplay playsinline muted></video></div>
+      <div class="video-stage" id="videoStage"><video class="local-video" id="localVideo" autoplay playsinline muted></video></div>
       <div class="status-badge waiting" id="statusBadge"><span class="status-dot"></span><span id="statusText">Waiting</span></div>
       <div class="call-status" id="callerNameDisplay">—</div>
       <div class="call-timer" id="callTimer"></div>
@@ -461,7 +467,6 @@ const callSub          = document.getElementById('callSub');
 const muteBtn          = document.getElementById('muteBtn');
 const endBtn           = document.getElementById('endBtn');
 const remoteAudio      = document.getElementById('remoteAudio');
-const remoteVideo      = document.getElementById('remoteVideo');
 const localVideo       = document.getElementById('localVideo');
 const videoStage       = document.getElementById('videoStage');
 let callMode = 'video';
@@ -527,7 +532,7 @@ async function startCall(){
     if(event.streams && event.streams[0]){
       remoteAudio.srcObject = event.streams[0];
       remoteAudio.play().catch(()=>{});
-      if(callMode==='video'){remoteVideo.srcObject=event.streams[0];remoteVideo.play().catch(()=>{});}
+      
     }
   };
 
@@ -647,7 +652,7 @@ async function startCall(){
 
 function cleanup(updateFirestore = true){
   if(localStream) localStream.getTracks().forEach(t => t.stop());
-  localVideo.srcObject = null; remoteVideo.srcObject = null; videoStage.classList.remove('show');
+  localVideo.srcObject = null; videoStage.classList.remove('show');
   if(pc){ pc.close(); pc = null; }
   if(updateFirestore && callDocRef){
     updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
