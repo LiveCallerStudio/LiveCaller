@@ -342,7 +342,8 @@
       <div class="call-sub" id="callSub">Waiting for producer to answer…</div>
 
       <div class="call-controls">
-        <button class="ctrl-btn mute" id="muteBtn" aria-pressed="false">🎤 Mute</button>\n        <button class="ctrl-btn camera-control" id="cameraBtn" aria-pressed="true" hidden>📷 Camera On</button>
+        <button class="ctrl-btn mute" id="muteBtn" aria-pressed="false">🎤 Mute</button>
+        <button class="ctrl-btn camera-control" id="cameraBtn" aria-pressed="true" hidden>📷 Camera On</button>
         <button class="ctrl-btn endcall" id="endBtn">End Call</button>
       </div>
     </div>
@@ -486,7 +487,8 @@ const statusText       = document.getElementById('statusText');
 const callerNameDisplay= document.getElementById('callerNameDisplay');
 const callTimer        = document.getElementById('callTimer');
 const callSub          = document.getElementById('callSub');
-const muteBtn          = document.getElementById('muteBtn');\nconst cameraBtn        = document.getElementById('cameraBtn');
+const muteBtn          = document.getElementById('muteBtn');
+const cameraBtn        = document.getElementById('cameraBtn');
 const endBtn           = document.getElementById('endBtn');
 const remoteAudio      = document.getElementById('remoteAudio');
 const remoteVideo      = document.getElementById('remoteVideo');
@@ -585,7 +587,8 @@ async function requestAudioBitrate(peer, bitrate = 128000){
   }
 
   pc = new RTCPeerConnection(STUN);
-  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));\n  requestAudioBitrate(pc).catch(()=>{});
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+  requestAudioBitrate(pc).catch(()=>{});
 
   // Play remote audio (producer's voice)
   pc.ontrack = (event) => {
@@ -601,7 +604,8 @@ async function requestAudioBitrate(peer, bitrate = 128000){
   let remoteDescSet = false;
 
   // Create offer BEFORE setting up onicecandidate so we have the callDocRef first
-  const rawOffer = await pc.createOffer();\n  const offer = { type: rawOffer.type, sdp: tuneOpusSdp(rawOffer.sdp) };
+  const rawOffer = await pc.createOffer();
+  const offer = { type: rawOffer.type, sdp: tuneOpusSdp(rawOffer.sdp) };
 
   // Save call to Firestore FIRST so we have the ID for ICE candidate collection path
   callDocRef = await addDoc(collection(db, 'liveCalls'), {
@@ -735,7 +739,8 @@ muteBtn.addEventListener('click', ()=>{
   micMuted = !micMuted;
   localStream.getAudioTracks().forEach(t => t.enabled = !micMuted);
   muteBtn.textContent = micMuted ? '🔇 Unmute' : '🎤 Mute';
-  muteBtn.classList.toggle('active', micMuted);\n  muteBtn.setAttribute('aria-pressed',String(micMuted));
+  muteBtn.classList.toggle('active', micMuted);
+  muteBtn.setAttribute('aria-pressed',String(micMuted));
 });
 
 endBtn.addEventListener('click', async ()=>{
