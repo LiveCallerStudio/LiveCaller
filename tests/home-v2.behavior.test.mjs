@@ -13,7 +13,7 @@ function makeEl(id) { const cls = new Set(); return { id, style: {}, textContent
 function run(deliver) {                       // deliver(onNext, onError) simulates Firestore
   const els = {}; const get = id => (els[id] ??= makeEl(id));
   let next, error;
-  const ctx = { console: { warn() {} }, document: { getElementById: get },
+  const ctx = { console: { warn() {} }, document: { getElementById: get, documentElement: { dataset: {} } },
     initializeApp: () => ({}), getFirestore: () => ({}), doc: () => ({}),
     onSnapshot: (_ref, n, e) => { next = n; error = e; }, firebaseConfig: undefined,
     LINE, UNKNOWN_LINES, resolveLineStates };
