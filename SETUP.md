@@ -84,37 +84,19 @@ Cloudinary upload settings belong only on the page that actually uploads the aud
 
 ---
 
-## PART 3 — Lock down security rules (critical — don't skip)
+## PART 3 — Secure Firebase access before going live (critical)
 
-By default, "production mode" blocks everyone, including your own app. We need rules that let:
-- Anyone submit a new message (so fans can record).
-- Anyone read messages (so your dashboard and overlay work without you having to log in).
-- Nobody edit/delete except your dashboard (we'll keep this simple for now — see note below on tightening later).
+**Do not use the old example of open Firestore rules.** Rules such as `allow read, write: if true` or `allow read, update, delete: if true` let strangers read, alter, or delete records. They are not safe for a personal production project.
 
-### 3a. Firestore rules
-1. Firebase Console → **Firestore Database → Rules** tab.
-2. Replace the contents with:
+1. Open Firebase Console → **Firestore Database → Rules**.
+2. Review every collection used by the current pages, including call signaling, caller/message queues, line settings, overlays, and song requests. Do not publish generic rules copied from an old setup guide.
+3. Require Firebase Authentication for producer-only reads and all producer actions (approval, deletion, line settings, analytics, and private call/session data).
+4. Allow unauthenticated visitors only the minimum operations the public caller flow needs. Validate document fields and types, limit permitted fields, and prevent clients from changing producer-controlled status or settings.
+5. Keep each call's signaling/candidate data scoped to that call and its authorized participants. Do not make every call/session readable by every visitor.
+6. Test the rules in Firebase's Rules Playground or Emulator before publishing. Then test guest submission, producer sign-in, incoming queue, answering/ending calls, and OBS overlays.
+7. Apply corresponding access controls to Cloudinary uploads: use a tightly constrained unsigned preset only for the intended upload flow, with size/format/folder limits. Never put Cloudinary API secrets in browser code.
 
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /hotlineMessages/{messageId} {
-      allow create: if true;
-      allow read, update, delete: if true;
-    }
-    match /hotlineLive/{docId} {
-      allow read, write: if true;
-    }
-  }
-}
-```
-
-3. Click **Publish**.
-
-> **Security note:** these rules are wide open by design so the dashboard works with zero login, matching "no app required" for listeners and zero-friction for you. The tradeoff is that anyone who finds your Firestore endpoint could theoretically delete messages or spam the queue. For a hobby/small-stream setup this is the standard free-tier approach. If you want it locked down later, the upgrade path is adding Firebase Authentication to `dashboard.html` and changing `update, delete` rules to `if request.auth != null` — ask me when you're ready and I'll wire it in.
-
-Cloudinary's unsigned upload preset is the equivalent safeguard on the audio-upload side — it accepts uploads without a secret key but only from requests that include the correct preset name, and you can tighten it further in Cloudinary's preset settings (e.g. cap file size, restrict formats) if you ever see abuse.
+**Important:** the exact secure rules depend on the collections and data model in the deployed app. This guide intentionally does not provide a broad copy/paste ruleset that could expose caller data. If you are unsure whether existing rules are safe, treat them as unsafe until reviewed. Restricting the Google API key is separate from protecting Firestore data.
 
 ---
 
