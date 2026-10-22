@@ -1277,6 +1277,11 @@ let callSeconds = 0;
 let callIsOnAir = false;
 let callIsOnHold = false;
 let callCandidateUnsub = null;
+let activeCallStatusUnsub = null;
+let overlaySessionsUnsub = null;
+let callerRemoteStream = null;
+let overlayRelayPeers = new Map();
+let localEndInProgress = false;
 
 // DOM refs for call UI
 const activeCallPanel  = document.getElementById('activeCallPanel');
@@ -1326,17 +1331,71 @@ function setCallStatus(text, cls=''){
   activeCallStatus.className = 'active-call-status' + (cls ? ' '+cls : '');
 }
 
+function stopOverlayRelayPeers(){
+  if(overlaySessionsUnsub){ overlaySessionsUnsub(); overlaySessionsUnsub=null; }
+  overlayRelayPeers.forEach(({pc,unsub})=>{ try{if(unsub)unsub();}catch(e){} try{pc.close();}catch(e){} });
+  overlayRelayPeers.clear();
+}
 function cleanupActiveCall(){
   clearInterval(callTimerInterval);
   if(callCandidateUnsub){ callCandidateUnsub(); callCandidateUnsub = null; }
+  if(activeCallStatusUnsub){ activeCallStatusUnsub(); activeCallStatusUnsub = null; }
+  stopOverlayRelayPeers();
   if(activePc){ activePc.close(); activePc = null; }
   if(producerStream){ producerStream.getTracks().forEach(t=>t.stop()); producerStream = null; }
+  if(callerRemoteStream){ callerRemoteStream.getTracks().forEach(t=>{try{callerRemoteStream.removeTrack(t)}catch(e){}}); callerRemoteStream=null; }
   callerAudio.srcObject = null;
   callerVideo.srcObject = null; producerVideo.srcObject = null; producerVideoStage.style.display='none';
   activePc = null; activeCallId = null; activeCallRef = null;
   callIsOnAir = false; callIsOnHold = false;
   activeCallPanel.style.display = 'none';
   onAirBadge.classList.remove('show');
+}
+
+
+// Answer each OBS overlay offer with the caller's remote tracks. This is a separate
+// WebRTC leg because OBS loads overlay.html in a different browser source.
+function watchOverlayRelaySessions(callId){
+  stopOverlayRelayPeers();
+  overlaySessionsUnsub = onSnapshot(collection(db,'liveCalls',callId,'overlaySessions'), snap=>{
+    snap.docChanges().forEach(change=>{
+      if(change.type==='removed') return;
+      const sessionId=change.doc.id;
+      const offer=change.doc.data()?.offer;
+      if(!offer || overlayRelayPeers.has(sessionId) || !activePc) return;
+      const sessionRef=doc(db,'liveCalls',callId,'overlaySessions',sessionId);
+      const pc=new RTCPeerConnection(iceConfig);
+      const record={pc,unsub:null};
+      overlayRelayPeers.set(sessionId,record);
+      const pending=[]; let remoteSet=false;
+      if(callerRemoteStream) callerRemoteStream.getTracks().forEach(track=>{ if(track.readyState==='live') pc.addTrack(track,callerRemoteStream); });
+      pc.onicecandidate=e=>{
+        if(e.candidate) addDoc(collection(sessionRef,'dashboardCandidates'),e.candidate.toJSON()).catch(err=>console.warn('Overlay ICE write:',err.code||err.message));
+      };
+      record.unsub=onSnapshot(collection(sessionRef,'overlayCandidates'),candidateSnap=>{
+        candidateSnap.docChanges().forEach(async c=>{
+          if(c.type!=='added') return;
+          const candidate=new RTCIceCandidate(c.doc.data());
+          if(remoteSet) await pc.addIceCandidate(candidate).catch(()=>{}); else pending.push(candidate);
+        });
+      },err=>console.warn('Overlay ICE listener:',err.code||err.message));
+      (async()=>{
+        try{
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
+          remoteSet=true;
+          for(const c of pending) await pc.addIceCandidate(c).catch(()=>{});
+          pending.length=0;
+          const answer=await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          await setDoc(sessionRef,{answer:{type:answer.type,sdp:answer.sdp},answeredAt:Date.now(),client:'dashboard-caller-relay'},{merge:true});
+        }catch(err){
+          console.error('Could not connect caller video/audio to OBS overlay:',err);
+          try{pc.close()}catch(e){}
+          if(overlayRelayPeers.get(sessionId)===record) overlayRelayPeers.delete(sessionId);
+        }
+      })();
+    });
+  },err=>console.warn('Overlay session listener:',err.code||err.message));
 }
 
 async function answerCall(callId, callerName, callerCity){
@@ -1369,12 +1428,16 @@ async function answerCall(callId, callerName, callerCity){
   activePc = new RTCPeerConnection(iceConfig);
   producerStream.getTracks().forEach(track => activePc.addTrack(track, producerStream));
 
-  // 3. Play caller audio when remote track arrives
-  activePc.ontrack = (event)=>{
-    if(event.streams && event.streams[0]){
-      callerAudio.srcObject = event.streams[0];
-      callerAudio.play().catch(e => console.warn('callerAudio play blocked:', e));
-      if(callData && callData.mediaType==='video'){callerVideo.srcObject=event.streams[0];callerVideo.play().catch(()=>{});}
+  // Keep one durable remote stream for the screening preview and the OBS overlay relay.
+  callerRemoteStream = new MediaStream();
+  activePc.ontrack = async (event)=>{
+    if(!callerRemoteStream.getTracks().some(t=>t.id===event.track.id)) callerRemoteStream.addTrack(event.track);
+    callerAudio.srcObject = callerRemoteStream;
+    callerAudio.play().catch(e => console.warn('callerAudio play blocked:', e));
+    if(callData && callData.mediaType==='video'){
+      callerVideo.srcObject = callerRemoteStream;
+      producerVideoStage.style.display='block';
+      callerVideo.play().catch(()=>{});
     }
   };
 
@@ -1415,6 +1478,18 @@ async function answerCall(callId, callerName, callerCity){
       });
     }
   );
+
+  // Watch the call's terminal state so a caller hang-up immediately ends the producer side.
+  activeCallStatusUnsub = onSnapshot(activeCallRef, snap=>{
+    const state = snap.data()?.status;
+    if(state === 'ended' && activePc && !localEndInProgress){
+      handleRemoteHangup();
+    }
+  }, err=>console.warn('Call status listener:', err.code || err.message));
+
+  // The OBS browser source is a separate peer connection. Answer its recv-only offer
+  // using the caller tracks received in this screening connection.
+  watchOverlayRelaySessions(callId);
 
   // 9. Show active call panel
   activeCallerName.textContent = (callerName || 'Anonymous Caller') + (callData && callData.mediaType==='video' ? ' · Video' : ' · Audio');
@@ -1598,12 +1673,15 @@ callOnAirBtn.addEventListener('click', async()=>{
     setCallStatus('ON AIR — Live Call Broadcasting', 'on-air');
     onAirBadge.classList.add('show');
     // Tell overlay to show live call lower-third (visual only — no audio URL)
+    const callSnap = await getDoc(activeCallRef);
+    const currentCall = callSnap.data() || {};
     await setDoc(liveStateRef, {
       active: true,
-      name: activeCallerName.textContent,
-      city: activeCallerCity.textContent,
-      messageType: 'livecall',
-      audioUrl: null, // no audio URL — OBS captures call audio from dashboard browser source
+      callId: activeCallId,
+      name: currentCall.callerName || activeCallerName.textContent,
+      city: currentCall.callerCity || activeCallerCity.textContent,
+      messageType: currentCall.mediaType === 'video' ? 'livevideo' : 'livecall',
+      audioUrl: null,
       updatedAt: Date.now()
     });
     await setDoc(activeCallRef, { status: 'live' }, { merge: true });
@@ -1618,28 +1696,33 @@ callOnAirBtn.addEventListener('click', async()=>{
 });
 
 // End call
+async function handleRemoteHangup(){
+  if(localEndInProgress || !activeCallRef) return;
+  localEndInProgress = true;
+  stopHoldMusic(); stopPhoneRing();
+  let recUrl = null;
+  if(isRecording) recUrl = await stopCallRecording().catch(()=>null);
+  if(callIsOnAir) await setDoc(liveStateRef, {active:false, callId:null, updatedAt:Date.now()},{merge:true}).catch(()=>{});
+  await saveCallHistory(recUrl);
+  cleanupActiveCall();
+  endBtn.disabled=false; endBtn.textContent='📵 End Call';
+  setCallStatus('Call ended by caller','');
+  localEndInProgress=false;
+}
 endBtn.addEventListener('click', async()=>{
   if(!activeCallRef) return;
+  localEndInProgress = true;
   endBtn.disabled = true;
   endBtn.textContent = 'Ending…';
-
-  // Stop recording if active and save URL
   let recUrl = null;
-  if(isRecording) recUrl = await stopCallRecording();
-
-  // Stop hold music if on hold
-  stopHoldMusic();
-  stopPhoneRing();
-
-  await setDoc(activeCallRef, { status: 'ended' }, { merge: true });
-  if(callIsOnAir){
-    await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
-  }
-
-  // Save to call history
+  if(isRecording) recUrl = await stopCallRecording().catch(()=>null);
+  stopHoldMusic(); stopPhoneRing();
+  const wasOnAir = callIsOnAir;
+  await setDoc(activeCallRef, { status: 'ended', endedAt: Date.now(), endedBy:'producer' }, { merge: true }).catch(()=>{});
+  if(wasOnAir) await setDoc(liveStateRef, { active:false, callId:null, updatedAt:Date.now() }, {merge:true}).catch(()=>{});
   await saveCallHistory(recUrl);
-
   cleanupActiveCall();
+  localEndInProgress = false;
   endBtn.disabled = false;
   endBtn.textContent = '📵 End Call';
 });
