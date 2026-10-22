@@ -131,11 +131,10 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
   // The dashboard relays caller audio/video first and producer audio/video second.
   // Reserve two audio m-lines so OBS receives both voices, plus both camera feeds.
   pc.addTransceiver('audio',{direction:'recvonly'});
-  if(isVideo){
-    pc.addTransceiver('video',{direction:'recvonly'});
-    pc.addTransceiver('audio',{direction:'recvonly'});
-    pc.addTransceiver('video',{direction:'recvonly'});
-  }
+  if(isVideo) pc.addTransceiver('video',{direction:'recvonly'});
+  // Always reserve a second audio m-line so the producer mic is relayed too.
+  pc.addTransceiver('audio',{direction:'recvonly'});
+  if(isVideo) pc.addTransceiver('video',{direction:'recvonly'});
   let remoteSet=false; const pending=[];
   // Keep OBS audio and video outputs separate. Only the caller/guest's remote
   // audio track reaches liveAudio; the video element is muted to prevent duplicate
