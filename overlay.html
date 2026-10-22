@@ -34,6 +34,9 @@
   audio#liveAudio{position:fixed;width:1px;height:1px;left:-10px;bottom:0;opacity:.01;pointer-events:none}
   #guestVideo{display:none;position:fixed;left:28px;bottom:160px;width:min(720px,72vw);max-height:58vh;object-fit:contain;object-position:left bottom;background:#050505;border:2px solid var(--green);border-radius:14px;box-shadow:0 8px 34px #000c;z-index:10}
   #guestVideo.show{display:block}
+  #producerGuestVideo{display:none;position:fixed;right:28px;bottom:160px;width:min(260px,28vw);max-height:28vh;object-fit:cover;background:#050505;border:2px solid #fff;border-radius:14px;box-shadow:0 8px 34px #000c;z-index:11;transform:scaleX(-1)}
+  #producerGuestVideo.show{display:block}
+  @media(max-width:500px){#guestVideo{left:12px;bottom:120px;width:70vw}#producerGuestVideo{right:12px;bottom:120px;width:25vw}}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   @media(max-width:500px){body{padding:12px}.card{gap:11px;padding:13px}.bolt{width:42px;height:42px;flex-basis:42px;font-size:25px}.pill{display:none}}
 </style>
@@ -58,6 +61,7 @@
     <div class="pending-counter" id="videoCallCounter" hidden><span class="count" id="videoCallCount">0</span><span>Video Calls Waiting</span></div>
   </div>
   <video id="guestVideo" autoplay playsinline muted></video>
+  <video id="producerGuestVideo" autoplay playsinline muted></video>
   <audio id="liveAudio" autoplay playsinline></audio>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
@@ -79,6 +83,7 @@ const pill = document.getElementById('pill');
 const fallback = document.getElementById('fallback');
 const liveAudio = document.getElementById('liveAudio');
 const guestVideo = document.getElementById('guestVideo');
+const producerGuestVideo = document.getElementById('producerGuestVideo');
 let db = null;
 let currentAudioUrl = '';
 let activeCallId = '';
@@ -88,6 +93,12 @@ let overlayCallUnsubs = [];
 let overlayRemoteStream = null;
 let overlayAudioStream = null;
 let overlayVideoStream = null;
+let producerOverlayVideoStream = null;
+let overlayAudioContext = null;
+let overlayAudioDestination = null;
+let overlayAudioSources = new Set();
+let receivedCallerVideo = false;
+let receivedProducerVideo = false;
 const iceConfig = { iceServers: [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
@@ -98,9 +109,13 @@ const iceConfig = { iceServers: [
 function stopOverlayCallAudio(){
   overlayCallUnsubs.forEach(unsub=>{try{unsub()}catch(e){}}); overlayCallUnsubs=[];
   if(overlayCallPc){try{overlayCallPc.close()}catch(e){} overlayCallPc=null;}
-  overlayCallSessionRef=null; activeCallId=''; overlayRemoteStream=null; overlayAudioStream=null; overlayVideoStream=null;
+  overlayCallSessionRef=null; activeCallId=''; overlayRemoteStream=null; overlayAudioStream=null; overlayVideoStream=null; producerOverlayVideoStream=null;
+  overlayAudioSources.forEach(source=>{try{source.disconnect()}catch(e){}}); overlayAudioSources.clear();
+  if(overlayAudioContext){overlayAudioContext.close().catch(()=>{});overlayAudioContext=null;}
+  overlayAudioDestination=null; receivedCallerVideo=false; receivedProducerVideo=false;
   liveAudio.pause(); liveAudio.srcObject=null; liveAudio.removeAttribute('src'); liveAudio.muted=false; liveAudio.volume=1; currentAudioUrl='';
   guestVideo.pause(); guestVideo.srcObject=null; guestVideo.muted=true; guestVideo.classList.remove('show');
+  producerGuestVideo.pause(); producerGuestVideo.srcObject=null; producerGuestVideo.muted=true; producerGuestVideo.classList.remove('show');
 }
 async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVideo=false){
   if(!callId) return;
@@ -113,6 +128,11 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
   overlayCallSessionRef=sessionRef;
   const pc = new RTCPeerConnection(iceConfig); overlayCallPc=pc;
   overlayRemoteStream = new MediaStream();
+  // The dashboard relays caller audio/video first and producer audio/video second.
+  // Reserve two audio m-lines so OBS receives both voices, plus both camera feeds.
+  pc.addTransceiver('audio',{direction:'recvonly'});
+  if(isVideo) pc.addTransceiver('video',{direction:'recvonly'});
+  // Always reserve a second audio m-line so the producer mic is relayed too.
   pc.addTransceiver('audio',{direction:'recvonly'});
   if(isVideo) pc.addTransceiver('video',{direction:'recvonly'});
   let remoteSet=false; const pending=[];
@@ -122,20 +142,46 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
   pc.ontrack = async (event)=>{
     try {
       if(event.track.kind==='audio'){
-        if(!overlayAudioStream) overlayAudioStream = new MediaStream();
-        if(!overlayAudioStream.getTracks().some(t=>t.id===event.track.id)) overlayAudioStream.addTrack(event.track);
-        liveAudio.srcObject=overlayAudioStream;
-        liveAudio.muted=false; liveAudio.volume=1;
-        await liveAudio.play().catch(()=>{ fallback.textContent='CALL AUDIO RECEIVED • CHECK OBS BROWSER-SOURCE AUDIO SETTINGS'; });
-        fallback.textContent = isVideo ? 'VIDEO CALL • GUEST AUDIO RECEIVED' : 'AUDIO CALL • CALLER AUDIO RECEIVED';
+        // Mix caller and producer microphones into one OBS-capturable audio stream.
+        if(!overlayAudioContext){
+          const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+          overlayAudioContext=new AudioContextClass();
+          overlayAudioDestination=overlayAudioContext.createMediaStreamDestination();
+          liveAudio.srcObject=overlayAudioDestination.stream;
+          liveAudio.muted=false; liveAudio.volume=1;
+          await overlayAudioContext.resume().catch(()=>{});
+          await liveAudio.play().catch(()=>{});
+        }
+        if(!overlayAudioStream) overlayAudioStream=new MediaStream();
+        if(!overlayAudioStream.getTracks().some(t=>t.id===event.track.id)){
+          overlayAudioStream.addTrack(event.track);
+          const source=overlayAudioContext.createMediaStreamSource(new MediaStream([event.track]));
+          const gain=overlayAudioContext.createGain();
+          gain.gain.value=1;
+          source.connect(gain).connect(overlayAudioDestination);
+          overlayAudioSources.add(source);
+        }
+        fallback.textContent=isVideo?'VIDEO CALL • CALLER + PRODUCER AUDIO':'AUDIO CALL • CALLER AUDIO RECEIVED';
       } else if(event.track.kind==='video'){
-        if(!overlayVideoStream) overlayVideoStream = new MediaStream();
-        if(!overlayVideoStream.getTracks().some(t=>t.id===event.track.id)) overlayVideoStream.addTrack(event.track);
-        guestVideo.srcObject=overlayVideoStream;
-        guestVideo.muted=true;
-        guestVideo.classList.add('show');
-        await guestVideo.play().catch(()=>{ fallback.textContent='GUEST VIDEO RECEIVED • CHECK OBS BROWSER-SOURCE'; });
-        fallback.textContent='VIDEO CALL • GUEST VIDEO RECEIVED';
+        if(!receivedCallerVideo){
+          receivedCallerVideo=true;
+          if(!overlayVideoStream) overlayVideoStream=new MediaStream();
+          overlayVideoStream.addTrack(event.track);
+          guestVideo.srcObject=overlayVideoStream;
+          guestVideo.muted=true;
+          guestVideo.classList.add('show');
+          await guestVideo.play().catch(()=>{fallback.textContent='CALLER VIDEO RECEIVED • CHECK OBS BROWSER SOURCE';});
+          fallback.textContent='VIDEO CALL • CALLER CAMERA RECEIVED';
+        }else{
+          receivedProducerVideo=true;
+          if(!producerOverlayVideoStream) producerOverlayVideoStream=new MediaStream();
+          producerOverlayVideoStream.addTrack(event.track);
+          producerGuestVideo.srcObject=producerOverlayVideoStream;
+          producerGuestVideo.muted=true;
+          producerGuestVideo.classList.add('show');
+          await producerGuestVideo.play().catch(()=>{fallback.textContent='PRODUCER VIDEO RECEIVED • CHECK OBS BROWSER SOURCE';});
+          fallback.textContent='VIDEO CALL • CALLER + PRODUCER CAMERAS RECEIVED';
+        }
       }
       fallback.classList.remove('error');
     } catch(err) { showError('Media track: '+(err.message||'playback failed')); }
@@ -196,6 +242,9 @@ function render(data){
     if(guestVideo.srcObject) guestVideo.srcObject=null;
     guestVideo.muted=true;
     guestVideo.classList.remove('show');
+    if(producerGuestVideo.srcObject) producerGuestVideo.srcObject=null;
+    producerGuestVideo.muted=true;
+    producerGuestVideo.classList.remove('show');
     headline.textContent='Sending scene on air';
     subtitle.textContent='Waiting for approval';
     eyebrow.textContent='LIVE CALLER STUDIO';
@@ -312,7 +361,8 @@ try {
     render(data);
     if(data && data.active === true && ['livecall','livevideo'].includes(String(data.messageType||'').toLowerCase()) && data.callId){
       const isVideo=String(data.messageType).toLowerCase()==='livevideo';
-      connectOverlayCallAudio(data.callId, isVideo?'videoCalls':'liveCalls', isVideo).catch(err=>showError('Call audio/video: '+(err.code||err.message||'connection failed')));
+      // Both audio and video FaceTime-style calls are stored in liveCalls.
+      connectOverlayCallAudio(data.callId, 'liveCalls', isVideo).catch(err=>showError('Call audio/video: '+(err.code||err.message||'connection failed')));
     } else if(activeCallId){ stopOverlayCallAudio(); }
   }, err => showError(err.code || err.message || 'Firestore connection failed'));
 } catch(err){showError(err.message || 'Firebase initialization failed');}
