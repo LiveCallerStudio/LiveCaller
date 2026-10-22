@@ -1543,7 +1543,13 @@ function watchOverlayRelaySessions(callId){
       const record={pc,unsub:null};
       overlayRelayPeers.set(sessionId,record);
       const pending=[]; let remoteSet=false;
-      if(callerRemoteStream) callerRemoteStream.getTracks().forEach(track=>{ if(track.readyState==='live') pc.addTrack(track,callerRemoteStream); });
+      // Relay both ends of the FaceTime-style call to OBS: caller tracks first,
+      // then producer tracks. overlay.html has matching audio/video transceivers.
+      [callerRemoteStream, producerStream].forEach(stream=>{
+        if(stream) stream.getTracks().forEach(track=>{
+          if(track.readyState==='live') pc.addTrack(track,stream);
+        });
+      });
       pc.onicecandidate=e=>{
         if(e.candidate) addDoc(collection(sessionRef,'dashboardCandidates'),e.candidate.toJSON()).catch(err=>console.warn('Overlay ICE write:',err.code||err.message));
       };
