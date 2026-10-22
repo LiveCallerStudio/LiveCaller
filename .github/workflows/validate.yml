@@ -1,0 +1,28 @@
+name: Validate Live Caller Studio
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Static checks and line-state tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate inline JavaScript, manifests, and local references
+        run: node --experimental-default-type=module tests/check-syntax.mjs
+      - name: Test line-state resolution
+        run: node --experimental-default-type=module tests/line-state.test.mjs
+      - name: Test public home page line-state behavior
+        run: node --experimental-default-type=module tests/home-v2.behavior.test.mjs
