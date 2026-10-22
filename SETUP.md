@@ -86,7 +86,7 @@ Cloudinary upload settings belong only on the page that actually uploads the aud
 
 ## PART 3 — Secure Firebase access before going live (critical)
 
-**Do not use the old example of open Firestore rules.** Rules such as `allow read, write: if true` or `allow read, update, delete: if true` let strangers read, alter, or delete records. They are not safe for a personal production project.
+**Do not use the old example of open Firestore rules.** Fully permissive rules let strangers read, alter, or delete records. They are not safe for a personal production project.
 
 1. Open Firebase Console → **Firestore Database → Rules**.
 2. Review every collection used by the current pages, including call signaling, caller/message queues, line settings, overlays, and song requests. Do not publish generic rules copied from an old setup guide.
