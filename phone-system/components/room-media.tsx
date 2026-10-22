@@ -28,11 +28,7 @@ function MediaStage({ mode, held, host, onDisconnect, onToggleHold }: Omit<Props
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    localParticipant.setMicrophoneEnabled(!held, undefined, {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    }).catch(() => {});
+    localParticipant.setMicrophoneEnabled(!held).catch(() => {});
   }, [held, localParticipant]);
 
   useEffect(() => {
@@ -46,9 +42,7 @@ function MediaStage({ mode, held, host, onDisconnect, onToggleHold }: Omit<Props
   async function toggleMic() {
     setBusy(true);
     try {
-      await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled, undefined, {
-        echoCancellation: true, noiseSuppression: true, autoGainControl: true,
-      });
+      await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
     } finally { setBusy(false); }
   }
   async function toggleCamera() {
