@@ -9,7 +9,7 @@ export async function POST(request:NextRequest){
  try{
   const {callId,participant="caller",callerKey,mode="audio"}=await request.json();
   if(!callId||!["caller","host","obs"].includes(participant))return NextResponse.json({error:"A call ID and valid participant are required."},{status:400});
-  const snap=await adminDb().collection("liveCalls").doc(String(callId)).get();if(!snap.exists)return NextResponse.json({error:"Call not found."},{status:404});
+  const snap=await adminDb().collection("liveKitCalls").doc(String(callId)).get();if(!snap.exists)return NextResponse.json({error:"Call not found."},{status:404});
   const call=snap.data()!;if((participant==="host"||participant==="obs")&&!isHostRequest(request))return NextResponse.json({error:"Unauthorized host."},{status:401});
   if(participant==="caller"&&(typeof callerKey!=="string"||!matches(callerKey,call.callerKeyHash)))return NextResponse.json({error:"Caller authorization failed."},{status:401});
   if(["ended","rejected"].includes(call.status))return NextResponse.json({error:"This call has ended."},{status:410});
