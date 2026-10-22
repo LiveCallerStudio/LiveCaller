@@ -100,7 +100,7 @@ export default function RoomMedia(props: Props) {
       connect
       audio
       video={props.mode === "video"}
-      options={{ adaptiveStream: true, dynacast: true, publishDefaults: { audioPreset: AudioPresets.musicHighQuality, dtx: false }, audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }}
+      options={{ adaptiveStream: true, dynacast: true, publishDefaults: { audioPreset: AudioPresets.musicHighQuality, dtx: false }, audioCaptureDefaults: { sampleRate: 48000, echoCancellation: true, noiseSuppression: true, autoGainControl: true } }}
       onConnected={() => setConnected(true)}
       onDisconnected={() => { setConnected(false); props.onDisconnect(); }}
       onError={(error) => props.onError?.(error.message || "The media connection failed.")}
