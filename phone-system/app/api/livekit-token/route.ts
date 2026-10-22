@@ -41,6 +41,9 @@ export async function POST(req: NextRequest) {
 
     let identity: string;
     if (role === "host") {
+      if (!["answered", "live", "held"].includes(String(call.status))) {
+        return NextResponse.json({ error: "Answer the call before opening its media room." }, { status: 409 });
+      }
       const header = req.headers.get("authorization") || "";
       const idToken = header.startsWith("Bearer ") ? header.slice(7) : "";
       if (!idToken) return NextResponse.json({ error: "Host sign-in is required." }, { status: 401 });
