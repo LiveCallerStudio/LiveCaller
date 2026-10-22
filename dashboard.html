@@ -1347,7 +1347,7 @@ function renderAnalytics(){
     .sort((a,b)=>b[1]-a[1])
     .map(([k,v])=>`
       <div class="breakdown-row">
-        <span class="breakdown-label">${typeLabels[k]||k}</span>
+        <span class="breakdown-label">${escapeHtml(typeLabels[k]||k)}</span>
         <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${(v/typeMax*100).toFixed(0)}%"></div></div>
         <span class="breakdown-count">${v}</span>
       </div>`).join('') || '<span style="color:var(--sub);font-size:13px;">No data yet.</span>';
@@ -2078,7 +2078,7 @@ function startCallHistoryListener(){
           <div class="hist-icon">${c.recordingUrl ? '🔴' : '📞'}</div>
           <div class="hist-body">
             <div class="hist-name">${escapeHtml(c.callerName || 'Unknown')}</div>
-            <div class="hist-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${c.status || ''}</div>
+            <div class="hist-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${escapeHtml(c.status || '')}</div>
           </div>
           <div class="hist-right">
             <div class="hist-dur">${formatDur(c.duration || 0)}</div>
@@ -2272,7 +2272,7 @@ function startQueueListener(){
     render();
     if(document.getElementById('tab-analytics').style.display !== 'none') renderAnalytics();
   }, (err)=>{
-    queueEl.innerHTML = `<div class="empty">Couldn't connect to Firebase: ${err.message}<br><br>Check your firebaseConfig and Firestore security rules.</div>`;
+    queueEl.innerHTML = `<div class="empty">Couldn't connect to Firebase: ${escapeHtml(err.message || 'unknown error')}<br><br>Check your firebaseConfig and Firestore security rules.</div>`;
   });
 }
 </script>
