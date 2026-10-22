@@ -1708,20 +1708,33 @@ async function stopCallRecording(){
   return new Promise(resolve =>{
     callRecorder.onstop = async ()=>{
       const blob = new Blob(callRecordingChunks, { type: callRecorder.mimeType });
-      const fd = new FormData();
-      fd.append('file', blob);
-      fd.append('upload_preset', 'djdeeze_hotline');
+      const MAX_RECORDING_BYTES = 50 * 1024 * 1024;
+      if(!blob.size || blob.size>MAX_RECORDING_BYTES){
+        recordStatus.textContent = 'Recording is empty or exceeds the 50 MB upload limit.';
+        resolve(null);return;
+      }
+      const controller = new AbortController();
+      const timeout = setTimeout(()=>controller.abort(),90000);
       try{
-        const res = await fetch('https://api.cloudinary.com/v1_1/vz1v6nzp/video/upload',{ method:'POST', body:fd });
-        const data = await res.json();
+        const fd = new FormData();
+        fd.append('file', blob, blob.type.includes('mp4')?'call-recording.mp4':'call-recording.webm');
+        fd.append('upload_preset', 'djdeeze_hotline_recordings');
+        fd.append('resource_type', 'video');
+        fd.append('folder', 'livecaller/call-recordings');
+        const res = await fetch('https://api.cloudinary.com/v1_1/vz1v6nzp/video/upload',{ method:'POST', body:fd, signal:controller.signal });
+        const data = await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(data.error?.message||'Upload rejected (HTTP '+res.status+').');
+        const url = new URL(data.secure_url||'');
+        if(url.protocol!=='https:'||url.hostname!=='res.cloudinary.com'||!url.pathname.includes('/vz1v6nzp/video/upload/')||typeof data.public_id!=='string') throw new Error('Unexpected media URL returned.');
         recordStatus.textContent = '✅ Recording saved';
         recordStatus.className = 'record-status saved';
         setTimeout(()=>{ recordStatus.textContent = ''; recordStatus.className = 'record-status'; }, 4000);
         resolve(data.secure_url);
       }catch(e){
-        recordStatus.textContent = 'Recording upload failed.';
+        console.warn('Call recording upload failed:',e&&e.message);
+        recordStatus.textContent = e.name==='AbortError'?'Recording upload timed out.':'Recording upload failed: '+(e.message||'check Cloudinary preset settings');
         resolve(null);
-      }
+      }finally{clearTimeout(timeout);}
     };
     callRecorder.stop();
   });
