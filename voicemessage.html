@@ -694,6 +694,30 @@ const rightBars = vizRight.querySelectorAll('span');
 function showError(msg){ errorBanner.textContent = msg; errorBanner.classList.add('show'); }
 function clearError(){ errorBanner.classList.remove('show'); }
 
+async function playVoicemailBeep(){
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if(!AudioContextClass) return;
+  const ctx = new AudioContextClass();
+  try{
+    await ctx.resume();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 1000;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.02);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime + 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.28);
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + 0.3);
+    await new Promise(resolve => setTimeout(resolve, 350));
+  } finally {
+    await ctx.close().catch(()=>{});
+  }
+}
+
 async function startRecording(){
   clearError();
   if(!navigator.mediaDevices?.getUserMedia){
@@ -701,6 +725,10 @@ async function startRecording(){
   }
   try{ stream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true } }); }
   catch(err){ showError("Microphone access blocked. Please allow mic permissions and try again."); return; }
+
+  // A classic voicemail tone plays after microphone permission, before recording begins.
+  try{ await playVoicemailBeep(); }
+  catch(err){ console.warn('Voicemail beep could not play:',err); }
 
   const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' :
                    MediaRecorder.isTypeSupported('audio/mp4')  ? 'audio/mp4' : '';
@@ -867,11 +895,17 @@ formBackBtn.addEventListener('click',()=>{
   typeScreen.style.display='block';
 });
 
-// STEP 2 → STEP 3: details collected, now record the message
-formNextBtn.addEventListener('click',()=>{
+// STEP 2 → STEP 3: after details, automatically play the voicemail beep and begin recording.
+formNextBtn.addEventListener('click',async()=>{
+  formNextBtn.disabled = true;
   formScreen.style.display='none';
   recordView.style.display='flex';
   selectedTypeBadge.textContent = typeLabels[selectedType]||'🎙️ General Message';
+  try{
+    await startRecording();
+  } finally {
+    formNextBtn.disabled = false;
+  }
 });
 
 // STEP 3 → STEP 2: change details. If a recording is in progress, abort it
