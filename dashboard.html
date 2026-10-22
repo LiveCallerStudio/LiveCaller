@@ -964,7 +964,7 @@ function updateActivityCounters(){
   pendingMessageCountEl.textContent = String(pendingMessageCount);
   missedCallCountEl.textContent = String(missedCallCount);
   pendingSongCountEl.textContent = String(pendingSongCount);
-  totalPendingCountEl.textContent = String(pendingMessageCount + missedCallCount + pendingSongCount + Number(callCountNum.textContent || 0));
+  totalPendingCountEl.textContent = String(pendingMessageCount + pendingSongCount + Number(callCountNum.textContent || 0));
   activitySummaryEl.textContent = (callCountNum.textContent || '0') + ' incoming calls · ' + pendingMessageCount + ' messages awaiting approval · ' + missedCallCount + ' missed calls to review · ' + pendingSongCount + ' song requests awaiting approval';
 }
 document.getElementById('openPhoneStudio').addEventListener('click',()=>{ const b=document.querySelector('.tab-btn[data-tab="calls"]'); if(b)b.click(); document.getElementById('tab-calls').scrollIntoView({behavior:'smooth',block:'start'}); });
@@ -1755,7 +1755,7 @@ function startCallsListener(){
       // Incoming = waiting calls only
       const ringing = calls.filter(c => c.status === 'waiting');
       const count = ringing.length;
-      missedCallCount = calls.filter(c => c.status === 'missed').length;
+      missedCallCount = calls.filter(c => c.status === 'missed' || c.status === 'missed_call').length;
       updateActivityCounters();
 
       // Header counter
