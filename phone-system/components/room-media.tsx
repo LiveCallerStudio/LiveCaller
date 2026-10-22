@@ -62,7 +62,7 @@ function MediaStage({ mode, held, host, onDisconnect, onToggleHold }: Omit<Props
       <div className="media-grid">
         {tracks.map((track) => (
           <div className={track.participant.isLocal ? "media-tile local-tile" : "media-tile"} key={track.participant.identity}>
-            {track.publication?.isSubscribed && track.publication.track ? (
+            {track.publication?.track ? (
               <VideoTrack trackRef={track as never} />
             ) : (
               <div className="avatar-placeholder">
