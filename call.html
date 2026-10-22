@@ -582,7 +582,7 @@ async function startCall(){
       }catch(e){ console.error('setRemoteDescription failed:', e); }
     }
 
-    if(data.status === 'answered' || data.status === 'live'){
+    if(data.answer || data.status === 'answered' || data.status === 'live'){
       stopOutgoingRing();
       stopHoldMusicCaller();
       setStatus('connected', 'Connected — you may be put on air');
