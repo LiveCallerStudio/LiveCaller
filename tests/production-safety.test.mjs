@@ -19,6 +19,8 @@ assert.match(dashboard, /\$\{escapeHtml\(c\.status \|\| ''\)\}/, 'call history m
 assert.doesNotMatch(dashboard, /queueListenerStarted/, 'dashboard queue subscription must be restartable after sign-out');
 assert.match(video, /transform:scaleX\(-1\)/, 'video caller self-preview must be mirrored without transforming the sent track');
 assert.match(video, /signInAnonymously\(auth\)/, 'video guests must have a Firebase identity for least-privilege screening rules');
+assert.match(video, /const db=getFirestore\(app\);const auth=getAuth\(app\);/, 'video guest auth and Firestore must share the same Firebase app');
+assert.doesNotMatch(video, /initializeApp\(firebaseConfig,'videoGuestAuth'\)/, 'video guest auth must not use a separate app from Firestore');
 assert.match(video, /guestUid\}\)/, 'video call request must bind ownership to the authenticated guest UID');
 assert.match(video, /screeningSessions/, 'video guest must answer the separate private screening offer');
 assert.match(dashboard, /Private Guest Screening — Not On Air/, 'dashboard must label preview as private and off-air');
