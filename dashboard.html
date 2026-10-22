@@ -1528,6 +1528,18 @@ async function answerCall(callId, callerName, callerCity){
   // 2. Create peer connection and add local tracks
   activePc = new RTCPeerConnection(iceConfig);
   producerStream.getTracks().forEach(track => activePc.addTrack(track, producerStream));
+  activePc.onconnectionstatechange = () => {
+    if(!activePc)return;
+    console.info('Producer audio call WebRTC:',activePc.connectionState,'ICE:',activePc.iceConnectionState);
+    if(activePc.connectionState==='failed') setCallStatus('Connection failed — check caller network/TURN and Firestore signaling');
+    else if(activePc.connectionState==='connected') setCallStatus(callIsOnAir?'On air':'Screening — caller not on air yet');
+  };
+  activePc.oniceconnectionstatechange = () => {
+    if(!activePc)return;
+    console.info('Producer audio ICE state:',activePc.iceConnectionState);
+    if(activePc.iceConnectionState==='failed') setCallStatus('ICE failed — check Firestore candidate permissions and TURN reachability');
+  };
+  activePc.onicecandidateerror = event => console.warn('Producer ICE candidate error:',{code:event.errorCode,text:event.errorText,url:event.url});
 
   // 3. Play caller audio when remote track arrives
   activePc.ontrack = (event)=>{
@@ -1544,7 +1556,7 @@ async function answerCall(callId, callerName, callerCity){
   activePc.onicecandidate = (event)=>{
     if(event.candidate && activeCallId){
       addDoc(collection(db, 'liveCalls', activeCallId, 'dashboardCandidates'), event.candidate.toJSON())
-        .catch(()=>{});
+        .catch(err=>{ console.error('Producer ICE candidate write failed:',err); setCallStatus('Signaling write failed — check Firestore rules ('+(err.code||'unknown')+')'); });
     }
   };
 
@@ -1572,7 +1584,7 @@ async function answerCall(callId, callerName, callerCity){
     (snap)=>{
       snap.docChanges().forEach(async(change)=>{
         if(change.type === 'added' && activePc){
-          await activePc.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(()=>{});
+          await activePc.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(err=>console.warn('Caller ICE candidate rejected:',err));
         }
       });
     }
