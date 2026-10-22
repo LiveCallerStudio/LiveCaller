@@ -128,13 +128,14 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
   overlayCallSessionRef=sessionRef;
   const pc = new RTCPeerConnection(iceConfig); overlayCallPc=pc;
   overlayRemoteStream = new MediaStream();
-  // The dashboard relays caller audio/video first and producer audio/video second.
-  // Reserve two audio m-lines so OBS receives both voices, plus both camera feeds.
+  // Broadcast only the caller's audio. The producer's microphone stays on
+  // the primary call connection so the caller can hear the producer normally.
+  // For video calls, receive caller video first and producer video second.
   pc.addTransceiver('audio',{direction:'recvonly'});
-  if(isVideo) pc.addTransceiver('video',{direction:'recvonly'});
-  // Always reserve a second audio m-line so the producer mic is relayed too.
-  pc.addTransceiver('audio',{direction:'recvonly'});
-  if(isVideo) pc.addTransceiver('video',{direction:'recvonly'});
+  if(isVideo){
+    pc.addTransceiver('video',{direction:'recvonly'});
+    pc.addTransceiver('video',{direction:'recvonly'});
+  }
   let remoteSet=false; const pending=[];
   // Keep OBS audio and video outputs separate. Only the caller/guest's remote
   // audio track reaches liveAudio; the video element is muted to prevent duplicate
@@ -142,7 +143,7 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
   pc.ontrack = async (event)=>{
     try {
       if(event.track.kind==='audio'){
-        // Mix caller and producer microphones into one OBS-capturable audio stream.
+        // This negotiated audio lane carries the caller only; producer mic is excluded.
         if(!overlayAudioContext){
           const AudioContextClass=window.AudioContext||window.webkitAudioContext;
           overlayAudioContext=new AudioContextClass();
@@ -161,7 +162,7 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
           source.connect(gain).connect(overlayAudioDestination);
           overlayAudioSources.add(source);
         }
-        fallback.textContent=isVideo?'VIDEO CALL • CALLER + PRODUCER AUDIO':'AUDIO CALL • CALLER AUDIO RECEIVED';
+        fallback.textContent=isVideo?'VIDEO CALL • CALLER AUDIO RECEIVED':'AUDIO CALL • CALLER AUDIO RECEIVED';
       } else if(event.track.kind==='video'){
         if(!receivedCallerVideo){
           receivedCallerVideo=true;
