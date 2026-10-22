@@ -752,7 +752,7 @@
   </div>
 
   <!-- RECORDINGS TAB -->
-  <div class="tab-content" id="tab-recordings" style="display:none;">
+  <div class="tab-content" id="tab-recordings" style="display:none;"><div id="recordingsSection">
     <div class="section-title" style="margin-bottom:14px;">🎙️ Recorded Calls</div>
     <p style="color:var(--sub);font-size:13px;margin:0 0 16px;">Review, play, save, and delete recorded calls. Newest recordings appear first.</p>
     <div class="empty" id="recordingsEmpty" style="display:none;">
@@ -760,7 +760,7 @@
       <div>No recordings yet. Start recording calls using the Record button.</div>
     </div>
     <div id="recordingsList"></div>
-  </div>
+  </div></div>
 </main>
 
 <audio id="hiddenPlayer" class="hiddenplayer"></audio>
@@ -971,8 +971,6 @@ const queueCount = document.getElementById('queueCount');
 const pendingMessageCountEl = document.getElementById('pendingMessageCount');
 const missedCallCountEl = document.getElementById('missedCallCount');
 const pendingSongCountEl = document.getElementById('pendingSongCount');
-const totalPendingCountEl = document.getElementById('totalPendingCount');
-const activitySummaryEl = document.getElementById('activitySummary');
 let pendingMessageCount = 0, missedCallCount = 0, pendingSongCount = 0;
 let allSongRequests = [], allCallHistory = [];
 function updateActivityCounters(){
@@ -2081,6 +2079,7 @@ function startCallHistoryListener(){
         }
       }
       applyGlobalSearchToCards();
+      if(document.getElementById('tab-analytics').style.display !== 'none') renderAnalytics();
     }
   );
 }
