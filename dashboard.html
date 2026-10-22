@@ -1685,6 +1685,7 @@ async function stopCallRecording(){
         const fd = new FormData();
         fd.append('file', blob, callRecorder.mimeType.includes('mp4') ? 'call-recording.mp4' : 'call-recording.webm');
         fd.append('upload_preset', RECORDING_UPLOAD_PRESET);
+        fd.append('asset_folder', 'call-recordings');
         const res = await fetch('https://api.cloudinary.com/v1_1/vz1v6nzp/video/upload',{
           method:'POST', body:fd, signal:controller.signal
         });
