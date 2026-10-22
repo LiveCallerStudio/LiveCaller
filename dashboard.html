@@ -2122,11 +2122,13 @@ document.addEventListener('click', async(e)=>{
   const action = btn.dataset.action;
 
   if(action === 'video-screen'){
+    stopPhoneRing();
     btn.disabled=true;
     try{await screenVideoGuest(id);}catch(err){console.error('Private guest screening failed:',err);alert('Could not screen guest: '+(err.message||'check Firestore rules and connection'));}finally{btn.disabled=false;}
     return;
   }
   if(action === 'video-air'){
+    stopPhoneRing();
     // Stop the private screening peer before starting the separate OBS broadcast peer.
     if(screeningCallId===id) await stopVideoScreening(true);
     // Only one guest on air at a time — end any other live call first
