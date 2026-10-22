@@ -13,7 +13,7 @@ export async function POST(request:NextRequest,context:{params:{id:string}}){
   if(!host&&!(action==="caller-end"&&typeof body.callerKey==="string"&&matches(body.callerKey,call.callerKeyHash)))return NextResponse.json({error:"Unauthorized."},{status:401});
   const changes:Record<string,unknown>={updatedAt:new Date(),updatedAtMs:Date.now()};
   switch(action){
-   case "answer":changes.status="approved";changes.answeredAt=new Date();break;
+   case "answer":changes.status="approved";changes.answeredAt=new Date();changes.startedAtMs=Date.now();break;
    case "hold":changes.status="held";changes.heldAt=new Date();break;
    case "resume":changes.status="approved";changes.resumedAt=new Date();break;
    case "on-air":changes.status="live";changes.onAir=true;changes.liveSince=Date.now();break;
@@ -22,6 +22,19 @@ export async function POST(request:NextRequest,context:{params:{id:string}}){
    case "caller-end":changes.status="ended";changes.onAir=false;changes.endedAt=new Date();break;
    default:return NextResponse.json({error:"Unknown call action."},{status:400});
   }
-  await ref.update(changes);return NextResponse.json({ok:true,status:changes.status});
+  await ref.update(changes);
+  const overlayRef=adminDb().doc("hotlineLive/nowPlaying");
+  if(action==="on-air"){
+   await overlayRef.set({active:true,messageType:call.callType==="video"?"livevideo":"livecall",name:call.callerName||"Caller",city:call.callerCity||"",callId:context.params.id,mediaProvider:"livekit",source:"phone-system-livekit",updatedAt:new Date()},{merge:true});
+  }
+  if(["hold","disconnect","reject","caller-end"].includes(action)){
+   const overlaySnap=await overlayRef.get();
+   if(overlaySnap.exists&&overlaySnap.data()?.callId===context.params.id)await overlayRef.set({active:false,updatedAt:new Date()},{merge:true});
+  }
+  if(["disconnect","reject","caller-end"].includes(action)&&!["ended","rejected"].includes(call.status)){
+   const start=Number(call.startedAtMs||call.createdAtMs||Date.now());
+   await adminDb().collection("callHistory").add({callerName:call.callerName||"Caller",callerCity:call.callerCity||"",callType:call.callType||"audio",status:String(changes.status),createdAt:call.createdAt||new Date(),endedAt:new Date(),duration:Math.max(0,Math.floor((Date.now()-start)/1000)),source:"phone-system-livekit"});
+  }
+  return NextResponse.json({ok:true,status:changes.status});
  }catch(error){console.error("Call action failed:",error);return NextResponse.json({error:"Could not update call state."},{status:500});}
 }
