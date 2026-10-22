@@ -11,6 +11,13 @@ for (const f of fs.readdirSync(root).filter(f => f.endsWith('.html'))) {
   for (const m of h.matchAll(/(?:href|src)="(?!https?:|#|data:|mailto:|tel:|javascript:|\$\{)([^"?#$]+)/g))
     if (!fs.existsSync(path.join(root, m[1]))) bad(`${f}: missing local reference ${m[1]}`);
 }
-for (const f of ['sw.js', 'lib/line-state.js']) { try { execFileSync('node', ['--check', path.join(root, f)], { stdio: 'pipe' }); } catch (e) { bad(f); } }
+for (const f of ['sw.js', 'lib/line-state.js']) {
+  const tmp = path.join(os.tmpdir(), `chk-${path.basename(f, '.js')}.mjs`);
+  try {
+    fs.writeFileSync(tmp, fs.readFileSync(path.join(root, f), 'utf8'));
+    execFileSync('node', ['--check', tmp], { stdio: 'pipe' });
+  } catch (e) { bad(f); }
+  finally { try { fs.unlinkSync(tmp); } catch {} }
+}
 for (const f of fs.readdirSync(root).filter(f => f.endsWith('.json'))) { try { JSON.parse(fs.readFileSync(path.join(root, f), 'utf8')); } catch { bad(f); } }
 console.log(fail ? `${fail} failure(s)` : 'syntax/manifests/local refs: all passed'); process.exit(fail ? 1 : 0);
