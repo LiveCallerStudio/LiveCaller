@@ -7,6 +7,7 @@ export default function CallerPage(){
  const [name,setName]=useState("");const [city,setCity]=useState("");const [mode,setMode]=useState<"audio"|"video">("audio");
  const [id,setId]=useState("");const [key,setKey]=useState("");const [status,setStatus]=useState<CallStatus>("waiting");
  const [token,setToken]=useState("");const [serverUrl,setServerUrl]=useState("");const [error,setError]=useState("");const [busy,setBusy]=useState(false);
+ useEffect(()=>{if(status!=="held")return;let ctx:AudioContext|null=null;let timer:ReturnType<typeof setTimeout>|undefined;try{ctx=new AudioContext();const notes=[261.63,329.63,392,523.25,392,329.63,261.63,0,0,0];let i=0;const tick=()=>{if(!ctx)return;const f=notes[i++%notes.length];if(f){const osc=ctx!.createOscillator(),gain=ctx!.createGain();osc.frequency.value=f;osc.connect(gain);gain.connect(ctx!.destination);gain.gain.setValueAtTime(.001,ctx!.currentTime);gain.gain.linearRampToValueAtTime(.07,ctx!.currentTime+.04);gain.gain.exponentialRampToValueAtTime(.001,ctx!.currentTime+.4);osc.start();osc.stop(ctx!.currentTime+.42);}timer=setTimeout(tick,480);};tick();}catch{}return()=>{if(timer)clearTimeout(timer);if(ctx)ctx.close().catch(()=>{});};},[status]);
  useEffect(()=>{if(!id||!key)return;let active=true;let requested=false;
   const poll=async()=>{try{const r=await fetch("/api/calls/"+id+"?callerKey="+encodeURIComponent(key),{cache:"no-store"});if(!r.ok)return;const d=await r.json();if(!active)return;setStatus(d.status);
    if(["ended","rejected"].includes(d.status)){setToken("");return;}
