@@ -91,12 +91,22 @@ export default function HostDashboard() {
     finally { setLoginBusy(false); }
   }
 
-  async function setCallStatus(call: CallDoc, action: string) {
-    if (!user) return;
+  async function setCallStatus(call: CallDoc, action: string): Promise<boolean> {
+    if (!user) return false;
     setBusyId(call.id); setError("");
-    try { await apiPost("/api/calls/action", { callId: call.id, collectionName: call.collectionName, action }, user); }
-    catch (e) { setError(e instanceof Error ? e.message : "Call action failed."); }
-    finally { setBusyId(""); }
+    try {
+      await apiPost("/api/calls/action", { callId: call.id, collectionName: call.collectionName, action }, user);
+      setCalls((items) => items.map((item) => item.id === call.id && item.collectionName === call.collectionName
+        ? { ...item, status: action === "resume" ? "answered" : action === "end" ? "ended" : action === "reject" ? "rejected" : action === "hold" ? "held" : action === "live" ? "live" : "answered" }
+        : item));
+      setActive((current) => current && current.id === call.id && current.collectionName === call.collectionName
+        ? { ...current, status: action === "resume" ? "answered" : action === "end" ? "ended" : action === "hold" ? "held" : action === "live" ? "live" : current.status }
+        : current);
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Call action failed.");
+      return false;
+    } finally { setBusyId(""); }
   }
 
   async function answer(call: CallDoc) {
@@ -118,8 +128,8 @@ export default function HostDashboard() {
   async function holdToggle() {
     if (!active) return;
     const action = held ? "resume" : "hold";
-    await setCallStatus(active, action);
-    setHeld(!held);
+    const ok = await setCallStatus(active, action);
+    if (ok) setHeld(!held);
   }
 
   async function bringOnAir() {
