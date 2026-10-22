@@ -6,6 +6,7 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const video = fs.readFileSync(path.join(root, 'videocall.html'), 'utf8');
 const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 const dashboard = fs.readFileSync(path.join(root, 'dashboard.html'), 'utf8');
+const setup = fs.readFileSync(path.join(root, 'SETUP.md'), 'utf8');
 
 assert.match(video, /resolveLineStates\(snap\)/, 'video guest page must use the shared producer line-state resolver');
 assert.match(video, /if\(callMode==='video' && videoLineState!==LINE\.OPEN\)/, 'video calls must not bypass a closed or unknown producer video line');
@@ -19,5 +20,9 @@ assert.match(sw, /manifest-songrequest\.json/, 'song request PWA manifest must b
 assert.match(dashboard, /\$\{escapeHtml\(typeLabels\[k\]\|\|k\)\}/, 'analytics must escape untrusted message type labels');
 assert.match(dashboard, /\$\{escapeHtml\(c\.status \|\| ''\)\}/, 'call history must escape status values before HTML rendering');
 assert.doesNotMatch(dashboard, /queueListenerStarted/, 'dashboard queue subscription must be restartable after sign-out');
+assert.match(dashboard, /function stopQueueListener\(\)/, 'dashboard must be able to unsubscribe from the queue');
+assert.match(dashboard, /function startQueueListener\(\)/, 'dashboard must be able to restart the queue subscription');
+assert.doesNotMatch(setup, /allow\s+read\s*,\s*update\s*,\s*delete\s*:\s*if\s+true/i, 'setup guide must not recommend public read/update/delete access');
+assert.doesNotMatch(setup, /allow\s+read\s*,\s*write\s*:\s*if\s+true/i, 'setup guide must not recommend public read/write access');
 
 console.log('production-safety checks: all passed');
