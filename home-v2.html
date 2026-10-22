@@ -618,9 +618,34 @@
   applyLines(UNKNOWN_LINES);
   document.documentElement.dataset.lineStatus = 'loading';
 
+  let lineStatusReceived = false;
+  const lineStatusTimeout = setTimeout(() => {
+    if (lineStatusReceived) return;
+    phoneLabel.textContent = 'Phone status not connected';
+    videoLabel.textContent = 'Video status not connected';
+    document.documentElement.dataset.lineStatus = 'timeout';
+  }, 10000);
+
   onSnapshot(doc(db, 'hotlineSettings', 'callLines'), { includeMetadataChanges: true },
-    (snap) => { applyLines(resolveLineStates(snap)); document.documentElement.dataset.lineStatus = 'ready'; },
-    (err)  => { console.warn('Line status read failed:', err && err.code); applyLines(UNKNOWN_LINES); document.documentElement.dataset.lineStatus = 'unavailable'; }
+    (snap) => {
+      lineStatusReceived = true;
+      clearTimeout(lineStatusTimeout);
+      const states = resolveLineStates(snap);
+      applyLines(states);
+      document.documentElement.dataset.lineStatus = snap.metadata && snap.metadata.fromCache ? 'cache-only' : 'ready';
+      document.documentElement.dataset.lineSource = snap.metadata && snap.metadata.fromCache ? 'cache' : 'server';
+    },
+    (err) => {
+      lineStatusReceived = true;
+      clearTimeout(lineStatusTimeout);
+      const code = err && err.code ? err.code : 'unknown-error';
+      console.error('Line status read failed:', code, err);
+      applyLines(UNKNOWN_LINES);
+      phoneLabel.textContent = 'Phone status error: ' + code;
+      videoLabel.textContent = 'Video status error: ' + code;
+      document.documentElement.dataset.lineStatus = 'unavailable';
+      document.documentElement.dataset.lineError = code;
+    }
   );
 </script>
 </body>
