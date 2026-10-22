@@ -28,6 +28,6 @@ assert.match(dashboard, /MAX_RECORDING_BYTES = 50 \* 1024 \* 1024/, 'recording u
 const voice = fs.readFileSync(path.join(root, 'voicemessage.html'), 'utf8');
 assert.match(voice, /MAX_UPLOAD_BYTES = 8 \* 1024 \* 1024/, 'voice message upload must enforce a size ceiling');
 assert.match(voice, /AbortController/, 'Cloudinary upload must time out instead of hanging forever');
-assert.match(sw, /lcs-v19/, 'service-worker cache must be busted for this release');
+assert.match(sw, /lcs-v20/, 'service-worker cache must be busted for this release');
 
 console.log('production-safety checks: all passed');
