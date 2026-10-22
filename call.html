@@ -123,6 +123,13 @@
   .field input{ width:100%; background:#0a0a0a; border:1.5px solid #1e1e1e; border-radius:10px; padding:14px; color:var(--text); font-family:Arial,sans-serif; font-size:14px; }
   .field input:focus{ outline:none; border-color:rgba(83,252,24,0.4); }
 
+  .mode-picker{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 0 18px;width:100%;}
+  .mode-option{padding:13px 10px;border-radius:10px;border:1px solid #2b2b2b;background:#101010;color:#aaa;font-weight:800;cursor:pointer;font-size:13px;}
+  .mode-option.active{background:rgba(83,252,24,.12);border-color:var(--green);color:var(--green);box-shadow:0 0 18px rgba(83,252,24,.12);}
+  .video-stage{display:none;width:100%;position:relative;margin:0 0 18px;aspect-ratio:4/3;background:#050505;border:1px solid #252525;border-radius:16px;overflow:hidden;}
+  .video-stage.show{display:block;}
+  .remote-video{width:100%;height:100%;object-fit:cover;background:#050505;}
+  .local-video{position:absolute;right:10px;bottom:10px;width:28%;max-height:150px;aspect-ratio:3/4;object-fit:cover;border:2px solid var(--green);border-radius:12px;background:#111;transform:scaleX(-1);}
   .disclaimer{
     font-family:Arial,sans-serif;font-size:12.5px;color:#666;
     text-align:center;line-height:1.5;margin:4px 0 18px;
@@ -248,20 +255,20 @@
 
     <!-- Setup Screen -->
     <div id="setupScreen">
-      <a class="back-btn" href="home-v2.html">
+      <a class="back-btn" href="home.html">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
         Home
       </a>
 
       <div class="setup-hero">
         <h1>CALL IN<br>LIVE</h1>
-        <p class="sub-dots">TWO-WAY AUDIO • SCREENED • ON AIR</p>
+        <p class="sub-dots">TWO-WAY AUDIO &amp; VIDEO • SCREENED • ON AIR</p>
         <p class="tagline">Talk directly with the producer!</p>
       </div>
 
       <div class="lines-closed-banner" id="linesClosedBanner">
-        <strong id="linesClosedTitle">📞 Checking phone line…</strong>
-        <span id="linesClosedCopy">Confirming whether call-ins are being accepted.</span>
+        <strong>📞 Phone Lines Are Closed</strong>
+        Call-ins aren't being accepted right now — check back soon!
       </div>
 
       <div class="error-banner" id="errorBanner"></div>
@@ -275,11 +282,15 @@
         <input type="text" id="callerCity" maxlength="40">
       </div>
 
-      <p class="disclaimer">By calling in, you agree your voice may be broadcast on-air or on stream.</p>
+      <div class="mode-picker" role="group" aria-label="Choose call type">
+        <button class="mode-option active" type="button" data-mode="audio" aria-pressed="true">📞 FaceTime Audio</button>
+        <button class="mode-option" type="button" data-mode="video" aria-pressed="false">🎥 FaceTime Video</button>
+      </div>
+      <p class="disclaimer">By calling in, you agree your voice may be broadcast on-air or on stream. Video calls also share your camera with the producer.</p>
 
       <button class="call-btn" id="callBtn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-        Call In Live
+        Start FaceTime Audio Call
       </button>
     </div>
 
@@ -291,6 +302,7 @@
         </svg>
       </div>
 
+      <div class="video-stage" id="videoStage"><video class="remote-video" id="remoteVideo" autoplay playsinline></video><video class="local-video" id="localVideo" autoplay playsinline muted></video></div>
       <div class="status-badge waiting" id="statusBadge"><span class="status-dot"></span><span id="statusText">Waiting</span></div>
       <div class="call-status" id="callerNameDisplay">—</div>
       <div class="call-timer" id="callTimer"></div>
@@ -315,7 +327,6 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { LINE, resolveLineStates } from "./lib/line-state.js";
 import {
   getFirestore, collection, doc, addDoc, updateDoc,
   onSnapshot, serverTimestamp
@@ -364,9 +375,6 @@ let callDocRef = null;
 let timerInterval = null;
 let callSeconds = 0;
 let micMuted = false;
-// Extra WebRTC receivers let the OBS overlay receive the caller's live mic directly.
-const overlayPeerConnections = new Map();
-let overlaySessionsUnsub = null;
 
 // ── Outgoing ring tone (caller hears this while waiting for answer) ──
 let outgoingRingInterval = null;
@@ -448,11 +456,16 @@ const callSub          = document.getElementById('callSub');
 const muteBtn          = document.getElementById('muteBtn');
 const endBtn           = document.getElementById('endBtn');
 const remoteAudio      = document.getElementById('remoteAudio');
+const remoteVideo      = document.getElementById('remoteVideo');
+const localVideo       = document.getElementById('localVideo');
+const videoStage       = document.getElementById('videoStage');
+let callMode = 'audio';
 const errorBanner      = document.getElementById('errorBanner');
 const linesClosedBanner= document.getElementById('linesClosedBanner');
 
-let linesOpen = false; // closed until the settings doc has been read from the server
+let linesOpen = true; // defaults open until the settings doc says otherwise
 
+document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{callMode=btn.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>{b.classList.toggle('active',b===btn);b.setAttribute('aria-pressed',String(b===btn));});callBtn.innerHTML=callMode==='video'?'🎥 Start FaceTime Video Call':'📞 Start FaceTime Audio Call';}));
 function showError(msg){ errorBanner.textContent = msg; errorBanner.classList.add('show'); }
 function clearError(){ errorBanner.classList.remove('show'); }
 
@@ -477,7 +490,11 @@ function stopTimer(){ clearInterval(timerInterval); }
 
 async function startCall(){
   clearError();
-  if(!linesOpen){ showError("Phone lines aren't confirmed open right now — please check back soon."); return; }
+  if(!linesOpen){
+    const params = new URLSearchParams({source:'voicemail', name:callerNameInput.value.trim(), city:callerCityInput.value.trim(), callType:callMode});
+    window.location.href = 'voicemessage.html?' + params.toString();
+    return;
+  }
   const name = callerNameInput.value.trim();
   if(!name){ showError('Please enter your name before calling in.'); return; }
 
@@ -486,8 +503,10 @@ async function startCall(){
 
   try{
     localStream = await navigator.mediaDevices.getUserMedia({
-      audio:{ echoCancellation:true, noiseSuppression:true, sampleRate:48000 }
+      audio:{ echoCancellation:true, noiseSuppression:true, sampleRate:48000 },
+      video: callMode === 'video' ? { facingMode:'user', width:{ideal:1280}, height:{ideal:720} } : false
     });
+    if(callMode==='video'){localVideo.srcObject=localStream;videoStage.classList.add('show');}
   }catch(err){
     showError('Microphone access is required to call in. Please allow microphone access and try again.');
     callBtn.disabled = false;
@@ -496,24 +515,25 @@ async function startCall(){
   }
 
   pc = new RTCPeerConnection(STUN);
-  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
   pc.onconnectionstatechange = () => {
+    if(!pc)return;
     console.info('Caller-to-producer WebRTC:', pc.connectionState, 'ICE:', pc.iceConnectionState);
     if(pc.connectionState==='failed') showError('Call media connection failed. Check network/TURN and the producer dashboard connection.');
   };
   pc.oniceconnectionstatechange = () => {
+    if(!pc)return;
     console.info('Caller ICE state:', pc.iceConnectionState);
     if(pc.iceConnectionState==='failed') showError('ICE negotiation failed. Check Firestore candidate permissions and TURN reachability.');
   };
-  pc.onicecandidateerror = event => {
-    console.warn('Caller ICE candidate error:', {code:event.errorCode,text:event.errorText,url:event.url});
-  };
+  pc.onicecandidateerror = event => console.warn('Caller ICE candidate error:', {code:event.errorCode,text:event.errorText,url:event.url});
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
   // Play remote audio (producer's voice)
   pc.ontrack = (event) => {
     if(event.streams && event.streams[0]){
       remoteAudio.srcObject = event.streams[0];
       remoteAudio.play().catch(()=>{});
+      if(callMode==='video'){remoteVideo.srcObject=event.streams[0];remoteVideo.play().catch(()=>{});}
     }
   };
 
@@ -528,6 +548,7 @@ async function startCall(){
   callDocRef = await addDoc(collection(db, 'liveCalls'), {
     callerName: name,
     callerCity: callerCityInput.value.trim() || null,
+    mediaType: callMode,
     offer: { type: offer.type, sdp: offer.sdp },
     status: 'waiting',
     createdAt: serverTimestamp()
@@ -608,66 +629,13 @@ async function startCall(){
     }
   });
 
-  // OBS overlay is a separate peer. Apply its recvonly offer first, then
-  // attach the caller microphone to the offered audio transceiver before answering.
-  overlaySessionsUnsub = onSnapshot(collection(db, 'liveCalls', callDocRef.id, 'overlaySessions'), (snap) => {
-    snap.docChanges().forEach(async (change) => {
-      if(change.type !== 'added') return;
-      const sessionId = change.doc.id;
-      const sessionData = change.doc.data();
-      if(!sessionData.offer || overlayPeerConnections.has(sessionId) || !localStream) return;
-      const sessionRef = doc(db, 'liveCalls', callDocRef.id, 'overlaySessions', sessionId);
-      const overlayPc = new RTCPeerConnection(STUN);
-      overlayPeerConnections.set(sessionId, overlayPc);
-      let remoteDescriptionSet = false;
-      overlayPc.onicecandidate = (event) => {
-        if(event.candidate) addDoc(collection(sessionRef, 'dashboardCandidates'), event.candidate.toJSON()).catch(err => console.warn('OBS candidate write failed', err));
-      };
-      overlayPc.onconnectionstatechange = () => {
-        console.info('OBS caller-audio peer:', overlayPc.connectionState);
-        if(overlayPc.connectionState === 'failed' || overlayPc.connectionState === 'disconnected') {
-          console.warn('OBS caller-audio path is not connected; check overlay source and network.');
-        }
-      };
-      try {
-        await overlayPc.setRemoteDescription(new RTCSessionDescription(sessionData.offer));
-        remoteDescriptionSet = true;
-        for(const transceiver of overlayPc.getTransceivers()) {
-          const kind = transceiver.receiver?.track?.kind;
-          // Audio-call OBS output is caller microphone only. The producer mic is
-          // on the separate main-call peer and is never attached to this peer.
-          const track = kind === 'audio' ? localStream.getAudioTracks()[0] : null;
-          if(track) {
-            transceiver.direction = 'sendonly';
-            await transceiver.sender.replaceTrack(track);
-          } else {
-            transceiver.direction = 'inactive';
-          }
-        }
-        const answer = await overlayPc.createAnswer();
-        await overlayPc.setLocalDescription(answer);
-        await updateDoc(sessionRef, { answer: { type: answer.type, sdp: answer.sdp }, updatedAt: Date.now() });
-        onSnapshot(collection(sessionRef, 'overlayCandidates'), (candidateSnap) => {
-          candidateSnap.docChanges().forEach((candidateChange) => {
-            if(candidateChange.type === 'added' && overlayPc.signalingState !== 'closed') {
-              overlayPc.addIceCandidate(new RTCIceCandidate(candidateChange.doc.data())).catch(err => console.warn('OBS ICE add failed', err));
-            }
-          });
-        }, err => console.warn('OBS overlay candidate listener failed', err));
-      } catch(err) {
-        console.warn('OBS overlay audio connection failed:', err);
-        overlayPc.close(); overlayPeerConnections.delete(sessionId);
-      }
-    });
-  }, err => console.warn('OBS overlay session listener failed:', err));
-
   // Listen for dashboard ICE candidates — buffer them if remote desc not set yet
   onSnapshot(collection(db, 'liveCalls', callDocRef.id, 'dashboardCandidates'), (snap) => {
     snap.docChanges().forEach(async (change) => {
       if(change.type === 'added'){
         const candidate = new RTCIceCandidate(change.doc.data());
         if(remoteDescSet){
-          await pc.addIceCandidate(candidate).catch(err=>{ console.warn('Dashboard ICE candidate rejected:',err); });
+          await pc.addIceCandidate(candidate).catch(()=>{});
         } else {
           pendingCandidates.push(candidate);
         }
@@ -678,16 +646,14 @@ async function startCall(){
   // Show call screen and start ringing
   setupScreen.style.display = 'none';
   callScreen.style.display = 'flex';
-  callerNameDisplay.textContent = name;
+  callerNameDisplay.textContent = name + (callMode==='video' ? ' · Video Call' : ' · Audio Call');
   setStatus('waiting', 'Calling Live Caller Studio…');
   startOutgoingRing(); // Start outgoing ring while waiting
 }
 
 function cleanup(updateFirestore = true){
-  if(overlaySessionsUnsub){ overlaySessionsUnsub(); overlaySessionsUnsub = null; }
-  overlayPeerConnections.forEach((overlayPc)=>{ try{overlayPc.close();}catch(e){} });
-  overlayPeerConnections.clear();
   if(localStream) localStream.getTracks().forEach(t => t.stop());
+  localVideo.srcObject = null; remoteVideo.srcObject = null; videoStage.classList.remove('show');
   if(pc){ pc.close(); pc = null; }
   if(updateFirestore && callDocRef){
     updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
@@ -732,42 +698,19 @@ window.addEventListener('beforeunload', ()=>{ stopOutgoingRing(); stopHoldMusicC
 // ── Phone lines open/closed ── set by the producer in the dashboard.
 // Missing doc / missing field defaults to OPEN so this never blocks calls
 // before a producer has ever touched the toggle.
-function applyPhoneLine(state){
-  linesOpen = state === LINE.OPEN;
+onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
+  const d = snap.data();
+  linesOpen = d ? d.open !== false : true;
   linesClosedBanner.classList.toggle('show', !linesOpen);
-  document.getElementById('linesClosedTitle').textContent =
-    state === LINE.UNKNOWN ? "📞 Can't confirm the phone line" : '📞 Phone Lines Are Closed';
-  document.getElementById('linesClosedCopy').textContent =
-    state === LINE.UNKNOWN ? 'Check your connection and try again shortly, or leave a voice message.'
-                           : "Call-ins aren't being accepted right now — check back soon!";
-  callBtn.disabled = !linesOpen;
-  callBtn.style.opacity = linesOpen ? '' : '.4';
-}
-applyPhoneLine(LINE.UNKNOWN); // nothing is open until Firestore confirms it
-let phoneLineStatusReceived = false;
-const phoneLineStatusTimeout = setTimeout(() => {
-  if (phoneLineStatusReceived) return;
-  const title = document.getElementById('linesClosedTitle');
-  if (title) title.textContent = '📞 Phone line status not connected';
-}, 10000);
-onSnapshot(doc(db, 'hotlineSettings', 'callLines'), { includeMetadataChanges: true },
-  (snap) => {
-    phoneLineStatusReceived = true;
-    clearTimeout(phoneLineStatusTimeout);
-    applyPhoneLine(resolveLineStates(snap).phone);
-  },
-  (err) => {
-    phoneLineStatusReceived = true;
-    clearTimeout(phoneLineStatusTimeout);
-    const code = err && err.code ? err.code : 'unknown-error';
-    console.error('Phone line status read failed:', code, err);
-    applyPhoneLine(LINE.UNKNOWN);
-    const title = document.getElementById('linesClosedTitle');
-    const copy = document.getElementById('linesClosedCopy');
-    if (title) title.textContent = '📞 Phone line error: ' + code;
-    if (copy) copy.textContent = 'The app could not read hotlineSettings/callLines from Firebase. Check Firestore rules and connectivity.';
+  callBtn.disabled = false;
+  callBtn.style.opacity = '';
+  if(!linesOpen){
+    callBtn.innerHTML = '📮 Leave Voicemail';
+    linesClosedBanner.innerHTML = '<strong>📞 Phone Lines Are Closed</strong><br>Tap “Leave Voicemail” to record a message for the producer’s Messages queue.';
+  }else{
+    callBtn.innerHTML = callMode==='video' ? '🎥 Start FaceTime Video Call' : '📞 Start FaceTime Audio Call';
   }
-);
+}, ()=>{ /* if this ever errors, leave calls enabled rather than block listeners */ });
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
