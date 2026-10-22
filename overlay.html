@@ -142,17 +142,25 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
   };
   pc.onconnectionstatechange=()=>{
     if(overlayCallPc!==pc) return;
+    console.info('OBS call peer state:',pc.connectionState,'ICE:',pc.iceConnectionState,'type:',isVideo?'video':'audio');
     if(pc.connectionState==='connected'){
       fallback.textContent=isVideo?'VIDEO CALL CONNECTED':'AUDIO CALL CONNECTED';
       fallback.classList.remove('error');
-    } else if(pc.connectionState==='failed' || pc.connectionState==='disconnected') {
-      showError('WebRTC '+pc.connectionState+' — check guest connection and TURN/ICE');
+    } else if(pc.connectionState==='failed') {
+      showError('WebRTC failed. Open OBS Browser Source console: compare Firestore signaling errors with ICE candidate errors.');
+    } else if(pc.connectionState==='disconnected') {
+      fallback.textContent='MEDIA INTERRUPTED • WAITING FOR NETWORK RECOVERY';
     }
   };
   pc.oniceconnectionstatechange=()=>{
-    if(overlayCallPc===pc && ['failed','disconnected'].includes(pc.iceConnectionState)) showError('ICE '+pc.iceConnectionState+' — media path unavailable');
+    if(overlayCallPc!==pc) return;
+    console.info('OBS ICE state:',pc.iceConnectionState);
+    if(pc.iceConnectionState==='failed') showError('ICE failed: no working media route. Check TURN relay availability and both peers’ candidate writes.');
   };
-  pc.onicecandidate = (event)=>{ if(event.candidate) addDoc(collection(sessionRef,'overlayCandidates'),event.candidate.toJSON()).catch(err=>showError(err.code||'ICE write failed')); };
+  pc.onicecandidateerror=event=>{
+    console.warn('OBS ICE candidate error:',{code:event.errorCode,text:event.errorText,url:event.url});
+  };
+  pc.onicecandidate = (event)=>{ if(event.candidate) addDoc(collection(sessionRef,'overlayCandidates'),event.candidate.toJSON()).catch(err=>{console.error('OBS ICE candidate write failed:',err);showError('Firestore blocked OBS ICE candidate writes ('+(err.code||'unknown')+').');}); };
   // Subscribe before publishing the offer so fast answers/candidates are not missed.
   overlayCallUnsubs.push(onSnapshot(sessionRef, async snap=>{
     const data=snap.data(); if(!data || !data.answer || remoteSet || overlayCallPc!==pc) return;
