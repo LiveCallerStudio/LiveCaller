@@ -560,7 +560,8 @@ async function requestAudioBitrate(peer, bitrate = 128000){
     }catch(error){ console.debug('Audio bitrate hint not supported by this browser:',error?.message||error); }
   }
 }
-\nasync function startCall(){
+
+async function startCall(){
   clearError();
   if(!linesOpen){
     const params = new URLSearchParams({source:'voicemail', name:callerNameInput.value.trim(), city:callerCityInput.value.trim(), callType:callMode});
