@@ -1949,6 +1949,109 @@ function startVideoTimer(sinceMs){
   videoTimerInterval = setInterval(tick, 1000);
 }
 
+
+// ── Private video guest screening (producer-side WebRTC) ──
+let screeningPc = null;
+let screeningCallId = null;
+let screeningUnsubs = [];
+let screeningRemoteStream = null;
+const screeningPanel = document.getElementById('videoScreeningPanel');
+const screeningPreview = document.getElementById('screeningPreview');
+const screeningStatus = document.getElementById('screeningStatus');
+const screeningGuestName = document.getElementById('screeningGuestName');
+const screeningAudioBtn = document.getElementById('screeningAudioBtn');
+function stopVideoScreening(clearGuest = true){
+  screeningUnsubs.forEach(unsub=>{try{unsub();}catch(e){}});
+  screeningUnsubs=[];
+  if(screeningPc){try{screeningPc.close();}catch(e){} screeningPc=null;}
+  if(screeningPreview){screeningPreview.pause();screeningPreview.srcObject=null;screeningPreview.muted=true;}
+  screeningRemoteStream=null;
+  const oldId=screeningCallId;
+  screeningCallId=null;
+  if(screeningPanel) screeningPanel.classList.remove('show');
+  if(screeningStatus) screeningStatus.textContent='Private preview stopped.';
+  if(clearGuest && oldId){
+    updateDoc(doc(db,'videoCalls',oldId),{screeningSessionId:null}).catch(err=>console.warn('Could not clear screening session:',err&&err.code));
+  }
+}
+async function screenVideoGuest(callId){
+  if(!callId) throw new Error('Missing video guest ID.');
+  stopVideoScreening(false);
+  screeningCallId=callId;
+  screeningPanel.classList.add('show');
+  screeningGuestName.textContent='Connecting to guest…';
+  screeningStatus.textContent='Opening a private preview. This is not on air.';
+  screeningPreview.muted=true;
+  const callRef=doc(db,'videoCalls',callId);
+  const callSnap=await getDoc(callRef);
+  if(!callSnap.exists()) throw new Error('Video guest call no longer exists.');
+  const callData=callSnap.data()||{};
+  screeningGuestName.textContent=callData.callerName||'Video Guest';
+  const sessionId='screen-'+Date.now()+'-'+Math.random().toString(36).slice(2,9);
+  const sessionRef=doc(db,'videoCalls',callId,'screeningSessions',sessionId);
+  const pc=new RTCPeerConnection(iceConfig);
+  screeningPc=pc;
+  screeningRemoteStream=new MediaStream();
+  let remoteSet=false;
+  const pending=[];
+  pc.addTransceiver('audio',{direction:'recvonly'});
+  pc.addTransceiver('video',{direction:'recvonly'});
+  pc.ontrack=event=>{
+    if(screeningPc!==pc)return;
+    const tracks=event.streams&&event.streams[0]?event.streams[0].getTracks():[event.track];
+    tracks.forEach(track=>{if(track&&!screeningRemoteStream.getTracks().some(t=>t.id===track.id))screeningRemoteStream.addTrack(track);});
+    screeningPreview.srcObject=screeningRemoteStream;
+    screeningPreview.play().catch(()=>{});
+    screeningStatus.textContent='Private preview connected. Guest is not on air.';
+  };
+  pc.onconnectionstatechange=()=>{
+    if(screeningPc!==pc)return;
+    if(pc.connectionState==='connected') screeningStatus.textContent='Private preview connected. Guest is not on air.';
+    else if(pc.connectionState==='failed') screeningStatus.textContent='Preview failed. Check ICE/TURN and Firestore candidate permissions.';
+    else if(pc.connectionState==='disconnected') screeningStatus.textContent='Preview interrupted; attempting to reconnect…';
+  };
+  pc.onicecandidate=e=>{
+    if(e.candidate)addDoc(collection(sessionRef,'producerCandidates'),e.candidate.toJSON()).catch(err=>console.warn('Screening producer ICE write failed:',err&&err.code));
+  };
+  pc.onicecandidateerror=e=>console.warn('Screening producer ICE candidate error:',{code:e.errorCode,text:e.errorText,url:e.url});
+  try{
+    const offer=await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await setDoc(sessionRef,{offer:{type:offer.type,sdp:offer.sdp},client:'dashboard-screen',createdAt:Date.now(),mediaType:'video'});
+    screeningUnsubs.push(onSnapshot(sessionRef,snap=>{
+      const data=snap.data();
+      if(!data||!data.answer||remoteSet||screeningPc!==pc)return;
+      pc.setRemoteDescription(new RTCSessionDescription(data.answer)).then(async()=>{
+        remoteSet=true;
+        for(const candidate of pending) await pc.addIceCandidate(candidate).catch(()=>{});
+        pending.length=0;
+      }).catch(err=>{screeningStatus.textContent='Could not apply guest answer: '+err.message;});
+    },err=>{screeningStatus.textContent='Screening signaling error: '+(err.code||err.message);}));
+    screeningUnsubs.push(onSnapshot(collection(sessionRef,'guestCandidates'),snap=>{
+      snap.docChanges().forEach(change=>{
+        if(change.type!=='added'||screeningPc!==pc)return;
+        const candidate=new RTCIceCandidate(change.doc.data());
+        if(remoteSet)pc.addIceCandidate(candidate).catch(err=>console.warn('Guest screening ICE rejected:',err&&err.name));
+        else pending.push(candidate);
+      });
+    },err=>{screeningStatus.textContent='Guest ICE signaling error: '+(err.code||err.message);}));
+    await updateDoc(callRef,{screeningSessionId:sessionId,status:'waiting'});
+  }catch(err){
+    stopVideoScreening(false);
+    throw err;
+  }
+}
+screeningAudioBtn?.addEventListener('click',async()=>{
+  if(!screeningPreview)return;
+  screeningPreview.muted=!screeningPreview.muted;
+  screeningAudioBtn.textContent=screeningPreview.muted?'Enable Preview Audio':'Mute Preview Audio';
+  if(!screeningPreview.muted)await screeningPreview.play().catch(()=>{});
+});
+document.getElementById('screeningRetryBtn')?.addEventListener('click',()=>{
+  if(screeningCallId)screenVideoGuest(screeningCallId).catch(err=>{screeningStatus.textContent='Reconnect failed: '+err.message;});
+});
+document.getElementById('screeningStopBtn')?.addEventListener('click',()=>stopVideoScreening(true));
+
 function startVideoCallsListener(){
   if(!startListenerOnce('startVideoCallsListener')) return;
   onSnapshot(
