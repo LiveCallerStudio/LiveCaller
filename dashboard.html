@@ -575,6 +575,7 @@
 <nav class="tab-nav">
   <button class="tab-btn active" data-tab="calls">📞 Phone Studio</button>
   <button class="tab-btn" data-tab="queue">📥 Messages</button>
+  <button class="tab-btn" data-tab="songs">🎵 Song Requests</button>
   <button class="tab-btn" data-tab="video">🎥 Video Guests</button>
   <button class="tab-btn" data-tab="history">📋 History</button>
   <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
@@ -588,6 +589,13 @@
       <div>No messages waiting. The queue's clear.</div>
     </div>
     <div class="queue" id="queue"></div>
+  </div>
+
+  <!-- SONG REQUESTS TAB -->
+  <div class="tab-content" id="tab-songs" style="display:none;">
+    <div class="analytics-grid" style="margin-bottom:16px;"><div class="stat-card"><div class="stat-value" id="songPendingStat">—</div><div class="stat-label">Awaiting approval</div></div><div class="stat-card"><div class="stat-value" id="songTotalStat">—</div><div class="stat-label">Total requests</div></div></div>
+    <div id="songQueue" class="queue"></div>
+    <div id="songEmpty" class="empty" style="display:none;"><div class="ic">🎵</div><div>No song requests match your search.</div></div>
   </div>
 
   <!-- CALLS TAB -->
@@ -951,6 +959,7 @@ const pendingSongCountEl = document.getElementById('pendingSongCount');
 const totalPendingCountEl = document.getElementById('totalPendingCount');
 const activitySummaryEl = document.getElementById('activitySummary');
 let pendingMessageCount = 0, missedCallCount = 0, pendingSongCount = 0;
+let allSongRequests = [];
 function updateActivityCounters(){
   pendingMessageCountEl.textContent = String(pendingMessageCount);
   missedCallCountEl.textContent = String(missedCallCount);
@@ -1232,8 +1241,8 @@ hiddenPlayer.addEventListener('ended', async ()=>{
   render();
 });
 
-searchInput.addEventListener('input', render);
-filterSelect.addEventListener('change', render);
+searchInput.addEventListener('input', ()=>{render();renderSongRequests();});
+filterSelect.addEventListener('change', ()=>{render();renderSongRequests();});
 
 // ── Tab switching ──
 const tabBtns = document.querySelectorAll('.tab-btn');
@@ -1247,6 +1256,7 @@ tabBtns.forEach(btn =>{
       c.style.display = c.id === 'tab-' + target ? 'block' : 'none';
     });
     if(target === 'analytics') renderAnalytics();
+    if(target === 'songs') renderSongRequests();
   });
 });
 
@@ -2044,10 +2054,54 @@ function formatDur(s){
 function startSongRequestsListener(){
   if(!startListenerOnce('startSongRequestsListener')) return;
   onSnapshot(query(collection(db, 'songRequests'), orderBy('createdAt', 'desc')), (snap)=>{
-    pendingSongCount = snap.docs.filter(d => d.data().status === 'pending').length;
+    allSongRequests = snap.docs.map(d=>({id:d.id,...d.data()}));
+    pendingSongCount = allSongRequests.filter(r=>r.status === 'pending').length;
     updateActivityCounters();
-  }, (err)=>{ pendingSongCountEl.textContent = 'Unavailable'; console.warn('Song request listener failed:', err && err.code); });
+    renderSongRequests();
+  }, (err)=>{ pendingSongCountEl.textContent = 'Unavailable'; document.getElementById('songQueue').innerHTML = '<div class="empty">Song requests are unavailable. Check Firestore permissions.</div>'; console.warn('Song request listener failed:', err && err.code); });
 }
+function renderSongRequests(){
+  const listEl = document.getElementById('songQueue');
+  const emptyEl = document.getElementById('songEmpty');
+  const term = searchInput.value.trim().toLowerCase();
+  const list = allSongRequests.filter(r=>{
+    const state = filterSelect.value;
+    if(state === 'pending' && r.status !== 'pending') return false;
+    if(state === 'approved' && r.status !== 'approved') return false;
+    return !term || [r.artist,r.songTitle,r.name,r.city,r.status].some(v=>String(v||'').toLowerCase().includes(term));
+  });
+  document.getElementById('songPendingStat').textContent = pendingSongCount;
+  document.getElementById('songTotalStat').textContent = allSongRequests.length;
+  emptyEl.style.display = list.length ? 'none' : 'block';
+  listEl.innerHTML = list.slice(0,60).map(r=>`
+    <article class="card" style="align-items:flex-start" data-song-id="${escapeHtml(r.id)}">
+      <div style="font-size:28px;min-width:36px">🎵</div>
+      <div class="card-body">
+        <div class="card-top"><span class="card-name">${escapeHtml(r.songTitle || 'Untitled request')}</span><span class="badge ${r.status==='approved'?'approved':''}">${escapeHtml(r.status || 'pending')}</span></div>
+        <div class="card-song">${escapeHtml(r.artist || 'Artist not supplied')}</div>
+        <div class="hist-meta">${escapeHtml(r.name || 'Listener')}${r.city ? ' · '+escapeHtml(r.city) : ''} · ${formatStamp(r.createdAt)}</div>
+      </div>
+      <div class="card-actions">
+        <button class="ibtn approve" data-song-action="air" data-id="${escapeHtml(r.id)}">▶ Send on air</button>
+        <button class="ibtn" data-song-action="approve" data-id="${escapeHtml(r.id)}">✓ Approve</button>
+        <button class="ibtn delete" data-song-action="reject" data-id="${escapeHtml(r.id)}">✕ Reject</button>
+      </div>
+    </article>`).join('');
+}
+document.getElementById('songQueue').addEventListener('click',async e=>{
+  const btn=e.target.closest('[data-song-action]'); if(!btn)return;
+  const r=allSongRequests.find(x=>x.id===btn.dataset.id); if(!r)return;
+  btn.disabled=true;
+  try{
+    if(btn.dataset.songAction==='approve') await updateDoc(doc(db,'songRequests',r.id),{status:'approved',reviewedAt:serverTimestamp()});
+    else if(btn.dataset.songAction==='reject') await updateDoc(doc(db,'songRequests',r.id),{status:'rejected',reviewedAt:serverTimestamp()});
+    else if(btn.dataset.songAction==='air'){
+      await setDoc(doc(db,'songRequestLive','now'),{active:true,songTitle:r.songTitle||'',artist:r.artist||'',name:r.name||null,city:r.city||null,requestId:r.id,updatedAt:Date.now()});
+      await updateDoc(doc(db,'songRequests',r.id),{status:'approved',reviewedAt:serverTimestamp()});
+    }
+  }catch(err){console.error('Song request action failed:',err);alert('Could not update this song request. Check Firestore permissions and try again.');}
+  finally{btn.disabled=false;}
+});
 
 function startQueueListener(){
   if(!startListenerOnce('startQueueListener')) return;
