@@ -53,10 +53,16 @@ match /videoCalls/{callId}/screeningSessions/{sessionId} {
   // Only the producer can create a preview offer, and only for a waiting guest.
   allow create: if isProducer()
     && parentCallIsWaiting()
-    && request.resource.data.keys().hasOnly(['client', 'producerUid', 'createdAt'])
+    && request.resource.data.keys().hasOnly(['client', 'producerUid', 'createdAt', 'offer', 'mediaType'])
     && request.resource.data.client == 'dashboard-screen'
     && request.resource.data.producerUid == request.auth.uid
-    && request.resource.data.createdAt is number;
+    && request.resource.data.createdAt is number
+    && request.resource.data.mediaType == 'video'
+    && request.resource.data.offer is map
+    && request.resource.data.offer.keys().hasOnly(['type', 'sdp'])
+    && request.resource.data.offer.type == 'offer'
+    && request.resource.data.offer.sdp is string
+    && request.resource.data.offer.sdp.size() > 0;
 
   allow update: if isProducer()
     || (isThisGuest()
