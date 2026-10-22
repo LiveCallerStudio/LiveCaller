@@ -7,7 +7,7 @@ type Action="answer"|"hold"|"resume"|"on-air"|"disconnect"|"reject"|"caller-end"
 const matches=(raw:string,stored:string)=>{const a=Buffer.from(createHash("sha256").update(raw).digest("hex"));const b=Buffer.from(stored||"");return a.length===b.length&&timingSafeEqual(a,b);};
 export async function POST(request:NextRequest,context:{params:{id:string}}){
  try{
-  const body=await request.json();const action=String(body.action||"") as Action;const ref=adminDb().collection("liveCalls").doc(context.params.id);const snap=await ref.get();
+  const body=await request.json();const action=String(body.action||"") as Action;const ref=adminDb().collection("liveKitCalls").doc(context.params.id);const snap=await ref.get();
   if(!snap.exists)return NextResponse.json({error:"Call not found."},{status:404});
   const call=snap.data()!;const host=isHostRequest(request);
   if(!host&&!(action==="caller-end"&&typeof body.callerKey==="string"&&matches(body.callerKey,call.callerKeyHash)))return NextResponse.json({error:"Unauthorized."},{status:401});
