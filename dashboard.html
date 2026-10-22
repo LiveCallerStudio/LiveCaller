@@ -284,7 +284,6 @@
     margin-bottom:16px; font-family:Arial,Helvetica,sans-serif;
   }
   .active-call-status.on-air{color:var(--red); font-weight:900;}
-  .active-call-status.error{color:#ffb020; font-weight:800;}
   .active-call-status.on-hold{color:#f5a623;}
   .active-call-controls{display:flex; gap:10px; flex-wrap:wrap;}
   .cbtn{
@@ -417,10 +416,6 @@
   }
   .tab-btn:hover{color:var(--text);}
   .tab-btn.active{color:var(--green); border-bottom-color:var(--green);}
-  .tab-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;margin-left:5px;border-radius:999px;background:#202020;border:1px solid #333;color:#b8b8b8;font-size:10px;font-weight:900;line-height:1;vertical-align:middle}
-  .tab-btn.active .tab-count{border-color:rgba(83,252,24,.45);color:var(--green);background:rgba(83,252,24,.08)}
-  .tab-btn .call-counter{display:none}
-  .tab-btn .call-counter.show{display:inline-flex;animation:none;border-color:rgba(83,252,24,.5);background:rgba(83,252,24,.1);padding:0 6px;border-radius:999px;font-size:10px}
 
   /* ── Analytics ── */
   .analytics-grid{
@@ -502,53 +497,6 @@
   .login-error{
     color:var(--red); font-size:12.5px; margin-top:12px; min-height:16px;
   }
-
-  /* Producer-focused compact layout: controls and line status stay at the top */
-  header{padding:10px 14px;gap:10px;align-items:center}
-  .brand h1{font-size:14px;letter-spacing:1px}.brand small{font-size:10px}
-  .header-right{gap:7px;justify-content:flex-end;flex:1}
-  .header-right>*{min-height:36px}
-  .lines-toggle,.counter,.home-btn,.signout-btn{padding:8px 10px;font-size:11px}
-  .search{width:min(190px,30vw);padding:8px 10px}
-  .tab-nav{position:sticky;top:0;z-index:8;display:flex;gap:6px;overflow-x:auto;white-space:nowrap;padding:8px 12px;background:#090909;border-bottom:1px solid var(--line);scrollbar-width:thin}
-  .tab-btn{flex:0 0 auto;min-height:40px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:800}
-  main{max-width:1400px;margin:0 auto}.tab-content{padding:14px 12px 36px}
-  .card,.call-card{padding:12px;gap:10px;border-radius:10px}
-  .card-actions,.active-call-controls,.call-card-actions{display:flex;gap:7px;flex-wrap:wrap}
-  button,a,select,input{touch-action:manipulation}
-  button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--green);outline-offset:2px}
-  @media(min-width:900px){header{position:sticky;top:0}.tab-nav{top:74px}.queue{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));align-items:start}}
-  
-  /* Song requests are a compact, accessible list rather than dashboard tiles. */
-  .song-list{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--line);}
-  .song-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;padding:15px 8px;border-bottom:1px solid var(--line);background:transparent;}
-  .song-main{display:flex;align-items:flex-start;gap:12px;min-width:0;}
-  .song-note{font-size:25px;line-height:1.2;flex:0 0 30px;}
-  .song-details{min-width:0;flex:1;}
-  .song-title-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15px;font-weight:800;overflow-wrap:anywhere;}
-  .song-artist-line{color:var(--sub);font-size:13px;margin-top:4px;overflow-wrap:anywhere;}
-  .song-meta{color:#777;font-size:11px;margin-top:5px;overflow-wrap:anywhere;}
-  .song-status{display:inline-flex;align-items:center;border:1px solid #555;color:#aaa;background:#242424;border-radius:5px;padding:3px 7px;font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;}
-  .song-status.played{color:#0a0a0a;background:var(--green);border-color:var(--green);}
-  .song-status.queued{color:#b8ff3c;border-color:#557a42;background:rgba(83,252,24,.08);}
-  .song-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;}
-  .song-actions .ibtn{white-space:nowrap;padding:8px 10px;}
-  .ibtn.played-btn{border-color:#555;color:#b7b7b7;background:#202020;}
-  .ibtn.played-btn.done{border-color:var(--green);color:var(--green);background:rgba(83,252,24,.08);}
-  .ibtn.queue-btn{border-color:#666;color:#bbb;}
-  .ibtn.queue-btn.active{border-color:var(--green);color:var(--green);background:rgba(83,252,24,.08);}
-  .ibtn.reject{border-color:#d98b37;color:#f0ad62;}
-  .ibtn.reject:hover{background:#d98b37;color:#111;}
-  .ibtn:disabled{opacity:.35;cursor:not-allowed;filter:none;}
-  @media(max-width:760px){
-    .song-row{grid-template-columns:minmax(0,1fr);gap:10px;padding:14px 2px;}
-    .song-actions{justify-content:flex-start;padding-left:42px;}
-    .song-actions .ibtn{flex:1 1 auto;justify-content:center;min-width:95px;}
-    .song-title-line{font-size:14px;}
-  }
-
-  @media(max-width:760px){header{position:relative;align-items:flex-start}.header-right{justify-content:flex-start;width:100%}.search{width:100%;flex:1 1 140px}.tab-nav{top:0}.tab-content{padding:10px 8px 28px}.queue{gap:8px}.card{align-items:flex-start}.card-body{min-width:150px}.ibtn{padding:9px 10px}}
-
 </style>
 </head>
 <body>
@@ -581,15 +529,20 @@
     </div>
   </div>
   <div class="header-right">
+    <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Toggle whether phone lines are accepting live calls">
+      <span class="lines-dot"></span>
+      <span id="linesToggleText">Lines Open</span>
+    </button>
+    <div class="call-counter" id="callCounter">📞 <span id="callCountNum">0</span> Incoming</div>
     <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
-    <span id="queueCount" hidden>0 waiting</span>
+    <div class="counter"><span class="dot"></span><span id="queueCount">0 waiting</span></div>
     <input class="search" id="searchInput" placeholder="Search name, city, song…">
     <select id="filterSelect">
       <option value="pending">Pending only</option>
       <option value="all">All messages</option>
       <option value="approved">Approved only</option>
     </select>
-    <a class="home-btn" href="home-v2.html">
+    <a class="home-btn" href="home.html">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
       Home
     </a>
@@ -601,17 +554,16 @@
 
 <!-- Tab Navigation -->
 <nav class="tab-nav">
-  <button class="tab-btn active" data-tab="calls">📞 Phone Studio <span class="tab-count call-counter" id="callCounter"><span id="callCountNum">0</span></span></button>
-  <button class="tab-btn" data-tab="queue">📥 Messages <span class="tab-count" id="pendingMessageCount">—</span></button>
-  <button class="tab-btn" data-tab="songs">🎵 Song Requests <span class="tab-count" id="pendingSongCount">—</span></button>
-  <button class="tab-btn" data-tab="history">📋 History <span class="tab-count" id="missedCallCount">—</span></button>
-  <button class="tab-btn" data-tab="recordings">🎙️ Recordings <span class="tab-count" id="recordingCount">—</span></button>
+  <button class="tab-btn active" data-tab="queue">📥 Queue</button>
+  <button class="tab-btn" data-tab="calls">📞 Calls</button>
+  <button class="tab-btn" data-tab="video">🎥 Video Guests</button>
+  <button class="tab-btn" data-tab="history">📋 History</button>
   <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
 </nav>
 
 <main>
   <!-- QUEUE TAB -->
-  <div class="tab-content" id="tab-queue" style="display:none;">
+  <div class="tab-content" id="tab-queue">
     <div id="emptyState" class="empty" style="display:none;">
       <div class="ic">📭</div>
       <div>No messages waiting. The queue's clear.</div>
@@ -619,38 +571,8 @@
     <div class="queue" id="queue"></div>
   </div>
 
-  <!-- SONG REQUESTS TAB -->
-  <div class="tab-content" id="tab-songs" style="display:none;">
-    <div class="analytics-grid" style="margin-bottom:16px;"><div class="stat-card"><div class="stat-value" id="songPendingStat">—</div><div class="stat-label">Awaiting approval</div></div><div class="stat-card"><div class="stat-value" id="songTotalStat">—</div><div class="stat-label">All-time requests</div></div></div>
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px;">
-      <label for="songStatusFilter" style="font-size:12px;color:var(--sub);font-weight:700;">Song queue</label>
-      <select id="songStatusFilter" aria-label="Filter song request queue">
-        <option value="incoming" selected>Incoming — play in order</option>
-        <option value="queued">Queued for OBS</option>
-        <option value="all">All songs ever requested</option>
-        <option value="approved">Played</option>
-        <option value="rejected">Rejected</option>
-      </select>
-      <span style="font-size:12px;color:var(--sub);">Incoming requests are queued oldest first. Only the next song can be marked played.</span>
-    </div>
-    <div id="songQueue" class="queue"></div>
-    <div id="songEmpty" class="empty" style="display:none;"><div class="ic">🎵</div><div>No song requests match your search.</div></div>
-  </div>
-
   <!-- CALLS TAB -->
-  <div class="tab-content" id="tab-calls">
-
-    <section class="phone-lines-panel" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;padding:14px 16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;">
-      <strong style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);margin-right:4px;">Phone Lines</strong>
-      <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Toggle whether audio callers can join">
-        <span class="lines-dot"></span>
-        <span id="linesToggleText">Audio (Open)</span>
-      </button>
-      <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video guests can join">
-        <span class="lines-dot"></span>
-        <span id="videoToggleText">Video (Open)</span>
-      </button>
-    </section>
+  <div class="tab-content" id="tab-calls" style="display:none;">
 
     <!-- Active call panel — shown when a call is connected -->
     <div class="active-call-panel" id="activeCallPanel" style="display:none;">
@@ -663,6 +585,10 @@
         <div class="active-call-timer" id="activeCallTimer">0:00</div>
       </div>
       <div class="active-call-status" id="activeCallStatus">Screening</div>
+      <div id="producerVideoStage" style="display:none;position:relative;width:100%;max-width:720px;aspect-ratio:16/9;background:#050505;border:1px solid #333;border-radius:14px;overflow:hidden;margin:14px 0;">
+        <video id="callerVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;background:#050505;"></video>
+        <video id="producerVideo" autoplay playsinline muted style="position:absolute;right:10px;bottom:10px;width:24%;aspect-ratio:3/4;object-fit:cover;border:2px solid var(--green);border-radius:10px;background:#111;transform:scaleX(-1);"></video>
+      </div>
       <div class="active-call-controls">
         <button class="cbtn cbtn-hold" id="holdBtn">⏸ Hold</button>
         <button class="cbtn cbtn-mute" id="micMuteBtn">🎤 Mute Mic</button>
@@ -683,8 +609,24 @@
     </div>
     <div class="queue" id="callsQueue"></div>
 
-    <div class="calls-section-title" style="margin-top:28px;">Video Guests</div>
-<!-- On-air guest panel — shown when a guest is live -->
+    <!-- Hidden audio element — producer hears caller here, OBS captures via Browser Source -->
+    <audio id="callerAudio" autoplay style="display:none;"></audio>
+  </div>
+
+  <!-- VIDEO GUESTS TAB -->
+  <div class="tab-content" id="tab-video" style="display:none;">
+    <div style="padding:14px 16px;margin-bottom:18px;border:1px solid #2b2b2b;border-radius:12px;background:#111;color:#aaa;line-height:1.5;">
+      <strong style="color:var(--green);">Two-way FaceTime-style calls</strong><br>
+      Audio and video calls from <code>call.html</code> or <code>videocall.html</code> appear in the <strong>Calls</strong> tab, where you can Accept or Decline and speak privately before sending the call on air. This tab below remains for the separate OBS video-guest workflow.
+    </div>
+    <div style="margin-bottom:18px;">
+      <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video guests can join">
+        <span class="lines-dot"></span>
+        <span id="videoToggleText">Video Guests Open</span>
+      </button>
+    </div>
+
+    <!-- On-air guest panel — shown when a guest is live -->
     <div class="active-call-panel" id="activeVideoPanel" style="display:none;">
       <div class="active-call-header">
         <div class="active-call-info">
@@ -709,9 +651,6 @@
       <div>No video guests waiting right now.</div>
     </div>
     <div class="queue" id="videoQueue"></div>
-
-    <!-- Hidden audio element — producer hears caller here, OBS captures via Browser Source -->
-    <audio id="callerAudio" autoplay style="display:none;"></audio>
   </div>
 
   <!-- ANALYTICS TAB -->
@@ -733,8 +672,6 @@
         <div class="stat-value" id="statFavorited">—</div>
         <div class="stat-label">Favorited</div>
       </div>
-      <div class="stat-card"><div class="stat-value" id="statSongs">—</div><div class="stat-label">Song Requests</div></div>
-      <div class="stat-card"><div class="stat-value" id="statCalls">—</div><div class="stat-label">Total Calls</div></div>
     </div>
 
     <div class="analytics-section">
@@ -779,18 +716,16 @@
     </div>
     <div class="queue" id="histList"></div>
 
-  </div>
-
-  <!-- RECORDINGS TAB -->
-  <div class="tab-content" id="tab-recordings" style="display:none;"><div id="recordingsSection">
-    <div class="section-title" style="margin-bottom:14px;">🎙️ Recorded Calls</div>
-    <p style="color:var(--sub);font-size:13px;margin:0 0 16px;">Review, play, save, and delete recorded calls. Newest recordings appear first.</p>
-    <div class="empty" id="recordingsEmpty" style="display:none;">
-      <div class="ic">🎙️</div>
-      <div>No recordings yet. Start recording calls using the Record button.</div>
+    <!-- Recordings Section -->
+    <div id="recordingsSection" style="margin-top:32px;">
+      <div class="section-title" style="margin-bottom:14px;">🎙️ Recorded Calls</div>
+      <div class="empty" id="recordingsEmpty" style="display:none;">
+        <div class="ic">🎙️</div>
+        <div>No recordings yet. Start recording calls using the Record button.</div>
+      </div>
+      <div id="recordingsList"></div>
     </div>
-    <div id="recordingsList"></div>
-  </div></div>
+  </div>
 </main>
 
 <audio id="hiddenPlayer" class="hiddenplayer"></audio>
@@ -803,10 +738,9 @@ import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
-  getFirestore, collection, query, orderBy, onSnapshot as firebaseOnSnapshot,
+  getFirestore, collection, query, orderBy, onSnapshot,
   doc, updateDoc, deleteDoc, setDoc, addDoc, getDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { LINE, resolveLineStates } from "./lib/line-state.js";
 
 // ====== STEP 1: PASTE YOUR FIREBASE CONFIG HERE (same as home.html) ======
 const firebaseConfig = {
@@ -822,31 +756,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-
-// Track every realtime subscription so signing out releases listeners and a
-// later sign-in can safely attach fresh ones without duplicate Firestore reads.
-const activeDashboardUnsubs = new Set();
-function onSnapshot(...args){
-  const unsubscribe = firebaseOnSnapshot(...args);
-  activeDashboardUnsubs.add(unsubscribe);
-  return () => {
-    activeDashboardUnsubs.delete(unsubscribe);
-    unsubscribe();
-  };
-}
-function stopDashboardListeners(){
-  for(const unsubscribe of [...activeDashboardUnsubs]){
-    try{ unsubscribe(); }catch(err){ console.warn('Listener cleanup failed:',err); }
-  }
-  activeDashboardUnsubs.clear();
-  startedDashboardListeners.clear();
-}
-const startedDashboardListeners = new Set();
-function startListenerOnce(name){
-  if(startedDashboardListeners.has(name)) return false;
-  startedDashboardListeners.add(name);
-  return true;
-}
 
 const loginScreen = document.getElementById('loginScreen');
 const dashboardApp = document.getElementById('dashboardApp');
@@ -877,13 +786,11 @@ onAuthStateChanged(auth, (user)=>{
     dashboardApp.style.display = 'block';
     startQueueListener();
     startCallsListener();
-    startSongRequestsListener();
     startCallHistoryListener();
     startLinesToggleListener();
     startVideoToggleListener();
     startVideoCallsListener();
   } else {
-    stopDashboardListeners();
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
   }
@@ -906,30 +813,20 @@ const liveStateRef = doc(db, 'hotlineLive', 'nowPlaying');
 const linesSettingsRef = doc(db, 'hotlineSettings', 'callLines');
 const linesToggleBtn = document.getElementById('linesToggleBtn');
 const linesToggleText = document.getElementById('linesToggleText');
-let linesState = LINE.UNKNOWN;   // unknown until the server has answered
-let linesOpen = false;
+let linesOpen = true;
 
 function renderLinesToggle(){
-  linesOpen = linesState === LINE.OPEN;
   linesToggleBtn.classList.toggle('open', linesOpen);
-  linesToggleBtn.classList.toggle('closed', linesState !== LINE.OPEN);
-  linesToggleText.textContent = linesState === LINE.OPEN ? 'Audio (Open)' : linesState === LINE.CLOSED ? 'Audio (Closed)' : 'Audio (Unknown)';
-  linesToggleBtn.disabled = linesState === LINE.UNKNOWN;
+  linesToggleBtn.classList.toggle('closed', !linesOpen);
+  linesToggleText.textContent = linesOpen ? 'Lines Open' : 'Lines Closed';
 }
-renderLinesToggle();
 
 function startLinesToggleListener(){
-  if(!startListenerOnce('startLinesToggleListener')) return;
-  onSnapshot(linesSettingsRef, { includeMetadataChanges: true }, (snap)=>{
-    linesState = resolveLineStates(snap).phone;
+  onSnapshot(linesSettingsRef, (snap)=>{
+    const d = snap.data();
+    linesOpen = d ? d.open !== false : true;
     renderLinesToggle();
-  }, (err)=>{
-    const code = err && err.code ? err.code : 'unknown-error';
-    console.error('Phone line status read failed:', code, err);
-    linesState = LINE.UNKNOWN;
-    renderLinesToggle();
-    linesToggleText.textContent = 'Audio (Error: ' + code + ')';
-  });
+  }, ()=>{ /* if rules ever block this, just leave the last known state visible */ });
 }
 
 linesToggleBtn.addEventListener('click', async()=>{
@@ -950,36 +847,26 @@ linesToggleBtn.addEventListener('click', async()=>{
       alert('Could not update phone lines status: ' + err.message);
     }
   }
-  renderLinesToggle();
+  linesToggleBtn.disabled = false;
 });
 
 // ── Video guests open/closed ── separate toggle, same settings doc, different field
 const videoToggleBtn = document.getElementById('videoToggleBtn');
 const videoToggleText = document.getElementById('videoToggleText');
-let videoState = LINE.UNKNOWN;
-let videoOpen = false;
+let videoOpen = true;
 
 function renderVideoToggle(){
-  videoOpen = videoState === LINE.OPEN;
   videoToggleBtn.classList.toggle('open', videoOpen);
-  videoToggleBtn.classList.toggle('closed', videoState !== LINE.OPEN);
-  videoToggleText.textContent = videoState === LINE.OPEN ? 'Video (Open)' : videoState === LINE.CLOSED ? 'Video (Closed)' : 'Video (Unknown)';
-  videoToggleBtn.disabled = videoState === LINE.UNKNOWN;
+  videoToggleBtn.classList.toggle('closed', !videoOpen);
+  videoToggleText.textContent = videoOpen ? 'Video Guests Open' : 'Video Guests Closed';
 }
-renderVideoToggle();
 
 function startVideoToggleListener(){
-  if(!startListenerOnce('startVideoToggleListener')) return;
-  onSnapshot(linesSettingsRef, { includeMetadataChanges: true }, (snap)=>{
-    videoState = resolveLineStates(snap).video;
+  onSnapshot(linesSettingsRef, (snap)=>{
+    const d = snap.data();
+    videoOpen = d ? d.videoOpen !== false : true;
     renderVideoToggle();
-  }, (err)=>{
-    const code = err && err.code ? err.code : 'unknown-error';
-    console.error('Video line status read failed:', code, err);
-    videoState = LINE.UNKNOWN;
-    renderVideoToggle();
-    videoToggleText.textContent = 'Video (Error: ' + code + ')';
-  });
+  }, ()=>{ /* leave last known state visible if this ever errors */ });
 }
 
 videoToggleBtn.addEventListener('click', async()=>{
@@ -998,7 +885,7 @@ videoToggleBtn.addEventListener('click', async()=>{
       alert('Could not update video guests status: ' + err.message);
     }
   }
-  renderVideoToggle();
+  videoToggleBtn.disabled = false;
 });
 
 let allMessages = [];
@@ -1010,18 +897,6 @@ let livePlayingId = null;       // sent to OBS (muted locally)
 const queueEl = document.getElementById('queue');
 const emptyState = document.getElementById('emptyState');
 const queueCount = document.getElementById('queueCount');
-const pendingMessageCountEl = document.getElementById('pendingMessageCount');
-const missedCallCountEl = document.getElementById('missedCallCount');
-const pendingSongCountEl = document.getElementById('pendingSongCount');
-let pendingMessageCount = 0, missedCallCount = 0, pendingSongCount = 0;
-let allSongRequests = [], allCallHistory = [];
-function updateActivityCounters(){
-  pendingMessageCountEl.textContent = String(pendingMessageCount);
-  missedCallCountEl.textContent = String(missedCallCount);
-  pendingSongCountEl.textContent = String(pendingSongCount);
-  document.getElementById('recordingCount').textContent = String(allCallHistory.filter(c=>c.recordingUrl).length);
-}
-
 const alertBanner = document.getElementById('alertBanner');
 const searchInput = document.getElementById('searchInput');
 const filterSelect = document.getElementById('filterSelect');
@@ -1077,7 +952,6 @@ function stopPhoneRing(){
 function timeAgo(ts){
   if(!ts) return '';
   const d = ts.toDate ? ts.toDate() : new Date(ts);
-  if(!d || Number.isNaN(d.getTime())) return '';
   const diff = Math.floor((Date.now() - d.getTime())/1000);
   if(diff < 60) return 'just now';
   if(diff < 3600) return Math.floor(diff/60) + 'm ago';
@@ -1085,7 +959,7 @@ function timeAgo(ts){
   return d.toLocaleDateString();
 }
 
-function buildWaveformBars(count=12){
+function buildWaveformBars(count=40){
   let html = '';
   for(let i=0;i<count;i++){
     const h = 4 + Math.round(Math.random()*20);
@@ -1117,8 +991,6 @@ function render(){
 
   const pendingCount = allMessages.filter(m=>m.status==='pending').length;
   queueCount.textContent = `${pendingCount} waiting`;
-  pendingMessageCount = pendingCount;
-  updateActivityCounters();
 
   if(list.length === 0){
     emptyState.style.display = 'block';
@@ -1127,9 +999,6 @@ function render(){
   }
   emptyState.style.display = 'none';
 
-  // Keep the live UI lightweight: render only the newest 40 matching cards.
-  // allMessages remains complete for accurate pending counts and live actions.
-  list = list.slice(0, 40);
   queueEl.innerHTML = list.map(m=>{
     const isNew = m.status === 'pending';
     const previewing = currentlyPlayingId === m.id;
@@ -1155,7 +1024,7 @@ function render(){
         <button class="ibtn approve" data-action="approve" data-id="${m.id}">✓ Approve</button>
         <button class="ibtn favorite ${m.favorited ? 'active' : ''}" data-action="favorite" data-id="${m.id}">⭐ ${m.favorited ? 'Saved' : 'Favorite'}</button>
         <button class="ibtn on-air-btn ${isLive ? 'live' : ''}" data-action="golive" data-id="${m.id}">${isLive ? '⏹ Stop Live' : '🔴 Send Live On Air'}</button>
-        ${safeUrl(m.audioUrl) ? `<a class="ibtn download" href="${safeUrl(m.audioUrl)}" download target="_blank" rel="noopener">⬇ Download</a>` : ''}
+        <a class="ibtn download" href="${m.audioUrl}" download target="_blank" rel="noopener">⬇ Download</a>
         <button class="ibtn delete" data-action="delete" data-id="${m.id}">🗑 Delete</button>
       </div>
     </div>`;
@@ -1187,14 +1056,7 @@ function typeDetail(m){
   return '';
 }
 
-// Public submissions end up in hrefs/src attributes on this producer page: only https URLs pass.
-function safeUrl(u){
-  try{ const url = new URL(String(u || '')); return url.protocol === 'https:' ? escapeHtml(url.href) : ''; }
-  catch(e){ return ''; }
-}
-
 function escapeHtml(str){
-  str = String(str ?? '');
   return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
@@ -1296,15 +1158,8 @@ hiddenPlayer.addEventListener('ended', async ()=>{
   render();
 });
 
-function applyGlobalSearchToCards(){
-  const term = searchInput.value.trim().toLowerCase();
-  document.querySelectorAll('.call-card, .hist-card, .rec-card, .video-card').forEach(card=>{
-    card.style.display = !term || card.textContent.toLowerCase().includes(term) ? '' : 'none';
-  });
-}
-searchInput.addEventListener('input', ()=>{render();renderSongRequests();applyGlobalSearchToCards();});
-document.getElementById('songStatusFilter').addEventListener('change', renderSongRequests);
-filterSelect.addEventListener('change', ()=>{render();renderSongRequests();applyGlobalSearchToCards();});
+searchInput.addEventListener('input', render);
+filterSelect.addEventListener('change', render);
 
 // ── Tab switching ──
 const tabBtns = document.querySelectorAll('.tab-btn');
@@ -1318,8 +1173,6 @@ tabBtns.forEach(btn =>{
       c.style.display = c.id === 'tab-' + target ? 'block' : 'none';
     });
     if(target === 'analytics') renderAnalytics();
-    if(target === 'songs') renderSongRequests();
-    if(target === 'recordings') startCallHistoryListener();
   });
 });
 
@@ -1328,8 +1181,6 @@ function renderAnalytics(){
   const msgs = allMessages;
   const today = new Date(); today.setHours(0,0,0,0);
 
-  document.getElementById('statSongs').textContent = allSongRequests.length;
-  document.getElementById('statCalls').textContent = allCallHistory.length;
   document.getElementById('statTotal').textContent = msgs.length;
   document.getElementById('statApproved').textContent = msgs.filter(m=>m.status==='approved').length;
   document.getElementById('statFavorited').textContent = msgs.filter(m=>m.favorited).length;
@@ -1347,7 +1198,7 @@ function renderAnalytics(){
     .sort((a,b)=>b[1]-a[1])
     .map(([k,v])=>`
       <div class="breakdown-row">
-        <span class="breakdown-label">${escapeHtml(typeLabels[k]||k)}</span>
+        <span class="breakdown-label">${typeLabels[k]||k}</span>
         <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${(v/typeMax*100).toFixed(0)}%"></div></div>
         <span class="breakdown-count">${v}</span>
       </div>`).join('') || '<span style="color:var(--sub);font-size:13px;">No data yet.</span>';
@@ -1388,6 +1239,7 @@ function renderAnalytics(){
 // Live Firestore listener — auto-refreshes, no polling needed
 // Only starts after login succeeds (see onAuthStateChanged below) so the queue
 // is never queried while logged out.
+let queueListenerStarted = false;
 // ═══════════════════════════════════════════════════════
 //  LIVE CALLS — WebRTC via Firestore signaling
 // ═══════════════════════════════════════════════════════
@@ -1417,9 +1269,6 @@ const iceConfig = {
 };
 
 let activePc = null;         // RTCPeerConnection for current call
-let callerRemoteStream = null;
-let overlayBroadcastPc = null;
-let overlayCandidateUnsub = null;
 let activeCallId = null;     // current call Firestore ID
 let activeCallRef = null;    // Firestore doc ref for current call
 let producerStream = null;   // producer mic stream
@@ -1444,6 +1293,9 @@ const callCounter      = document.getElementById('callCounter');
 const callCountNum     = document.getElementById('callCountNum');
 const incomingCallsTitle = document.getElementById('incomingCallsTitle');
 const callerAudio      = document.getElementById('callerAudio');
+const callerVideo      = document.getElementById('callerVideo');
+const producerVideo    = document.getElementById('producerVideo');
+const producerVideoStage = document.getElementById('producerVideoStage');
 const micMuteBtn       = document.getElementById('micMuteBtn');
 const recordBtn        = document.getElementById('recordBtn');
 const recordStatus     = document.getElementById('recordStatus');
@@ -1476,13 +1328,11 @@ function setCallStatus(text, cls=''){
 
 function cleanupActiveCall(){
   clearInterval(callTimerInterval);
-  if(overlayCandidateUnsub){ overlayCandidateUnsub(); overlayCandidateUnsub = null; }
-  if(overlayBroadcastPc){ overlayBroadcastPc.close(); overlayBroadcastPc = null; }
-  callerRemoteStream = null;
   if(callCandidateUnsub){ callCandidateUnsub(); callCandidateUnsub = null; }
   if(activePc){ activePc.close(); activePc = null; }
   if(producerStream){ producerStream.getTracks().forEach(t=>t.stop()); producerStream = null; }
   callerAudio.srcObject = null;
+  callerVideo.srcObject = null; producerVideo.srcObject = null; producerVideoStage.style.display='none';
   activePc = null; activeCallId = null; activeCallRef = null;
   callIsOnAir = false; callIsOnHold = false;
   activeCallPanel.style.display = 'none';
@@ -1497,26 +1347,34 @@ async function answerCall(callId, callerName, callerCity){
   activeCallId = callId;
   activeCallRef = doc(db, 'liveCalls', callId);
 
-  // 1. Get producer mic
+  // Read the call type first so we request camera only for video calls.
+  let callData;
   try{
-    producerStream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true }, video:false });
+    const initialSnap = await getDoc(activeCallRef);
+    callData = initialSnap.data();
+    if(!callData || !callData.offer){alert('Could not read the incoming call offer.');return;}
+    const isVideoCall = callData.mediaType === 'video';
+    producerStream = await navigator.mediaDevices.getUserMedia({
+      audio:{ echoCancellation:true, noiseSuppression:true },
+      video: isVideoCall ? { facingMode:'user', width:{ideal:1280}, height:{ideal:720} } : false
+    });
+    if(isVideoCall){producerVideo.srcObject=producerStream;producerVideoStage.style.display='block';}
   }catch(err){
-    alert('Microphone access required to answer calls. Please allow mic permissions.');
+    alert('Could not access the microphone'+(err && err.name==='NotAllowedError'?' or camera. Allow the requested permissions and try again.':': '+(err.message||err)));
+    cleanupActiveCall();
     return;
   }
 
-  // 2. Create peer connection and add local tracks
+  // Create peer connection and add producer audio and (for video calls) camera.
   activePc = new RTCPeerConnection(iceConfig);
   producerStream.getTracks().forEach(track => activePc.addTrack(track, producerStream));
 
   // 3. Play caller audio when remote track arrives
   activePc.ontrack = (event)=>{
-    const stream = event.streams && event.streams[0];
-    if(stream){
-      callerRemoteStream = stream;
-      callerAudio.srcObject = stream;
+    if(event.streams && event.streams[0]){
+      callerAudio.srcObject = event.streams[0];
       callerAudio.play().catch(e => console.warn('callerAudio play blocked:', e));
-      // The OBS overlay receives caller media through its own overlaySessions peer.
+      if(callData && callData.mediaType==='video'){callerVideo.srcObject=event.streams[0];callerVideo.play().catch(()=>{});}
     }
   };
 
@@ -1530,7 +1388,7 @@ async function answerCall(callId, callerName, callerCity){
 
   // 5. Get caller's offer and set remote description
   const callSnap = await getDoc(activeCallRef);
-  const callData = callSnap.data();
+  callData = callSnap.data();
   if(!callData?.offer){ alert('Could not read call offer from Firestore.'); cleanupActiveCall(); return; }
 
   await activePc.setRemoteDescription(new RTCSessionDescription(callData.offer));
@@ -1559,7 +1417,7 @@ async function answerCall(callId, callerName, callerCity){
   );
 
   // 9. Show active call panel
-  activeCallerName.textContent = callerName || 'Anonymous Caller';
+  activeCallerName.textContent = (callerName || 'Anonymous Caller') + (callData && callData.mediaType==='video' ? ' · Video' : ' · Audio');
   activeCallerCity.textContent = callerCity || '';
   activeCallPanel.style.display = 'block';
   setCallStatus('Screening — caller not on air yet');
@@ -1728,55 +1586,35 @@ async function saveCallHistory(recordingUrl = null){
   }catch(e){ console.warn('Could not save call history:', e); }
 }
 
-// Route the live caller media to the OBS overlay through a second WebRTC peer.
-// The dashboard remains the trusted producer-side endpoint; no public media URL is needed.
 // Send call on air — audio stays in dashboard (OBS captures via Browser Source)
 // Overlay just shows the visual lower-third, no audio routed through it
 callOnAirBtn.addEventListener('click', async()=>{
   if(!activeCallRef) return;
-  const goingOnAir = !callIsOnAir;
-  callOnAirBtn.disabled = true;
+  callIsOnAir = !callIsOnAir;
 
-  if(goingOnAir){
-    // Tell overlay to show live call lower-third (visual only — no audio URL).
-    // The caller is only shown as on air once both writes have succeeded.
-    try{
-      await setDoc(liveStateRef, {
-        active: true,
-        name: activeCallerName.textContent,
-        city: activeCallerCity.textContent,
-        messageType: 'livecall',
-        callId: activeCallId,
-        audioUrl: null,
-        updatedAt: Date.now()
-      });
-      await setDoc(activeCallRef, { status: 'live' }, { merge: true });
-    }catch(err){
-      console.error('Send on air failed:', err);
-      await setDoc(liveStateRef, { active: false, updatedAt: Date.now() }).catch(()=>{});
-      setCallStatus('Could not send on air (' + (err.code || err.message) + ') — caller is NOT on air', 'error');
-      callOnAirBtn.disabled = false;
-      return;
-    }
-    callIsOnAir = true;
+  if(callIsOnAir){
     callOnAirBtn.textContent = '⏹ Take Off Air';
     callOnAirBtn.classList.add('live');
-    setCallStatus('ON AIR — Caller audio goes to OBS; producer mic stays on the caller link only', 'on-air');
+    setCallStatus('ON AIR — Live Call Broadcasting', 'on-air');
     onAirBadge.classList.add('show');
-    // OBS overlay creates its own WebRTC offer under liveCalls/{id}/overlaySessions;
-    // call.html answers that offer directly. Do not create a second, unused peer here.
+    // Tell overlay to show live call lower-third (visual only — no audio URL)
+    await setDoc(liveStateRef, {
+      active: true,
+      name: activeCallerName.textContent,
+      city: activeCallerCity.textContent,
+      messageType: 'livecall',
+      audioUrl: null, // no audio URL — OBS captures call audio from dashboard browser source
+      updatedAt: Date.now()
+    });
+    await setDoc(activeCallRef, { status: 'live' }, { merge: true });
   } else {
-    callIsOnAir = false;
     callOnAirBtn.textContent = '🔴 Send On Air';
     callOnAirBtn.classList.remove('live');
     setCallStatus('Screening — call taken off air');
     onAirBadge.classList.remove('show');
     await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
-    await setDoc(doc(db, 'hotlineLive', 'overlayCall'), { active:false, updatedAt:Date.now() }, { merge:true }).catch(()=>{});
-    if(overlayBroadcastPc){ overlayBroadcastPc.close(); overlayBroadcastPc=null; }
     await setDoc(activeCallRef, { status: 'answered' }, { merge: true });
   }
-  callOnAirBtn.disabled = false;
 });
 
 // End call
@@ -1794,8 +1632,6 @@ endBtn.addEventListener('click', async()=>{
   stopPhoneRing();
 
   await setDoc(activeCallRef, { status: 'ended' }, { merge: true });
-  await setDoc(doc(db, 'hotlineLive', 'overlayCall'), { active:false, updatedAt:Date.now() }, { merge:true }).catch(()=>{});
-  if(overlayBroadcastPc){ overlayBroadcastPc.close(); overlayBroadcastPc=null; }
   if(callIsOnAir){
     await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
   }
@@ -1810,7 +1646,6 @@ endBtn.addEventListener('click', async()=>{
 
 // Calls Firestore listener — shows incoming calls queue
 function startCallsListener(){
-  if(!startListenerOnce('startCallsListener')) return;
   onSnapshot(
     query(collection(db, 'liveCalls'), orderBy('createdAt', 'desc')),
     (snap)=>{
@@ -1819,13 +1654,10 @@ function startCallsListener(){
       // Incoming = waiting calls only
       const ringing = calls.filter(c => c.status === 'waiting');
       const count = ringing.length;
-      missedCallCount = calls.filter(c => c.status === 'missed' || c.status === 'missed_call').length;
-      updateActivityCounters();
 
       // Header counter
       callCountNum.textContent = count;
       count > 0 ? callCounter.classList.add('show') : callCounter.classList.remove('show');
-      updateActivityCounters();
 
       // Phone ring — start when there are waiting calls, stop when queue is clear
       if(count > 0 && !activePc){
@@ -1859,7 +1691,7 @@ function startCallsListener(){
           <div class="call-card-body">
             <div class="call-card-name">${escapeHtml(c.callerName || 'Anonymous Caller')}</div>
             <div class="call-card-city">${c.callerCity ? escapeHtml(c.callerCity) : ''}</div>
-            <div class="call-card-time">${timeAgo(c.createdAt)}</div>
+            <div class="call-card-time">${c.mediaType === 'video' ? '🎥 FaceTime Video' : '📞 FaceTime Audio'} · ${timeAgo(c.createdAt)}</div>
           </div>
           <div class="call-card-actions">
             <button class="ibtn ibtn-answer" data-action="answer" data-id="${c.id}"
@@ -1871,7 +1703,6 @@ function startCallsListener(){
             </button>
           </div>
         </div>`).join('');
-      applyGlobalSearchToCards();
     }
   );
 }
@@ -1906,7 +1737,6 @@ function startVideoTimer(sinceMs){
 }
 
 function startVideoCallsListener(){
-  if(!startListenerOnce('startVideoCallsListener')) return;
   onSnapshot(
     query(collection(db, 'videoCalls'), orderBy('createdAt', 'desc')),
     (snap)=>{
@@ -1949,7 +1779,7 @@ function startVideoCallsListener(){
           <div class="call-card-body">
             <div class="call-card-name">${escapeHtml(c.callerName || 'Guest')}</div>
             <div class="call-card-city">${c.callerCity ? escapeHtml(c.callerCity) : ''}</div>
-            <div class="call-card-time">${timeAgo(c.createdAt)}</div>
+            <div class="call-card-time">${c.mediaType === 'video' ? '🎥 FaceTime Video' : '📞 FaceTime Audio'} · ${timeAgo(c.createdAt)}</div>
           </div>
           <div class="call-card-actions">
             <button class="ibtn ibtn-answer" data-action="video-air" data-id="${c.id}">🔴 Send On Air</button>
@@ -1963,8 +1793,6 @@ function startVideoCallsListener(){
 videoEndBtn.addEventListener('click', async()=>{
   if(!currentLiveVideoId) return;
   await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
-  await setDoc(liveStateRef,{active:false,updatedAt:Date.now()}).catch(()=>{});
-  await setDoc(doc(db,'hotlineLive','overlayCall'),{active:false,updatedAt:Date.now()},{merge:true}).catch(()=>{});
 });
 
 document.addEventListener('click', async(e)=>{
@@ -1978,12 +1806,7 @@ document.addEventListener('click', async(e)=>{
     if(currentLiveVideoId && currentLiveVideoId !== id){
       await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
     }
-    // Video guests do not publish a root-level offer. The OBS overlay creates
-    // an offer under videoCalls/{id}/overlaySessions and the guest answers it.
-    try { await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince: Date.now() }); } catch(err) { console.error('Could not mark video guest live:',err); alert('Could not send video guest on air: '+err.message); return; }
-    const videoData = (await getDoc(doc(db,'videoCalls',id))).data() || {};
-    await setDoc(liveStateRef,{active:true,name:videoData.callerName||'Video Guest',city:videoData.callerCity||'',messageType:'livevideo',callId:id,audioUrl:null,updatedAt:Date.now()});
-    // OBS overlay negotiates media through videoCalls/{id}/overlaySessions.
+    await updateDoc(doc(db, 'videoCalls', id), { status: 'live', liveSince: Date.now() }).catch(()=>{});
   }
   if(action === 'video-reject'){
     await updateDoc(doc(db, 'videoCalls', id), { status: 'rejected' }).catch(()=>{});
@@ -2007,35 +1830,18 @@ document.addEventListener('click', async(e)=>{
 document.addEventListener('click', async(e)=>{
   const btn = e.target.closest('[data-action="answer"],[data-action="reject"]');
   if(!btn) return;
-  const id = btn.dataset.id;
-  const name = btn.dataset.name || 'Unknown caller';
-  const city = btn.dataset.city || null;
+  const id   = btn.dataset.id;
+  const name = btn.dataset.name;
+  const city = btn.dataset.city;
   if(btn.dataset.action === 'answer'){
-    btn.disabled = true;
-    try { await answerCall(id, name, city || ''); }
-    finally { btn.disabled = false; }
+    await answerCall(id, name, city);
   }
   if(btn.dataset.action === 'reject'){
-    btn.disabled = true;
-    try {
-      // Record rejection in the same call-history collection used by the History tab.
-      // A deterministic history document ID makes repeat clicks idempotent.
-      await setDoc(doc(db, 'liveCalls', id), {
-        status: 'rejected', rejectedAt: serverTimestamp(), updatedAt: serverTimestamp()
-      }, { merge: true });
-      await setDoc(doc(db, 'callHistory', 'call_' + id), {
-        callId: id, callerName: name, callerCity: city, duration: 0,
-        recordingUrl: null, status: 'rejected', createdAt: serverTimestamp()
-      }, { merge: true });
-    } catch(err) {
-      console.error('Could not reject and log call:', err);
-      alert('Could not reject this call or save its history. Check Firestore permissions and try again.');
-    } finally { btn.disabled = false; }
+    await setDoc(doc(db, 'liveCalls', id), { status: 'rejected' }, { merge: true });
   }
 });
 
 function startCallHistoryListener(){
-  if(!startListenerOnce('startCallHistoryListener')) return;
   const histList   = document.getElementById('histList');
   const histEmpty  = document.getElementById('histEmpty');
   const histTotal  = document.getElementById('histTotal');
@@ -2046,13 +1852,8 @@ function startCallHistoryListener(){
   onSnapshot(
     query(collection(db, 'callHistory'), orderBy('createdAt', 'desc')),
     (snap)=>{
-      const calls = snap.docs.map(d=>({ id:d.id, ...d.data() })).sort((a,b)=>{
-        const stamp = c => c.createdAt?.toMillis ? c.createdAt.toMillis() : (c.createdAt?.toDate ? c.createdAt.toDate().getTime() : 0);
-        return stamp(b)-stamp(a);
-      });
-      allCallHistory = calls;
+      const calls = snap.docs.map(d=>({ id:d.id, ...d.data() }));
       const today = new Date(); today.setHours(0,0,0,0);
-      updateActivityCounters();
 
       histTotal.textContent = calls.length;
       histToday.textContent = calls.filter(c=>{
@@ -2072,25 +1873,25 @@ function startCallHistoryListener(){
       }
       histEmpty.style.display = 'none';
 
-      histList.innerHTML = calls.slice(0, 40).map(c=>`
+      histList.innerHTML = calls.map(c=>`
         <div class="hist-card" data-histid="${c.id}">
           <div class="hist-icon">${c.recordingUrl ? '🔴' : '📞'}</div>
           <div class="hist-body">
             <div class="hist-name">${escapeHtml(c.callerName || 'Unknown')}</div>
-            <div class="hist-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${escapeHtml(c.status || '')}</div>
+            <div class="hist-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${c.status || ''}</div>
           </div>
           <div class="hist-right">
             <div class="hist-dur">${formatDur(c.duration || 0)}</div>
-            ${formatStamp(c.createdAt) ? `<div class="hist-time">${escapeHtml(formatStamp(c.createdAt))}</div>` : ''}
+            <div class="hist-time">${timeAgo(c.createdAt)}</div>
             <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
-              ${c.recordingUrl ? `<a class="hist-play" href="${safeUrl(c.recordingUrl)}" target="_blank" rel="noopener">▶ Play</a>` : ''}
-              ${c.recordingUrl ? `<a class="hist-play" href="${safeUrl(c.recordingUrl)}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}
+              ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" target="_blank" rel="noopener">▶ Play</a>` : ''}
+              ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}
               <button class="hist-delete" data-action="delete-history" data-id="${c.id}" title="Delete">🗑</button>
             </div>
           </div>
         </div>`).join('');
 
-      // ── Dedicated Recordings tab: show all recordings, newest first ──
+      // ── Recordings section ──
       const recorded = calls.filter(c => c.recordingUrl);
       const recSection = document.getElementById('recordingsSection');
       const recList    = document.getElementById('recordingsList');
@@ -2107,31 +1908,20 @@ function startCallHistoryListener(){
               <div class="rec-icon">🎙️</div>
               <div class="rec-body">
                 <div class="rec-name">${escapeHtml(c.callerName || 'Unknown')}</div>
-                <div class="rec-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${formatDur(c.duration || 0)} · ${formatStamp(c.createdAt)}</div>
+                <div class="rec-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${formatDur(c.duration || 0)} · ${timeAgo(c.createdAt)}</div>
               </div>
               <div class="rec-actions">
-                <audio class="rec-audio" src="${safeUrl(c.recordingUrl)}" controls preload="none"></audio>
+                <audio class="rec-audio" src="${c.recordingUrl}" controls preload="none"></audio>
                 <div class="rec-btns">
-                  <a class="rbtn rbtn-save" href="${safeUrl(c.recordingUrl)}" download target="_blank" rel="noopener">⬇ Save</a>
+                  <a class="rbtn rbtn-save" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>
                   <button class="rbtn rbtn-del" data-action="delete-recording" data-id="${c.id}">🗑 Delete</button>
                 </div>
               </div>
             </div>`).join('');
         }
       }
-      applyGlobalSearchToCards();
-      if(document.getElementById('tab-analytics').style.display !== 'none') renderAnalytics();
     }
   );
-}
-
-// Display timezone for stored timestamps (Firestore stores UTC instants). Change here if the studio moves.
-const DISPLAY_TZ = 'America/Chicago';
-function formatStamp(ts){
-  const d = ts && ts.toDate ? ts.toDate() : (ts ? new Date(ts) : null);
-  if(!d || isNaN(d.getTime())) return '';
-  return new Intl.DateTimeFormat('en-US', { timeZone: DISPLAY_TZ, month:'short', day:'numeric', year:'numeric',
-    hour:'numeric', minute:'2-digit', timeZoneName:'short' }).format(d);
 }
 
 function formatDur(s){
@@ -2139,116 +1929,9 @@ function formatDur(s){
   return `${m}:${(s%60).toString().padStart(2,'0')}`;
 }
 
-function startSongRequestsListener(){
-  if(!startListenerOnce('startSongRequestsListener')) return;
-  onSnapshot(query(collection(db, 'songRequests'), orderBy('createdAt', 'desc')), (snap)=>{
-    allSongRequests = snap.docs.map(d=>({id:d.id,...d.data()}));
-    pendingSongCount = allSongRequests.filter(r=>(r.status||'pending') === 'pending').length;
-    updateActivityCounters();
-    renderSongRequests();
-    if(document.getElementById('tab-analytics').style.display !== 'none') renderAnalytics();
-  }, (err)=>{ pendingSongCountEl.textContent = 'Unavailable'; document.getElementById('songQueue').innerHTML = '<div class="empty">Song requests are unavailable. Check Firestore permissions.</div>'; console.warn('Song request listener failed:', err && err.code); });
-
-  // The dedicated song-request overlay listens to this document, not overlay.html.
-  onSnapshot(doc(db, 'songRequestLive', 'now'), (snap)=>{
-    const d = snap.data() || {};
-    liveSongRequestId = d.active ? (d.requestId || null) : null;
-    renderSongRequests();
-  }, (err)=>console.warn('Song request on-air state unavailable:',err && err.code));
-}
-let liveSongRequestId = null;
-
-function renderSongRequests(){
-  const listEl = document.getElementById('songQueue');
-  const emptyEl = document.getElementById('songEmpty');
-  const term = searchInput.value.trim().toLowerCase();
-  const state = document.getElementById('songStatusFilter').value;
-  let list = allSongRequests.filter(r=>{
-    const status = r.status || 'pending';
-    if(state === 'incoming' && status !== 'pending') return false;
-    if(state === 'queued' && (!r.queuedForOverlay || status === 'rejected')) return false;
-    if(state === 'approved' && status !== 'approved') return false;
-    if(state === 'rejected' && status !== 'rejected') return false;
-    return !term || [r.artist,r.songTitle,r.name,r.city,status,r.queuedForOverlay?'queued':''].some(v=>String(v||'').toLowerCase().includes(term));
-  });
-  const stamp = r => r.createdAt?.toMillis ? r.createdAt.toMillis() : (r.createdAt?.toDate ? r.createdAt.toDate().getTime() : (typeof r.createdAt === 'number' ? r.createdAt : 0));
-  list = list.slice().sort((a,b)=> state === 'incoming' || state === 'queued' ? stamp(a)-stamp(b) : stamp(b)-stamp(a));
-  const nextIncomingId = allSongRequests.filter(r=>(r.status||'pending')==='pending').slice().sort((a,b)=>stamp(a)-stamp(b))[0]?.id;
-  document.getElementById('songPendingStat').textContent = pendingSongCount;
-  document.getElementById('songTotalStat').textContent = allSongRequests.length;
-  emptyEl.style.display = list.length ? 'none' : 'block';
-  listEl.className = 'song-list';
-  listEl.innerHTML = list.map(r=>{
-    const status = r.status || 'pending';
-    const incoming = status === 'pending', played = status === 'approved', rejected = status === 'rejected';
-    const isNext = r.id === nextIncomingId, queued = !!r.queuedForOverlay, isLive = liveSongRequestId === r.id;
-    const stampText = formatStamp(r.createdAt);
-    const statusText = played ? 'Played' : rejected ? 'Rejected' : isLive ? 'Now Playing' : queued ? 'Queued' : 'Incoming';
-    return `
-    <article class="song-row" data-song-id="${escapeHtml(r.id)}">
-      <div class="song-main">
-        <div class="song-note" aria-hidden="true">🎵</div>
-        <div class="song-details">
-          <div class="song-title-line">
-            <span>${escapeHtml(r.songTitle || 'Untitled request')}</span>
-            <span class="song-status ${played?'played':queued?'queued':''}">${escapeHtml(statusText)}</span>
-            ${incoming && isNext ? '<span class="song-status queued">NEXT IN QUEUE</span>' : ''}
-          </div>
-          <div class="song-artist-line">${escapeHtml(r.artist || 'Artist not supplied')}</div>
-          <div class="song-meta">${escapeHtml(r.name || 'Listener')}${r.city ? ' · '+escapeHtml(r.city) : ''}${stampText ? ' · '+escapeHtml(stampText) : ''}${queued ? ' · Included in OBS queue overlay' : ''}</div>
-          ${incoming && !isNext ? '<div class="song-meta">Waiting for earlier requests to be marked played.</div>' : ''}
-        </div>
-      </div>
-      <div class="song-actions">
-        ${incoming ? `<button class="ibtn played-btn" data-song-action="played" data-id="${escapeHtml(r.id)}" ${isNext?'':'disabled title="Mark earlier requests played first"'}>✓ Mark Played</button>` : played ? '<button class="ibtn played-btn done" disabled>✓ Played</button>' : ''}
-        ${!rejected ? `<button class="ibtn queue-btn ${queued?'active':''}" data-song-action="queue" data-id="${escapeHtml(r.id)}">${queued?'✓ Queued for OBS':'＋ Queue'}</button>` : ''}
-        ${!rejected ? `<button class="ibtn on-air-btn ${isLive?'live':''}" data-song-action="now-playing" data-id="${escapeHtml(r.id)}">${isLive?'⏹ Stop On Air':'🔴 Now Playing'}</button>` : ''}
-        ${incoming ? `<button class="ibtn reject" data-song-action="reject" data-id="${escapeHtml(r.id)}">✕ Reject</button>` : ''}
-        <button class="ibtn delete" data-song-action="delete" data-id="${escapeHtml(r.id)}">🗑 Delete</button>
-      </div>
-    </article>`;
-  }).join('');
-}
-document.getElementById('songQueue').addEventListener('click',async e=>{
-  const btn=e.target.closest('[data-song-action]'); if(!btn)return;
-  const r=allSongRequests.find(x=>x.id===btn.dataset.id); if(!r)return;
-  const action = btn.dataset.songAction;
-  btn.disabled=true;
-  try{
-    if(action==='played'){
-      const stamp = x => x.createdAt?.toMillis ? x.createdAt.toMillis() : (x.createdAt?.toDate ? x.createdAt.toDate().getTime() : (typeof x.createdAt === 'number' ? x.createdAt : 0));
-      const firstPending = allSongRequests.filter(x=>(x.status||'pending')==='pending').slice().sort((a,b)=>stamp(a)-stamp(b))[0];
-      if(!firstPending || firstPending.id !== r.id){alert('Please mark the earlier incoming song as played first.');return;}
-      await updateDoc(doc(db,'songRequests',r.id),{status:'approved',playedAt:serverTimestamp(),reviewedAt:serverTimestamp()});
-    } else if(action==='reject'){
-      if(!confirm('Reject this song request? It will be removed from Incoming and the OBS queue.')) return;
-      if(liveSongRequestId === r.id) await setDoc(doc(db,'songRequestLive','now'),{active:false,requestId:null,updatedAt:Date.now()},{merge:true});
-      await updateDoc(doc(db,'songRequests',r.id),{status:'rejected',queuedForOverlay:false,rejectedAt:serverTimestamp(),reviewedAt:serverTimestamp()});
-    } else if(action==='queue'){
-      const queued = !r.queuedForOverlay;
-      await updateDoc(doc(db,'songRequests',r.id),{queuedForOverlay:queued,queueUpdatedAt:serverTimestamp()});
-    } else if(action==='now-playing'){
-      if(liveSongRequestId === r.id){
-        await setDoc(doc(db,'songRequestLive','now'),{active:false,requestId:null,updatedAt:Date.now()},{merge:true});
-      } else {
-        await setDoc(doc(db,'songRequestLive','now'),{
-          active:true,requestId:r.id,songTitle:r.songTitle||'Untitled request',artist:r.artist||'',
-          name:r.name||'',city:r.city||'',updatedAt:Date.now()
-        },{merge:true});
-        // A song being played should no longer appear as an upcoming queued item.
-        if(r.queuedForOverlay) await updateDoc(doc(db,'songRequests',r.id),{queuedForOverlay:false,queueUpdatedAt:serverTimestamp()});
-      }
-    } else if(action==='delete'){
-      if(!confirm('Permanently delete this song request? This cannot be undone.')) return;
-      if(liveSongRequestId === r.id) await setDoc(doc(db,'songRequestLive','now'),{active:false,requestId:null,updatedAt:Date.now()},{merge:true});
-      await deleteDoc(doc(db,'songRequests',r.id));
-    }
-  }catch(err){console.error('Song request action failed:',err);alert('Could not update this song request. Check Firestore permissions and try again.');}
-  finally{btn.disabled=false;}
-});
-
 function startQueueListener(){
-  if(!startListenerOnce('startQueueListener')) return;
+  if(queueListenerStarted) return;
+  queueListenerStarted = true;
   const q = query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc'));
   onSnapshot(q, (snapshot)=>{
     allMessages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -2267,9 +1950,8 @@ function startQueueListener(){
     firstLoad = false;
 
     render();
-    if(document.getElementById('tab-analytics').style.display !== 'none') renderAnalytics();
   }, (err)=>{
-    queueEl.innerHTML = `<div class="empty">Couldn't connect to Firebase: ${escapeHtml(err.message || 'unknown error')}<br><br>Check your firebaseConfig and Firestore security rules.</div>`;
+    queueEl.innerHTML = `<div class="empty">Couldn't connect to Firebase: ${err.message}<br><br>Check your firebaseConfig and Firestore security rules.</div>`;
   });
 }
 </script>
