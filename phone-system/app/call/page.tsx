@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Camera, Headphones, Mic, Phone, Radio, ShieldCheck, Video, Wifi } from "lucide-react";
+import { Headphones, Phone, Radio, ShieldCheck, Video, Wifi } from "lucide-react";
 import Link from "next/link";
 import RoomMedia from "@/components/room-media";
 
@@ -39,6 +39,7 @@ export default function CallerPage() {
   useEffect(() => {
     if (!callId || !callerSecret || ["ended", "rejected", "completed"].includes(status)) return;
     let cancelled = false;
+    let interval: number | null = null;
     const check = async () => {
       try {
         const response = await fetch("/api/calls/status", {
@@ -51,6 +52,10 @@ export default function CallerPage() {
         if (!response.ok) throw new Error(data.error || "Could not check call status.");
         if (cancelled) return;
         setStatus(data.status);
+        if (["ended", "rejected", "completed"].includes(data.status)) {
+          if (interval !== null) window.clearInterval(interval);
+          return;
+        }
         if (["answered", "live", "held"].includes(data.status) && !tokenRequested.current && !token) {
           tokenRequested.current = true;
           const tokenResponse = await fetch("/api/livekit-token", {
@@ -68,9 +73,11 @@ export default function CallerPage() {
       }
     };
     check();
-    const interval = window.setInterval(check, 1800);
-    return () => { cancelled = true; window.clearInterval(interval); };
-  }, [callId, callerSecret, collectionName, status, token]);
+    interval = window.setInterval(check, 1800);
+    return () => { cancelled = true; if (interval !== null) window.clearInterval(interval); };
+  // Status transitions are consumed by the polling response so the active token request isn't cancelled mid-flight.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callId, callerSecret, collectionName, token]);
 
   useEffect(() => {
     if (status !== "held" || !token) {
