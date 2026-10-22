@@ -1514,20 +1514,27 @@ function stopOverlayRelayPeers(){
 function syncOverlayRelayTracks(record){
   if(!record || !record.pc || record.pc.signalingState==='closed') return;
   const transceivers=record.pc.getTransceivers();
-  for(const kind of ['audio','video']){
-    const lanes=transceivers.filter(t=>t.receiver && t.receiver.track && t.receiver.track.kind===kind);
-    const callerTrack=(callerRemoteStream?.getTracks()||[]).find(t=>t.kind===kind && t.readyState==='live')||null;
-    const producerTrack=(producerStream?.getTracks()||[]).find(t=>t.kind===kind && t.readyState==='live')||null;
-    const tracks=[callerTrack,producerTrack];
-    lanes.forEach((transceiver,index)=>{
-      try{
-        // The overlay offered recvonly lanes; the dashboard answers by sending
-        // on those exact negotiated m-lines, never by creating extra m-lines.
-        transceiver.direction='sendonly';
-        transceiver.sender.replaceTrack(tracks[index]||null).catch(err=>console.warn('OBS relay track update:',err.message||err));
-      }catch(err){console.warn('OBS relay lane update:',err.message||err);}
-    });
-  }
+  // Broadcast audio is caller-only. The producer's studio microphone remains
+  // on activePc for the caller, but must never be sent over the OBS relay.
+  const callerAudio=(callerRemoteStream?.getAudioTracks()||[]).find(t=>t.readyState==='live')||null;
+  const callerVideo=(callerRemoteStream?.getVideoTracks()||[]).find(t=>t.readyState==='live')||null;
+  const producerVideo=(producerStream?.getVideoTracks()||[]).find(t=>t.readyState==='live')||null;
+  const audioLanes=transceivers.filter(t=>t.receiver?.track?.kind==='audio');
+  const videoLanes=transceivers.filter(t=>t.receiver?.track?.kind==='video');
+  audioLanes.forEach((t,index)=>{
+    try{
+      t.direction='sendonly';
+      t.sender.replaceTrack(index===0?callerAudio:null).catch(err=>console.warn('OBS caller audio update:',err.message||err));
+    }catch(err){console.warn('OBS caller audio lane:',err.message||err);}
+  });
+  // For video calls, keep caller camera as the main feed and producer camera
+  // as the optional picture-in-picture feed. Never forward producer audio.
+  videoLanes.forEach((t,index)=>{
+    try{
+      t.direction='sendonly';
+      t.sender.replaceTrack(index===0?callerVideo:(index===1?producerVideo:null)).catch(err=>console.warn('OBS video update:',err.message||err));
+    }catch(err){console.warn('OBS video lane:',err.message||err);}
+  });
 }
 function cleanupActiveCall(){
   clearInterval(callTimerInterval);
