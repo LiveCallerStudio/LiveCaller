@@ -22,6 +22,7 @@ export default function CallerPage() {
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(true);
   const audioContext = useRef<AudioContext | null>(null);
+  const tokenRequested = useRef(false);
 
   const endCall = useCallback(async () => {
     if (callId && callerSecret) {
@@ -38,7 +39,6 @@ export default function CallerPage() {
   useEffect(() => {
     if (!callId || !callerSecret || ["ended", "rejected", "completed"].includes(status)) return;
     let cancelled = false;
-    let tokenRequested = false;
     const check = async () => {
       try {
         const response = await fetch("/api/calls/status", {
@@ -51,8 +51,8 @@ export default function CallerPage() {
         if (!response.ok) throw new Error(data.error || "Could not check call status.");
         if (cancelled) return;
         setStatus(data.status);
-        if (["answered", "live", "held"].includes(data.status) && !tokenRequested && !token) {
-          tokenRequested = true;
+        if (["answered", "live", "held"].includes(data.status) && !tokenRequested.current && !token) {
+          tokenRequested.current = true;
           const tokenResponse = await fetch("/api/livekit-token", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -70,7 +70,7 @@ export default function CallerPage() {
     check();
     const interval = window.setInterval(check, 1800);
     return () => { cancelled = true; window.clearInterval(interval); };
-  }, [callId, callerSecret, collectionName, status === "ended" ? "ended" : "active", token]);
+  }, [callId, callerSecret, collectionName, status, token]);
 
   useEffect(() => {
     if (status !== "held" || !token) {
@@ -119,7 +119,7 @@ export default function CallerPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not place your call.");
-      setCallId(data.callId); setCollectionName(data.collectionName); setCallerSecret(data.callerSecret);
+      setCallId(data.callId); setCollectionName(data.collectionName); setCallerSecret(data.callerSecret); tokenRequested.current = false;
       setStatus("waiting"); setShowForm(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not place your call.");
