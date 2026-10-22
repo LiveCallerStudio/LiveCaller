@@ -1573,6 +1573,40 @@ function watchOverlayRelaySessions(callId){
   },err=>console.warn('Overlay session listener:',err.code||err.message));
 }
 
+
+function tuneOpusSdp(sdp, bitrate = 128000){
+  if(!sdp) return sdp;
+  const lines=sdp.split(/\r?\n/);
+  const start=lines.findIndex(line=>line.startsWith('m=audio '));
+  if(start<0) return sdp;
+  let end=lines.findIndex((line,index)=>index>start&&line.startsWith('m='));
+  if(end<0) end=lines.length;
+  const section=lines.slice(start,end);
+  const codec=section.find(line=>/^a=rtpmap:(\d+) opus\/48000/i.test(line));
+  const payload=codec?.match(/^a=rtpmap:(\d+)/i)?.[1];
+  if(!payload) return sdp;
+  const prefix='a=fmtp:'+payload+' ';
+  const index=section.findIndex(line=>line.startsWith(prefix));
+  const wanted='maxaveragebitrate='+bitrate+';useinbandfec=1;usedtx=0';
+  if(index>=0){
+    const existing=section[index].slice(prefix.length).split(';').filter(part=>!/^\s*(maxaveragebitrate|useinbandfec|usedtx)=/i.test(part)).join(';');
+    section[index]=prefix+(existing?existing+';':'')+wanted;
+  }else section.push(prefix+wanted);
+  lines.splice(start,end-start,...section);
+  return lines.join('\r\n');
+}
+async function requestAudioBitrate(peer, bitrate = 128000){
+  for(const sender of peer.getSenders()){
+    if(sender.track?.kind!=='audio') continue;
+    try{
+      const params=sender.getParameters();
+      params.encodings=params.encodings?.length?params.encodings:[{}];
+      params.encodings[0].maxBitrate=bitrate;
+      await sender.setParameters(params);
+    }catch(error){console.debug('Audio bitrate hint not supported:',error?.message||error);}
+  }
+}
+
 async function answerCall(callId, callerName, callerCity){
   if(activePc){ alert('End the current call before answering a new one.'); return; }
 
@@ -1589,7 +1623,7 @@ async function answerCall(callId, callerName, callerCity){
     if(!callData || !callData.offer){alert('Could not read the incoming call offer.');return;}
     const isVideoCall = callData.mediaType === 'video';
     producerStream = await navigator.mediaDevices.getUserMedia({
-      audio:{ echoCancellation:true, noiseSuppression:true },
+      audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:false, sampleRate:48000, channelCount:1 },
       video: isVideoCall ? { facingMode:'user', width:{ideal:1280}, height:{ideal:720} } : false
     });
     if(isVideoCall){producerVideo.srcObject=producerStream;producerVideoStage.style.display='block';}
@@ -1613,6 +1647,7 @@ async function answerCall(callId, callerName, callerCity){
   };
   activePc.onicecandidateerror=e=>console.warn('Producer ICE candidate error:',{code:e.errorCode,text:e.errorText,url:e.url});
   producerStream.getTracks().forEach(track => activePc.addTrack(track, producerStream));
+  requestAudioBitrate(activePc).catch(()=>{});
 
   // Keep one durable remote stream for the screening preview and the OBS overlay relay.
   callerRemoteStream = new MediaStream();
@@ -1643,7 +1678,8 @@ async function answerCall(callId, callerName, callerCity){
   await activePc.setRemoteDescription(new RTCSessionDescription(callData.offer));
 
   // 6. Create answer and set local description — ICE gathering starts here (handler already wired)
-  const answer = await activePc.createAnswer();
+  const rawAnswer = await activePc.createAnswer();
+  const answer = { type: rawAnswer.type, sdp: tuneOpusSdp(rawAnswer.sdp) };
   await activePc.setLocalDescription(answer);
 
   // 7. Save answer to Firestore
