@@ -1,14 +1,21 @@
-# DJ Deeze Hotline — Full Setup Guide
+# Live Caller Studio — Setup Guide
 
-This system has 3 pages, all free to host:
+The current static site uses these main pages:
 
-| File | What it's for | Who uses it |
-|---|---|---|
-| `index.html` | Listener call-in page | Your fans (link from Kick chat/panel) |
-| `dashboard.html` | Studio queue manager | You, on your laptop while streaming |
-| `overlay.html` | Lower-third graphic | OBS Browser Source only |
+| File | Purpose |
+|---|---|
+| `home-v2.html` | Public landing page and phone/video line status |
+| `call.html` | Caller page with audio/video mode selection |
+| `videocall.html` | Video-first caller page |
+| `voicemessage.html` | Voice-message submission |
+| `songrequest.html` | Song requests |
+| `dashboard.html` | Authenticated producer dashboard |
+| `overlay.html` | OBS caller overlay |
+| `song-overlay.html` | OBS song-request overlay |
 
-Everything is stored in **Firebase** (Google's backend platform) on the free "Spark" plan. No backend server to maintain.
+`index.html` and `home.html` are redirects to the current home page. The dashboard shortcut is `dashboard/index.html`.
+
+Firebase provides the browser-facing authentication and database services. Because this is a static GitHub Pages site, browser code and public assets are downloadable; do not put server credentials or privileged business logic in these files.
 
 ---
 
@@ -67,27 +74,13 @@ const firebaseConfig = {
 
 ---
 
-## PART 2 — Insert your Firebase + Cloudinary config
+## PART 2 — Client configuration
 
-You have 3 files: `index.html`, `dashboard.html`, `overlay.html`. Each one has a clearly marked section near the top of its `<script>` block:
+The current source has Firebase client configuration in these active pages: `home-v2.html`, `call.html`, `videocall.html`, `voicemessage.html`, `songrequest.html`, `song-overlay.html`, `dashboard.html`, and `overlay.html`. If you change Firebase project settings, keep the client configuration consistent across those pages.
 
-```js
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  ...
-};
-```
+**Important:** a Firebase Web API key is visible to browsers by design. It is not a substitute for authentication. Restrict it to the production website's HTTP referrer and only the APIs this app needs in Google Cloud Console. Rotate it if it has been used outside the intended site. See `SECURITY.md` for the remediation checklist.
 
-Open each file in any text editor, **replace that placeholder block** with the real one you copied from Firebase, and save. Do this in **all three files** — they must all point to the same Firebase project.
-
-`index.html` also has a second config block right below it, for Cloudinary:
-
-```js
-const CLOUDINARY_CLOUD_NAME = "YOUR_CLOUD_NAME";
-const CLOUDINARY_UPLOAD_PRESET = "YOUR_UPLOAD_PRESET";
-```
-
-Replace these with your actual Cloud Name and the unsigned upload preset name from Part 1b. This only needs to go in `index.html` — that's the only page that uploads audio.
+Cloudinary upload settings belong only on the page that actually uploads the audio/message asset. Keep Cloudinary API secrets out of browser code; unsigned upload presets must be tightly constrained by upload type, folder, size, and allowed formats.
 
 ---
 
