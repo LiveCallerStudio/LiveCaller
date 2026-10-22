@@ -7,10 +7,12 @@ const video = fs.readFileSync(path.join(root, 'videocall.html'), 'utf8');
 const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 const dashboard = fs.readFileSync(path.join(root, 'dashboard.html'), 'utf8');
 
-assert.match(video, /resolveLineStates\(snap\)\.video/, 'video guest page must use the shared producer line-state resolver');
-assert.match(video, /if\(videoLineState!==LINE\.OPEN\)/, 'direct video URLs must not bypass a closed or unknown producer line');
-assert.match(video, /onSnapshot\(doc\(db,'hotlineSettings','callLines'\)/, 'video guest page must subscribe to producer line settings');
-assert.match(video, /join\.disabled=videoLineState!==LINE\.OPEN\|\|joinInProgress/, 'joining must remain disabled unless the video line is confirmed open');
+assert.match(video, /resolveLineStates\(snap\)/, 'video guest page must use the shared producer line-state resolver');
+assert.match(video, /if\(callMode==='video' && videoLineState!==LINE\.OPEN\)/, 'video calls must not bypass a closed or unknown producer video line');
+assert.match(video, /if\(callMode==='audio' && phoneLineState!==LINE\.OPEN\)/, 'audio calls from the shared caller page must not bypass a closed or unknown phone line');
+assert.match(video, /onSnapshot\(doc\(db, 'hotlineSettings', 'callLines'\)/, 'caller page must subscribe to producer line settings');
+assert.match(video, /phoneLineState = LINE\.UNKNOWN;\s*videoLineState = LINE\.UNKNOWN;/, 'Firestore read errors must fail closed for live calls');
+assert.match(video, /function updateLineUi\(\)/, 'line UI must reflect the currently selected call mode');
 assert.match(sw, /requestUrl\.origin !== self\.location\.origin/, 'service worker must not intercept third-party requests');
 assert.match(sw, /event\.request\.mode === 'navigate'/, 'offline HTML fallback must be limited to document navigations');
 assert.match(sw, /manifest-songrequest\.json/, 'song request PWA manifest must be included in the app shell');
