@@ -1241,8 +1241,14 @@ hiddenPlayer.addEventListener('ended', async ()=>{
   render();
 });
 
-searchInput.addEventListener('input', ()=>{render();renderSongRequests();});
-filterSelect.addEventListener('change', ()=>{render();renderSongRequests();});
+function applyGlobalSearchToCards(){
+  const term = searchInput.value.trim().toLowerCase();
+  document.querySelectorAll('.call-card, .hist-card, .rec-card, .video-card').forEach(card=>{
+    card.style.display = !term || card.textContent.toLowerCase().includes(term) ? '' : 'none';
+  });
+}
+searchInput.addEventListener('input', ()=>{render();renderSongRequests();applyGlobalSearchToCards();});
+filterSelect.addEventListener('change', ()=>{render();renderSongRequests();applyGlobalSearchToCards();});
 
 // ── Tab switching ──
 const tabBtns = document.querySelectorAll('.tab-btn');
@@ -1807,6 +1813,7 @@ function startCallsListener(){
             </button>
           </div>
         </div>`).join('');
+      applyGlobalSearchToCards();
     }
   );
 }
@@ -2049,6 +2056,7 @@ function startCallHistoryListener(){
             </div>`).join('');
         }
       }
+      applyGlobalSearchToCards();
     }
   );
 }
