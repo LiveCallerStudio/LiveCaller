@@ -16,5 +16,6 @@ assert.match(sw, /event\.request\.mode === 'navigate'/, 'offline HTML fallback m
 assert.match(sw, /manifest-songrequest\.json/, 'song request PWA manifest must be included in the app shell');
 assert.match(dashboard, /\$\{escapeHtml\(typeLabels\[k\]\|\|k\)\}/, 'analytics must escape untrusted message type labels');
 assert.match(dashboard, /\$\{escapeHtml\(c\.status \|\| ''\)\}/, 'call history must escape status values before HTML rendering');
+assert.doesNotMatch(dashboard, /queueListenerStarted/, 'dashboard queue subscription must be restartable after sign-out');
 
 console.log('production-safety checks: all passed');

@@ -1388,7 +1388,6 @@ function renderAnalytics(){
 // Live Firestore listener — auto-refreshes, no polling needed
 // Only starts after login succeeds (see onAuthStateChanged below) so the queue
 // is never queried while logged out.
-let queueListenerStarted = false;
 // ═══════════════════════════════════════════════════════
 //  LIVE CALLS — WebRTC via Firestore signaling
 // ═══════════════════════════════════════════════════════
@@ -2250,8 +2249,6 @@ document.getElementById('songQueue').addEventListener('click',async e=>{
 
 function startQueueListener(){
   if(!startListenerOnce('startQueueListener')) return;
-  if(queueListenerStarted) return;
-  queueListenerStarted = true;
   const q = query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc'));
   onSnapshot(q, (snapshot)=>{
     allMessages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
