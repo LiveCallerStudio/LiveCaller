@@ -497,6 +497,119 @@
   .login-error{
     color:var(--red); font-size:12.5px; margin-top:12px; min-height:16px;
   }
+
+  /* ── Live Caller Studio control-room refresh ── */
+  :root{
+    --green:#53fc18;
+    --black:#080b09;
+    --panel:#101512;
+    --panel-2:#151c17;
+    --line:#253229;
+    --red:#ff4d5e;
+    --text:#f4f7f4;
+    --sub:#9ba89f;
+  }
+  body{
+    background:
+      radial-gradient(ellipse at 12% -12%,rgba(83,252,24,.10),transparent 34rem),
+      radial-gradient(ellipse at 95% 0%,rgba(83,252,24,.045),transparent 28rem),
+      var(--black);
+    font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+    letter-spacing:.01em;
+  }
+  .bolt-wrap{opacity:.28}
+  .bolt-tl,.bolt-tr{font-size:96px;opacity:.07}
+  header{
+    position:sticky;top:0;z-index:20;
+    background:rgba(8,11,9,.92)!important;
+    border-bottom:1px solid rgba(83,252,24,.18)!important;
+    box-shadow:0 12px 32px rgba(0,0,0,.22);
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+    gap:18px;
+  }
+  .brand h1{letter-spacing:.08em}
+  .brand small{color:#9ba89f;letter-spacing:.16em}
+  .brand .bolt{filter:drop-shadow(0 0 12px rgba(83,252,24,.4))}
+  .header-right{gap:9px}
+  .lines-toggle,.home-btn,.signout-btn,#filterSelect,.search{
+    min-height:38px;border-radius:10px!important;
+  }
+  .lines-toggle{box-shadow:inset 0 0 0 1px rgba(83,252,24,.06)}
+  .search,#filterSelect{
+    background:#0c100d!important;border-color:#2a362d!important;color:var(--text)!important;
+  }
+  .search:focus,#filterSelect:focus{outline:2px solid rgba(83,252,24,.25);outline-offset:1px}
+  .alert-banner{
+    border-radius:12px!important;margin:16px 22px 0!important;
+    box-shadow:0 0 28px rgba(83,252,24,.08);
+  }
+  .tab-nav{
+    top:76px!important;background:rgba(12,16,13,.94)!important;
+    border-bottom:1px solid #253229!important;padding:0 22px!important;
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  }
+  .tab-btn{
+    min-height:52px;padding:14px 18px!important;
+    border-bottom-width:3px!important;white-space:nowrap;
+  }
+  .tab-btn.active{text-shadow:0 0 18px rgba(83,252,24,.18)}
+  main{max-width:1600px;margin:0 auto;padding:24px!important}
+  .card,.call-card,.active-call-panel,.hist-card,.rec-card,.analytics-section,.stat-card,.tip-card,.empty{
+    border-radius:16px!important;
+    border-color:#26342a!important;
+    background:linear-gradient(145deg,rgba(19,27,21,.97),rgba(12,16,13,.98))!important;
+    box-shadow:0 8px 26px rgba(0,0,0,.16);
+  }
+  .call-card{border-color:rgba(83,252,24,.55)!important}
+  .active-call-panel{
+    border:1px solid rgba(83,252,24,.62)!important;
+    box-shadow:0 0 0 1px rgba(83,252,24,.05),0 18px 48px rgba(0,0,0,.24),0 0 34px rgba(83,252,24,.055)!important;
+  }
+  .stat-card{text-align:left!important;padding:22px!important}
+  .stat-value{font-size:34px;letter-spacing:-.04em}
+  .stat-label{letter-spacing:.12em}
+  .section-title,.calls-section-title{letter-spacing:.14em}
+  .cbtn,.ibtn,.rbtn,.hist-play,.hist-delete,.tab-btn,.home-btn,.signout-btn,.lines-toggle{
+    transition:transform .16s ease,border-color .16s ease,background .16s ease,filter .16s ease!important;
+  }
+  .cbtn:hover,.ibtn:hover,.rbtn:hover,.hist-play:hover,.hist-delete:hover{transform:translateY(-1px)}
+  button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{
+    outline:2px solid var(--green)!important;outline-offset:3px;
+  }
+  .login-screen{
+    background:
+      radial-gradient(ellipse at 50% 0%,rgba(83,252,24,.12),transparent 34rem),
+      #080b09!important;
+    backdrop-filter:blur(12px);
+  }
+  .login-box{
+    max-width:390px!important;padding:38px 30px!important;
+    background:linear-gradient(145deg,#131a15,#0c100d)!important;
+    border:1px solid rgba(83,252,24,.25)!important;border-radius:22px!important;
+    box-shadow:0 28px 90px rgba(0,0,0,.42),0 0 42px rgba(83,252,24,.055)!important;
+  }
+  .login-brand{letter-spacing:.12em!important}
+  .login-sub{line-height:1.6}
+  .login-box input{border-radius:11px!important;min-height:46px}
+  .login-box button{border-radius:11px!important;min-height:46px}
+  @media(max-width:760px){
+    header{position:relative;align-items:flex-start;padding:16px!important}
+    .header-right{width:100%;display:flex;flex-wrap:wrap;gap:8px}
+    .header-right>*{max-width:100%}
+    .search{flex:1;min-width:145px}
+    .tab-nav{top:0!important;position:sticky;overflow-x:auto;padding:0 8px!important}
+    .tab-btn{padding:13px 12px!important;font-size:12px!important}
+    main{padding:16px!important}
+    .alert-banner{margin:12px 12px 0!important}
+    .active-call-header{align-items:flex-start}
+    .active-call-timer{font-size:30px}
+    .active-call-controls .cbtn{min-width:calc(50% - 8px)}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
+  }
+
 </style>
 </head>
 <body>
@@ -525,13 +638,13 @@
     <span class="bolt">⚡</span>
     <div>
       <h1>LIVE <span>CALLER</span> STUDIO</h1>
-      <small>PRODUCER DASHBOARD</small>
+      <small>BROADCAST CONTROL CENTER</small>
     </div>
   </div>
   <div class="header-right">
-    <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Toggle whether phone lines are accepting live calls">
+    <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Toggle listener call-in availability">
       <span class="lines-dot"></span>
-      <span id="linesToggleText">Lines Open</span>
+      <span id="linesToggleText">Call-Ins Open</span>
     </button>
     <div class="call-counter" id="callCounter">📞 <span id="callCountNum">0</span> Incoming</div>
     <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
@@ -819,7 +932,7 @@ let linesOpen = true;
 function renderLinesToggle(){
   linesToggleBtn.classList.toggle('open', linesOpen);
   linesToggleBtn.classList.toggle('closed', !linesOpen);
-  linesToggleText.textContent = linesOpen ? 'Lines Open' : 'Lines Closed';
+  linesToggleText.textContent = linesOpen ? 'Call-Ins Open' : 'Call-Ins Closed';
 }
 
 function startLinesToggleListener(){
