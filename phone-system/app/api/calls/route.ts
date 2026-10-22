@@ -12,13 +12,13 @@ export async function POST(request:NextRequest){
   const db=adminDb();const lineSnap=await db.doc("hotlineSettings/callLines").get();const line=lineSnap.exists?lineSnap.data()||{}:{};const open=callType==="video"?line.videoOpen:line.open;
   if(open===false)return NextResponse.json({error:"That line is closed right now. Please leave a voice message from the main site.",voicemail:true},{status:423});
   if(open!==undefined&&open!==true)return NextResponse.json({error:"The producer line status could not be verified. Please leave a voice message instead.",voicemail:true},{status:423});
-  const callerKey=randomBytes(24).toString("hex");const ref=db.collection("liveCalls").doc();
+  const callerKey=randomBytes(24).toString("hex");const ref=db.collection("liveKitCalls").doc();
   await ref.set({callerName,callerCity,callType,roomName:"lcs-"+ref.id,callerKeyHash:hashKey(callerKey),status:"waiting",createdAt:new Date(),createdAtMs:Date.now(),source:"phone-system-livekit",onAir:false,muted:false});
   return NextResponse.json({callId:ref.id,callerKey,status:"waiting"},{status:201});
  }catch(error){console.error("Create call failed:",error);return NextResponse.json({error:"Unable to start the call. Please try again."},{status:500});}
 }
 export async function GET(request:NextRequest){
  if(!isHostRequest(request))return NextResponse.json({error:"Unauthorized host."},{status:401});
- try{const snap=await adminDb().collection("liveCalls").where("status","in",[...ACTIVE]).get();const calls=snap.docs.map(d=>{const data=d.data();delete data.callerKey;delete data.callerKeyHash;return{id:d.id,...data};}).sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));return NextResponse.json({calls});}
+ try{const snap=await adminDb().collection("liveKitCalls").where("status","in",[...ACTIVE]).get();const calls=snap.docs.map(d=>{const data=d.data();delete data.callerKey;delete data.callerKeyHash;return{id:d.id,...data};}).sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));return NextResponse.json({calls});}
  catch(error){console.error("Read call queue failed:",error);return NextResponse.json({error:"Could not load the call queue."},{status:500});}
 }
