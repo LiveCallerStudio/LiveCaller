@@ -1401,6 +1401,9 @@ function watchOverlayRelaySessions(callId){
       if(!offer || overlayRelayPeers.has(sessionId) || !activePc) return;
       const sessionRef=doc(db,'liveCalls',callId,'overlaySessions',sessionId);
       const pc=new RTCPeerConnection(iceConfig);
+      pc.onconnectionstatechange=()=>console.info('OBS relay WebRTC:',pc.connectionState,'ICE:',pc.iceConnectionState);
+      pc.oniceconnectionstatechange=()=>console.info('OBS relay ICE state:',pc.iceConnectionState);
+      pc.onicecandidateerror=e=>console.warn('OBS relay ICE candidate error:',{code:e.errorCode,text:e.errorText,url:e.url});
       const record={pc,unsub:null};
       overlayRelayPeers.set(sessionId,record);
       const pending=[]; let remoteSet=false;
@@ -1462,6 +1465,17 @@ async function answerCall(callId, callerName, callerCity){
 
   // Create peer connection and add producer audio and (for video calls) camera.
   activePc = new RTCPeerConnection(iceConfig);
+  activePc.onconnectionstatechange=()=>{
+    if(!activePc)return;
+    console.info('Producer WebRTC connection:',activePc.connectionState,'ICE:',activePc.iceConnectionState);
+    if(activePc.connectionState==='failed') setCallStatus('Media connection failed. Check network/TURN configuration.');
+  };
+  activePc.oniceconnectionstatechange=()=>{
+    if(!activePc)return;
+    console.info('Producer ICE state:',activePc.iceConnectionState);
+    if(activePc.iceConnectionState==='failed') setCallStatus('ICE negotiation failed. Check Firestore candidate permissions and TURN reachability.');
+  };
+  activePc.onicecandidateerror=e=>console.warn('Producer ICE candidate error:',{code:e.errorCode,text:e.errorText,url:e.url});
   producerStream.getTracks().forEach(track => activePc.addTrack(track, producerStream));
 
   // Keep one durable remote stream for the screening preview and the OBS overlay relay.
@@ -1647,6 +1661,9 @@ function startCallRecording(){
   recordStatus.textContent = '⏺ Recording…';
 }
 
+const RECORDING_UPLOAD_PRESET = 'djdeeze_hotline_recordings';
+const MAX_CALL_RECORDING_BYTES = 50 * 1024 * 1024;
+
 async function stopCallRecording(){
   if(!callRecorder || callRecorder.state === 'inactive') return null;
   isRecording = false;
@@ -1657,19 +1674,37 @@ async function stopCallRecording(){
   return new Promise(resolve =>{
     callRecorder.onstop = async ()=>{
       const blob = new Blob(callRecordingChunks, { type: callRecorder.mimeType });
-      const fd = new FormData();
-      fd.append('file', blob);
-      fd.append('upload_preset', 'djdeeze_hotline');
+      if(!blob.size || blob.size > MAX_CALL_RECORDING_BYTES){
+        recordStatus.textContent = blob.size ? 'Recording exceeds the 50 MB upload limit.' : 'Recording is empty.';
+        resolve(null);
+        return;
+      }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(()=>controller.abort(), 45000);
       try{
-        const res = await fetch('https://api.cloudinary.com/v1_1/vz1v6nzp/video/upload',{ method:'POST', body:fd });
-        const data = await res.json();
+        const fd = new FormData();
+        fd.append('file', blob, callRecorder.mimeType.includes('mp4') ? 'call-recording.mp4' : 'call-recording.webm');
+        fd.append('upload_preset', RECORDING_UPLOAD_PRESET);
+        const res = await fetch('https://api.cloudinary.com/v1_1/vz1v6nzp/video/upload',{
+          method:'POST', body:fd, signal:controller.signal
+        });
+        const data = await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(data.error?.message || `Cloudinary HTTP ${res.status}`);
+        const mediaUrl = new URL(data.secure_url || '');
+        if(mediaUrl.protocol !== 'https:' || mediaUrl.hostname !== 'res.cloudinary.com' ||
+           !mediaUrl.pathname.includes('/vz1v6nzp/video/upload/') || typeof data.public_id !== 'string'){
+          throw new Error('Unexpected Cloudinary response URL');
+        }
         recordStatus.textContent = '✅ Recording saved';
         recordStatus.className = 'record-status saved';
         setTimeout(()=>{ recordStatus.textContent = ''; recordStatus.className = 'record-status'; }, 4000);
-        resolve(data.secure_url);
+        resolve(mediaUrl.href);
       }catch(e){
-        recordStatus.textContent = 'Recording upload failed.';
+        recordStatus.textContent = e.name === 'AbortError' ? 'Recording upload timed out.' : 'Recording upload failed.';
+        console.warn('Call recording upload failed:',e);
         resolve(null);
+      }finally{
+        clearTimeout(timeoutId);
       }
     };
     callRecorder.stop();
