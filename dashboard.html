@@ -554,6 +554,18 @@
     border-bottom-width:3px!important;white-space:nowrap;
   }
   .tab-btn.active{text-shadow:0 0 18px rgba(83,252,24,.18)}
+  .tab-notification{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:20px;height:20px;padding:0 6px;margin-left:5px;
+    border-radius:999px;background:var(--red);color:#fff;
+    font-size:11px;font-weight:900;line-height:1;letter-spacing:0;
+    text-shadow:none;box-shadow:0 0 14px rgba(255,77,94,.28);
+    vertical-align:middle;animation:tab-notice-pulse 1.8s ease-in-out infinite;
+  }
+  .tab-notification[hidden]{display:none!important}
+  @keyframes tab-notice-pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
+  .tab-btn .tab-notification{flex-shrink:0}
+  @media(prefers-reduced-motion:reduce){.tab-notification{animation:none}}
   main{max-width:1600px;margin:0 auto;padding:24px!important}
   .card,.call-card,.active-call-panel,.hist-card,.rec-card,.analytics-section,.stat-card,.tip-card,.empty{
     border-radius:16px!important;
@@ -667,9 +679,9 @@
 
 <!-- Tab Navigation -->
 <nav class="tab-nav">
-  <button class="tab-btn active" data-tab="queue">📥 Queue</button>
-  <button class="tab-btn" data-tab="calls">📞 Calls</button>
-  <button class="tab-btn" data-tab="video">🎥 Video Guests</button>
+  <button class="tab-btn active" data-tab="queue">📥 Queue <span class="tab-notification" id="queueTabNotice" aria-label="0 pending requests" hidden>0</span></button>
+  <button class="tab-btn" data-tab="calls">📞 Calls <span class="tab-notification" id="callsTabNotice" aria-label="0 incoming calls" hidden>0</span></button>
+  <button class="tab-btn" data-tab="video">🎥 Video Guests <span class="tab-notification" id="videoTabNotice" aria-label="0 waiting video guests" hidden>0</span></button>
   <button class="tab-btn" data-tab="history">📋 History</button>
   <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
 </nav>
@@ -1136,6 +1148,7 @@ function render(){
   });
 
   const pendingCount = allMessages.filter(m=>m.status==='pending').length;
+  updateTabNotice('queueTabNotice', pendingCount, 'pending request');
   queueCount.textContent = `${pendingCount} waiting`;
 
   if(list.length === 0){
@@ -1306,6 +1319,16 @@ hiddenPlayer.addEventListener('ended', async ()=>{
 
 searchInput.addEventListener('input', render);
 filterSelect.addEventListener('change', render);
+
+// ── Live tab notification badges ──
+function updateTabNotice(id, count, itemLabel){
+  const badge = document.getElementById(id);
+  if(!badge) return;
+  const n = Number.isFinite(count) ? Math.max(0, count) : 0;
+  badge.textContent = n > 99 ? '99+' : String(n);
+  badge.hidden = n === 0;
+  badge.setAttribute('aria-label', n + ' ' + itemLabel + (n === 1 ? '' : 's'));
+}
 
 // ── Tab switching ──
 const tabBtns = document.querySelectorAll('.tab-btn');
@@ -1932,6 +1955,7 @@ function startCallsListener(){
       // Incoming FaceTime-style audio AND video calls are both stored in liveCalls.
       const ringing = calls.filter(c => c.status === 'waiting');
       const count = ringing.length;
+      updateTabNotice('callsTabNotice', count, 'incoming call');
       callCountNum.textContent = count;
       count > 0 ? callCounter.classList.add('show') : callCounter.classList.remove('show');
 
@@ -2020,6 +2044,7 @@ function startVideoCallsListener(){
     (snap)=>{
       const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
       const waiting = calls.filter(c => c.status === 'waiting');
+      updateTabNotice('videoTabNotice', waiting.length, 'waiting video guest');
       const live = calls.find(c => c.status === 'live');
 
       // Live guest panel
