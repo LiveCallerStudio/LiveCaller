@@ -7,6 +7,7 @@ const video = fs.readFileSync(path.join(root, 'videocall.html'), 'utf8');
 const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 const dashboard = fs.readFileSync(path.join(root, 'dashboard.html'), 'utf8');
 const setup = fs.readFileSync(path.join(root, 'SETUP.md'), 'utf8');
+const voice = fs.readFileSync(path.join(root, 'voicemessage.html'), 'utf8');
 
 assert.match(video, /resolveLineStates\(snap\)/, 'video guest page must use the shared producer line-state resolver');
 assert.match(video, /if\(callMode==='video' && videoLineState!==LINE\.OPEN\)/, 'video calls must not bypass a closed or unknown producer video line');
@@ -24,5 +25,10 @@ assert.match(dashboard, /function stopQueueListener\(\)/, 'dashboard must be abl
 assert.match(dashboard, /function startQueueListener\(\)/, 'dashboard must be able to restart the queue subscription');
 assert.doesNotMatch(setup, /allow\s+read\s*,\s*update\s*,\s*delete\s*:\s*if\s+true/i, 'setup guide must not recommend public read/update/delete access');
 assert.doesNotMatch(setup, /allow\s+read\s*,\s*write\s*:\s*if\s+true/i, 'setup guide must not recommend public read/write access');
+
+assert.match(voice, /playVoicemailBeep/, 'voicemail must play a start beep');
+assert.match(voice, /await startRecording\(\)/, 'voicemail recording must start automatically after caller details');
+assert.match(voice, /MAX_UPLOAD_BYTES = 8 \* 1024 \* 1024/, 'voice upload must enforce an 8 MB ceiling');
+assert.match(voice, /AbortController/, 'voice upload must time out rather than hang indefinitely');
 
 console.log('production-safety checks: all passed');
