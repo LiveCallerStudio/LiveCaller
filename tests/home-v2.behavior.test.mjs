@@ -13,7 +13,7 @@ function makeEl(id) { const cls = new Set(); return { id, style: {}, textContent
 function run(deliver) {                       // deliver(onNext, onError) simulates Firestore
   const els = {}; const get = id => (els[id] ??= makeEl(id));
   let next, error, snapshotOptions;
-  const ctx = { console: { warn() {} }, document: { getElementById: get, documentElement: { dataset: {} } },
+  const ctx = { console: { warn() {}, error() {} }, setTimeout: () => 1, clearTimeout: () => {}, document: { getElementById: get, documentElement: { dataset: {} } },
     initializeApp: () => ({}), getFirestore: () => ({}), doc: () => ({}),
     onSnapshot: (_ref, options, n, e) => {
       if (typeof options === 'function') { snapshotOptions = {}; next = options; error = n; }
@@ -46,10 +46,10 @@ t('phone closed, video open', () => {
 t('both open', () => {
   const r = run(({ next, snapshot }) => next(snapshot({ open: true, videoOpen: true })));
   assert.equal(r.after.callOpen, 'grid'); assert.equal(r.after.videoOpen, 'grid'); });
-t('Firestore read error -> UNKNOWN, lines NOT enabled (former fail-open path)', () => {
+t('Firestore read error is visible and lines remain unavailable', () => {
   const r = run(({ error }) => error({ code: 'permission-denied' }));
   assert.equal(r.after.callOpen, 'none'); assert.equal(r.after.videoOpen, 'none');
-  assert.equal(r.after.phoneChip, 'Phone status unknown'); assert.equal(r.after.videoChip, 'Video status unknown'); });
+  assert.equal(r.after.phoneChip, 'Phone status error: permission-denied'); assert.equal(r.after.videoChip, 'Video status error: permission-denied'); });
 t('open then error -> closes again instead of staying open', () => {
   const r = run(({ next, error, snapshot }) => { next(snapshot({ open: true, videoOpen: true })); error({ code: 'unavailable' }); });
   assert.equal(r.after.callOpen, 'none'); assert.equal(r.after.videoOpen, 'none'); });

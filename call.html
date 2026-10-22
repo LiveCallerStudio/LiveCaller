@@ -733,9 +733,29 @@ function applyPhoneLine(state){
   callBtn.style.opacity = linesOpen ? '' : '.4';
 }
 applyPhoneLine(LINE.UNKNOWN); // nothing is open until Firestore confirms it
+let phoneLineStatusReceived = false;
+const phoneLineStatusTimeout = setTimeout(() => {
+  if (phoneLineStatusReceived) return;
+  const title = document.getElementById('linesClosedTitle');
+  if (title) title.textContent = '📞 Phone line status not connected';
+}, 10000);
 onSnapshot(doc(db, 'hotlineSettings', 'callLines'), { includeMetadataChanges: true },
-  (snap)=> applyPhoneLine(resolveLineStates(snap).phone),
-  (err)=>{ console.warn('Phone line status read failed:', err && err.code); applyPhoneLine(LINE.UNKNOWN); }
+  (snap) => {
+    phoneLineStatusReceived = true;
+    clearTimeout(phoneLineStatusTimeout);
+    applyPhoneLine(resolveLineStates(snap).phone);
+  },
+  (err) => {
+    phoneLineStatusReceived = true;
+    clearTimeout(phoneLineStatusTimeout);
+    const code = err && err.code ? err.code : 'unknown-error';
+    console.error('Phone line status read failed:', code, err);
+    applyPhoneLine(LINE.UNKNOWN);
+    const title = document.getElementById('linesClosedTitle');
+    const copy = document.getElementById('linesClosedCopy');
+    if (title) title.textContent = '📞 Phone line error: ' + code;
+    if (copy) copy.textContent = 'The app could not read hotlineSettings/callLines from Firebase. Check Firestore rules and connectivity.';
+  }
 );
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});

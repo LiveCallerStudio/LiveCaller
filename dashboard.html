@@ -923,7 +923,13 @@ function startLinesToggleListener(){
   onSnapshot(linesSettingsRef, { includeMetadataChanges: true }, (snap)=>{
     linesState = resolveLineStates(snap).phone;
     renderLinesToggle();
-  }, (err)=>{ console.warn('Phone line status read failed:', err && err.code); linesState = LINE.UNKNOWN; renderLinesToggle(); });
+  }, (err)=>{
+    const code = err && err.code ? err.code : 'unknown-error';
+    console.error('Phone line status read failed:', code, err);
+    linesState = LINE.UNKNOWN;
+    renderLinesToggle();
+    linesToggleText.textContent = 'Audio (Error: ' + code + ')';
+  });
 }
 
 linesToggleBtn.addEventListener('click', async()=>{
@@ -967,7 +973,13 @@ function startVideoToggleListener(){
   onSnapshot(linesSettingsRef, { includeMetadataChanges: true }, (snap)=>{
     videoState = resolveLineStates(snap).video;
     renderVideoToggle();
-  }, (err)=>{ console.warn('Video line status read failed:', err && err.code); videoState = LINE.UNKNOWN; renderVideoToggle(); });
+  }, (err)=>{
+    const code = err && err.code ? err.code : 'unknown-error';
+    console.error('Video line status read failed:', code, err);
+    videoState = LINE.UNKNOWN;
+    renderVideoToggle();
+    videoToggleText.textContent = 'Video (Error: ' + code + ')';
+  });
 }
 
 videoToggleBtn.addEventListener('click', async()=>{
