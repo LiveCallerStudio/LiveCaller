@@ -554,7 +554,7 @@
   // This watchdog runs independently of Firebase/module imports, so a blocked CDN or
   // syntax/import error cannot leave the page showing "Checking" forever.
   document.documentElement.dataset.lineStatus = 'loading';
-  window.__lineStatusWatchdogTimer = window.setTimeout(() => {
+  globalThis.__lineStatusWatchdogTimer = globalThis.setTimeout(() => {
     if (document.documentElement.dataset.lineStatus !== 'loading') return;
     const statusCopy = {
       phone: ['Phone status not connected', 'Phone status script did not connect to the live status service.', 'Unavailable'],
@@ -642,7 +642,7 @@
   document.documentElement.dataset.lineStatus = 'loading';
 
   let lineStatusReceived = false;
-  const lineStatusTimeout = window.__lineStatusWatchdogTimer;
+  const lineStatusTimeout = globalThis.__lineStatusWatchdogTimer;
 
   onSnapshot(doc(db, 'hotlineSettings', 'callLines'), { includeMetadataChanges: true },
     (snap) => {
