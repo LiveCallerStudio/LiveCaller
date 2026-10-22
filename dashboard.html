@@ -1942,14 +1942,30 @@ document.addEventListener('click', async(e)=>{
 document.addEventListener('click', async(e)=>{
   const btn = e.target.closest('[data-action="answer"],[data-action="reject"]');
   if(!btn) return;
-  const id   = btn.dataset.id;
-  const name = btn.dataset.name;
-  const city = btn.dataset.city;
+  const id = btn.dataset.id;
+  const name = btn.dataset.name || 'Unknown caller';
+  const city = btn.dataset.city || null;
   if(btn.dataset.action === 'answer'){
-    await answerCall(id, name, city);
+    btn.disabled = true;
+    try { await answerCall(id, name, city || ''); }
+    finally { btn.disabled = false; }
   }
   if(btn.dataset.action === 'reject'){
-    await setDoc(doc(db, 'liveCalls', id), { status: 'rejected' }, { merge: true });
+    btn.disabled = true;
+    try {
+      // Record rejection in the same call-history collection used by the History tab.
+      // A deterministic history document ID makes repeat clicks idempotent.
+      await setDoc(doc(db, 'liveCalls', id), {
+        status: 'rejected', rejectedAt: serverTimestamp(), updatedAt: serverTimestamp()
+      }, { merge: true });
+      await setDoc(doc(db, 'callHistory', 'call_' + id), {
+        callId: id, callerName: name, callerCity: city, duration: 0,
+        recordingUrl: null, status: 'rejected', createdAt: serverTimestamp()
+      }, { merge: true });
+    } catch(err) {
+      console.error('Could not reject and log call:', err);
+      alert('Could not reject this call or save its history. Check Firestore permissions and try again.');
+    } finally { btn.disabled = false; }
   }
 });
 
