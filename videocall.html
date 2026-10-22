@@ -38,6 +38,7 @@
     <div class="video-wrap" id="videoWrap"><video id="preview" autoplay playsinline muted></video></div>
     <div class="status" id="status">Checking video line…</div>
     <p class="small">Keep this page open while you are in the queue or on air.</p>
+    <p class="small" id="buildStamp">Build: LCS-VIDEO-2026-10-22-DIAG1</p>
   </main>
 
   <script type="module">
@@ -55,6 +56,7 @@
       appId: '1:663942225296:web:c6117cf6c23656b9842715'
     };
 
+    console.info('LCS_VIDEO_BUILD_2026-10-22-DIAG1');
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
@@ -135,7 +137,7 @@
         return 'Firebase Anonymous Authentication is disabled. Enable Authentication → Sign-in method → Anonymous in your Firebase project, then try again.';
       }
       if (code === 'permission-denied' || code === 'firestore/permission-denied') {
-        return 'Firestore denied this action. Confirm the published rules match the supplied rules and that Anonymous Authentication is enabled. Details: ' + (err?.message || code);
+        return 'FIRESTORE PERMISSION DENIED at the current step. Error code: ' + (code || 'unknown') + '. Details: ' + (err?.message || 'No additional details') + '. If this appears at Step 3, the live rules are rejecting videoCalls create or the live page is not using the expected rules. Build: LCS-VIDEO-2026-10-22-DIAG1.';
       }
       if (err?.name === 'NotAllowedError') {
         return 'Camera or microphone permission was denied. Allow camera and microphone access for this site, then try again.';
@@ -163,11 +165,11 @@
           throw new Error('Camera access requires a secure HTTPS page and a supported browser.');
         }
 
-        statusEl.textContent = 'Signing in securely…';
+        statusEl.textContent = 'Step 1/3: Signing in securely…';
         const credential = await signInAnonymously(auth);
         guestUid = credential.user.uid;
 
-        statusEl.textContent = 'Requesting camera and microphone access…';
+        statusEl.textContent = 'Step 2/3: Requesting camera and microphone access…';
         stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true },
           video: { facingMode: 'user' }
@@ -175,7 +177,7 @@
         preview.srcObject = stream;
         videoWrap.classList.add('show');
 
-        statusEl.textContent = 'Joining the video queue…';
+        statusEl.textContent = 'Step 3/3: Saving your queue entry to Firestore…';
         callRef = await addDoc(collection(db, 'videoCalls'), {
           callerName: name,
           callerCity: city || null,
