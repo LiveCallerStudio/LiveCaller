@@ -150,6 +150,7 @@
 
   /* Call screen */
   #callScreen{ display:none; width:100%; text-align:center; flex-direction:column; align-items:center; }
+  #callScreen.video-call .call-visual{display:none;}
 
   .call-visual{
     width:140px; height:140px; border-radius:50%; margin:0 auto 20px;
@@ -703,6 +704,7 @@ async function requestAudioBitrate(peer, bitrate = 128000){
   // Show call screen and start ringing
   setupScreen.style.display = 'none';
   callScreen.style.display = 'flex';
+  callScreen.classList.toggle('video-call',callMode==='video');
   callerNameDisplay.textContent = name + (callMode==='video' ? ' · Video Call' : ' · Audio Call');
   setStatus('waiting', 'Calling Live Caller Studio…');
   startOutgoingRing(); // Start outgoing ring while waiting
