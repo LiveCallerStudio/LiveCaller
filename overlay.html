@@ -79,6 +79,7 @@ const pill = document.getElementById('pill');
 const fallback = document.getElementById('fallback');
 const liveAudio = document.getElementById('liveAudio');
 const guestVideo = document.getElementById('guestVideo');
+let db = null;
 let currentAudioUrl = '';
 let activeCallId = '';
 let overlayCallPc = null;
@@ -235,7 +236,7 @@ function render(data){
 
 try {
   const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+  db = getFirestore(app);
   const counters = {
     voice: { box: document.getElementById('voiceCounter'), number: document.getElementById('voiceCount') },
     audio: { box: document.getElementById('audioCallCounter'), number: document.getElementById('audioCallCount') },
