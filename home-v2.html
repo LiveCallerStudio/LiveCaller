@@ -304,6 +304,13 @@
     transform:translateX(4px);
   }
   .entry.priority:hover .entry-arrow{color:var(--red);}
+  /* Broadcast phone-line treatment */
+  #callOpen,#videoLink,#callClosed,#videoClosed{position:relative;}
+  #callOpen::after,#videoLink::after{content:'● LIVE LINE';position:absolute;right:16px;top:12px;color:var(--accent);font-size:8px;font-weight:900;letter-spacing:1px;}
+  #callOpen .entry-icon,#videoLink .entry-icon{box-shadow:0 0 18px rgba(83,252,24,.12);}
+  #callClosed .entry-tag,#videoClosed .entry-tag{color:var(--gold);background:var(--gold-soft);}
+  #callClosed .entry-arrow,#videoClosed .entry-arrow{color:var(--gold);}
+  @media(max-width:420px){#callOpen::after,#videoLink::after{right:10px;top:8px;font-size:7px;}}
 
   /* Offline state */
   .entry-offline{
@@ -474,23 +481,18 @@
         <div class="entry-icon">📞</div>
       </div>
       <div class="entry-content">
-        <span class="entry-tag">Live audio line</span>
+        <span class="entry-tag">ON-AIR PHONE LINE</span>
         <div class="entry-title">Call the Studio</div>
-        <div class="entry-copy">Two-way audio with the producer. Screened first — then ready for air.</div>
+        <div class="entry-copy">Live two-way radio call. The producer screens you privately before putting you on air.</div>
       </div>
       <div class="entry-arrow">→</div>
     </a>
 
-    <div class="entry-offline" id="callClosed">
-      <div class="entry-icon-wrap">
-        <div class="entry-icon">📞</div>
-      </div>
-      <div class="entry-content">
-        <div class="entry-title" id="callClosedTitle">Checking phone line</div>
-        <div class="entry-copy" id="callClosedCopy">Confirming whether live call-ins are being accepted.</div>
-      </div>
-      <div class="offline-badge" id="callClosedBadge">Checking</div>
-    </div>
+    <a class="entry priority" href="voicemessage.html?source=voicemail" id="callClosed">
+      <div class="entry-icon-wrap"><div class="entry-icon">📞</div></div>
+      <div class="entry-content"><span class="entry-tag">Voicemail available</span><div class="entry-title" id="callClosedTitle">Phone line status</div><div class="entry-copy" id="callClosedCopy">Live calls are closed. Leave a message for the show.</div></div>
+      <div class="entry-arrow">→</div>
+    </a>
 
     <!-- Video -->
     <a class="entry" href="videocall.html" id="videoLink" style="display:none">
@@ -498,23 +500,18 @@
         <div class="entry-icon">🎥</div>
       </div>
       <div class="entry-content">
-        <span class="entry-tag">Camera + mic</span>
-        <div class="entry-title">Video Guest</div>
-        <div class="entry-copy">Appear on stream with camera and microphone after producer approval.</div>
+        <span class="entry-tag">VIDEO CALL-IN LINE</span>
+        <div class="entry-title">Video Call the Studio</div>
+        <div class="entry-copy">Keep your camera full-screen on your device while the producer screens your call, then sends a stream-ready guest feed on air.</div>
       </div>
       <div class="entry-arrow">→</div>
     </a>
 
-    <div class="entry-offline" id="videoClosed">
-      <div class="entry-icon-wrap">
-        <div class="entry-icon">🎥</div>
-      </div>
-      <div class="entry-content">
-        <div class="entry-title" id="videoClosedTitle">Checking video line</div>
-        <div class="entry-copy" id="videoClosedCopy">Confirming whether video guests are being accepted.</div>
-      </div>
-      <div class="offline-badge" id="videoClosedBadge">Checking</div>
-    </div>
+    <a class="entry priority" href="voicemessage.html?source=voicemail" id="videoClosed">
+      <div class="entry-icon-wrap"><div class="entry-icon">🎥</div></div>
+      <div class="entry-content"><span class="entry-tag">Voicemail available</span><div class="entry-title" id="videoClosedTitle">Video line status</div><div class="entry-copy" id="videoClosedCopy">Video calls are closed. Leave a voice message for the show.</div></div>
+      <div class="entry-arrow">→</div>
+    </a>
 
   </div>
 
@@ -603,11 +600,11 @@
 
   const COPY = {
     phone: {
-      [LINE.CLOSED]:  ['Phone lines closed', 'Live call-ins are not being accepted. Leave a voice message instead.', 'Offline'],
+      [LINE.CLOSED]:  ['Phone lines closed', 'Live call-ins are closed. Tap here to leave a voicemail in the Messages queue.', 'Voicemail'],
       [LINE.UNKNOWN]: ['Phone line status unavailable', "We can't confirm the line right now. Leave a voice message or try again shortly.", 'Unknown']
     },
     video: {
-      [LINE.CLOSED]:  ['Video guests closed', 'Video appearances are paused. Check back during the live broadcast.', 'Offline'],
+      [LINE.CLOSED]:  ['Video line closed', 'Video call-ins are closed. Tap here to leave a voicemail in the Messages queue.', 'Voicemail'],
       [LINE.UNKNOWN]: ['Video line status unavailable', "We can't confirm the line right now. Try again shortly.", 'Unknown']
     }
   };
