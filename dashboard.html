@@ -554,7 +554,7 @@
     </button>
     <div class="call-counter" id="callCounter">📞 <span id="callCountNum">0</span> Incoming</div>
     <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
-    <div class="counter"><span class="dot"></span><span id="queueCount">0 waiting</span></div>
+    <div class="counter"><span class="dot"></span><span>Messages <b id="pendingMessageCount">—</b></span></div><div class="counter"><span>📵</span><span>Missed <b id="missedCallCount">—</b></span></div><div class="counter"><span>♪</span><span>Songs <b id="pendingSongCount">—</b></span></div><div class="counter"><span class="dot"></span><span>Total pending <b id="totalPendingCount">—</b></span></div><span id="queueCount" hidden>0 waiting</span>
     <input class="search" id="searchInput" placeholder="Search name, city, song…">
     <select id="filterSelect">
       <option value="pending">Pending only</option>
@@ -569,12 +569,12 @@
   </div>
 </header>
 
-<div class="alert-banner" id="alertBanner">🎤 Incoming Voice Message</div>
+<div class="alert-banner" id="alertBanner">🎤 Incoming Voice Message</div><section id="activityCenter" aria-live="polite" style="max-width:1400px;margin:12px auto 0;padding:0 12px"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#131313;border:1px solid #262626;border-radius:12px;padding:12px 16px"><div><strong style="color:#53FC18">LIVE ACTIVITY</strong><div id="activitySummary" style="font-size:12px;color:#aaa;margin-top:4px">Waiting for Firebase activity…</div></div><button type="button" id="openPhoneStudio" class="home-btn">Open Phone Studio ↓</button></div></section>
 
 <!-- Tab Navigation -->
 <nav class="tab-nav">
-  <button class="tab-btn active" data-tab="queue">📥 Queue</button>
-  <button class="tab-btn" data-tab="calls">📞 Calls</button>
+  <button class="tab-btn active" data-tab="calls">📞 Phone Studio</button>
+  <button class="tab-btn" data-tab="queue">📥 Messages</button>
   <button class="tab-btn" data-tab="video">🎥 Video Guests</button>
   <button class="tab-btn" data-tab="history">📋 History</button>
   <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
@@ -582,7 +582,7 @@
 
 <main>
   <!-- QUEUE TAB -->
-  <div class="tab-content" id="tab-queue">
+  <div class="tab-content" id="tab-queue" style="display:none;">
     <div id="emptyState" class="empty" style="display:none;">
       <div class="ic">📭</div>
       <div>No messages waiting. The queue's clear.</div>
@@ -591,7 +591,7 @@
   </div>
 
   <!-- CALLS TAB -->
-  <div class="tab-content" id="tab-calls" style="display:none;">
+  <div class="tab-content" id="tab-calls">
 
     <!-- Active call panel — shown when a call is connected -->
     <div class="active-call-panel" id="activeCallPanel" style="display:none;">
@@ -824,6 +824,7 @@ onAuthStateChanged(auth, (user)=>{
     dashboardApp.style.display = 'block';
     startQueueListener();
     startCallsListener();
+    startSongRequestsListener();
     startCallHistoryListener();
     startLinesToggleListener();
     startVideoToggleListener();
@@ -944,6 +945,20 @@ let livePlayingId = null;       // sent to OBS (muted locally)
 const queueEl = document.getElementById('queue');
 const emptyState = document.getElementById('emptyState');
 const queueCount = document.getElementById('queueCount');
+const pendingMessageCountEl = document.getElementById('pendingMessageCount');
+const missedCallCountEl = document.getElementById('missedCallCount');
+const pendingSongCountEl = document.getElementById('pendingSongCount');
+const totalPendingCountEl = document.getElementById('totalPendingCount');
+const activitySummaryEl = document.getElementById('activitySummary');
+let pendingMessageCount = 0, missedCallCount = 0, pendingSongCount = 0;
+function updateActivityCounters(){
+  pendingMessageCountEl.textContent = String(pendingMessageCount);
+  missedCallCountEl.textContent = String(missedCallCount);
+  pendingSongCountEl.textContent = String(pendingSongCount);
+  totalPendingCountEl.textContent = String(pendingMessageCount + missedCallCount + pendingSongCount + Number(callCountNum.textContent || 0));
+  activitySummaryEl.textContent = (callCountNum.textContent || '0') + ' incoming calls · ' + pendingMessageCount + ' messages awaiting approval · ' + missedCallCount + ' missed calls to review · ' + pendingSongCount + ' song requests awaiting approval';
+}
+document.getElementById('openPhoneStudio').addEventListener('click',()=>{ const b=document.querySelector('.tab-btn[data-tab="calls"]'); if(b)b.click(); document.getElementById('tab-calls').scrollIntoView({behavior:'smooth',block:'start'}); });
 const alertBanner = document.getElementById('alertBanner');
 const searchInput = document.getElementById('searchInput');
 const filterSelect = document.getElementById('filterSelect');
@@ -1038,6 +1053,8 @@ function render(){
 
   const pendingCount = allMessages.filter(m=>m.status==='pending').length;
   queueCount.textContent = `${pendingCount} waiting`;
+  pendingMessageCount = pendingCount;
+  updateActivityCounters();
 
   if(list.length === 0){
     emptyState.style.display = 'block';
@@ -1728,10 +1745,13 @@ function startCallsListener(){
       // Incoming = waiting calls only
       const ringing = calls.filter(c => c.status === 'waiting');
       const count = ringing.length;
+      missedCallCount = calls.filter(c => c.status === 'missed').length;
+      updateActivityCounters();
 
       // Header counter
       callCountNum.textContent = count;
       count > 0 ? callCounter.classList.add('show') : callCounter.classList.remove('show');
+      updateActivityCounters();
 
       // Phone ring — start when there are waiting calls, stop when queue is clear
       if(count > 0 && !activePc){
@@ -2019,6 +2039,14 @@ function formatStamp(ts){
 function formatDur(s){
   const m = Math.floor(s/60);
   return `${m}:${(s%60).toString().padStart(2,'0')}`;
+}
+
+function startSongRequestsListener(){
+  if(!startListenerOnce('startSongRequestsListener')) return;
+  onSnapshot(query(collection(db, 'songRequests'), orderBy('createdAt', 'desc')), (snap)=>{
+    pendingSongCount = snap.docs.filter(d => d.data().status === 'pending').length;
+    updateActivityCounters();
+  }, (err)=>{ pendingSongCountEl.textContent = 'Unavailable'; console.warn('Song request listener failed:', err && err.code); });
 }
 
 function startQueueListener(){
