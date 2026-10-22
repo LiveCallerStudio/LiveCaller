@@ -69,6 +69,7 @@ export default function CallerPage() {
           if (!cancelled) { setServerUrl(tokenData.serverUrl); setToken(tokenData.token); }
         }
       } catch (e) {
+        tokenRequested.current = false;
         if (!cancelled) setError(e instanceof Error ? e.message : "Connection status check failed.");
       }
     };
