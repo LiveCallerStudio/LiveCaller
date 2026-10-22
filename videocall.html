@@ -238,6 +238,36 @@
   }
   .site-footer span{color:var(--green);font-size:13px;}
 
+
+  /* FaceTime-inspired mobile surface; preserve the legacy Firestore/WebRTC contract. */
+  body{background:radial-gradient(ellipse at 50% 0%,#18251b 0%,#050607 42%,#000 100%);}
+  .page{padding-left:18px;padding-right:18px;padding-bottom:max(28px,env(safe-area-inset-bottom));}
+  .site-brand{color:#a8b2ac;letter-spacing:2px;}
+  .setup-hero h1{text-shadow:none;letter-spacing:-1.2px;}
+  .field input{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:16px;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);min-height:52px;}
+  .mode-option{border-radius:18px;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.13);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);min-height:54px;}
+  .mode-option.active{background:rgba(83,252,24,.13);box-shadow:none;}
+  .call-btn{border-radius:18px;min-height:56px;letter-spacing:.2px;text-transform:none;font-family:Arial,sans-serif;font-size:16px;}
+  #callScreen{min-height:calc(100svh - 120px);justify-content:center;padding:16px 0 24px;}
+  .call-visual{width:116px;height:116px;background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.2);box-shadow:0 12px 50px rgba(0,0,0,.3);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);}
+  .call-visual svg{width:46px;height:46px;}
+  .call-status{font-family:Arial,sans-serif;font-size:24px;letter-spacing:-.5px;}
+  .call-timer{font-family:Arial,sans-serif;font-size:23px;color:#d9e3dc;letter-spacing:1px;}
+  .call-sub{max-width:320px;line-height:1.5;margin-bottom:24px;}
+  .video-stage{aspect-ratio:3/4;max-height:58svh;border-radius:28px;border:1px solid rgba(255,255,255,.15);background:#111;box-shadow:0 20px 70px rgba(0,0,0,.45);overflow:hidden;}
+  .local-video{width:28%;border:2px solid rgba(255,255,255,.8);border-radius:18px;}
+  .call-controls{display:flex;align-items:center;justify-content:center;gap:clamp(12px,4vw,24px);padding:14px 18px;border-radius:30px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);box-shadow:0 12px 44px rgba(0,0,0,.3);}
+  .ctrl-btn{flex:0 0 72px;min-width:72px;width:72px;height:72px;padding:8px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:10px;letter-spacing:0;text-transform:none;line-height:1.1;}
+  .ctrl-btn.mute,.ctrl-btn.camera-control{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.12);color:#fff;}
+  .ctrl-btn.mute.active,.ctrl-btn.camera-control.active{background:#fff;color:#111;border-color:#fff;}
+  .ctrl-btn.endcall{background:#ff453a;color:#fff;box-shadow:none;font-size:11px;}
+  .status-badge{border-radius:999px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);}
+  .status-badge.waiting{background:rgba(52,199,89,.13);color:#7ee79b;border-color:rgba(52,199,89,.3);}
+  .status-badge.connected{background:rgba(52,199,89,.16);color:#7ee79b;border-color:rgba(52,199,89,.45);}
+  .status-badge.held{background:rgba(255,159,10,.13);color:#ffbf69;border-color:rgba(255,159,10,.3);}
+  .error-banner,.lines-closed-banner{border-radius:16px;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);}
+  @media(max-width:380px){.ctrl-btn{flex-basis:64px;min-width:64px;width:64px;height:64px}.call-controls{gap:10px;padding:12px}.call-visual{width:100px;height:100px}}
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
   @media(max-width:380px){
     .call-visual{ width:120px; height:120px; }
     .call-timer{ font-size:26px; }
@@ -320,7 +350,7 @@
       <div class="call-sub" id="callSub">Waiting for producer to answer…</div>
 
       <div class="call-controls">
-        <button class="ctrl-btn mute" id="muteBtn">🎤 Mute</button>
+        <button class="ctrl-btn mute" id="muteBtn" aria-pressed="false">🎤 Mute</button>\n        <button class="ctrl-btn camera-control" id="cameraBtn" aria-pressed="true">📷 Camera On</button>
         <button class="ctrl-btn endcall" id="endBtn">End Call</button>
       </div>
     </div>
@@ -465,7 +495,7 @@ const statusText       = document.getElementById('statusText');
 const callerNameDisplay= document.getElementById('callerNameDisplay');
 const callTimer        = document.getElementById('callTimer');
 const callSub          = document.getElementById('callSub');
-const muteBtn          = document.getElementById('muteBtn');
+const muteBtn          = document.getElementById('muteBtn');\nconst cameraBtn        = document.getElementById('cameraBtn');
 const endBtn           = document.getElementById('endBtn');
 const remoteAudio      = document.getElementById('remoteAudio');
 const localVideo       = document.getElementById('localVideo');
@@ -500,7 +530,44 @@ function startTimer(){
 
 function stopTimer(){ clearInterval(timerInterval); }
 
-async function startCall(){
+
+function tuneOpusSdp(sdp, bitrate = 128000){
+  if(!sdp) return sdp;
+  const lines = sdp.split(/\r?\n/);
+  const audioIndex = lines.findIndex(line => line.startsWith('m=audio '));
+  if(audioIndex < 0) return sdp;
+  let audioEnd = lines.findIndex((line,index)=>index>audioIndex && line.startsWith('m='));
+  if(audioEnd < 0) audioEnd = lines.length;
+  const audioLines = lines.slice(audioIndex,audioEnd);
+  const opus = audioLines.find(line => /^a=rtpmap:(\d+) opus\/48000/i.test(line));
+  if(!opus) return sdp;
+  const payload = opus.match(/^a=rtpmap:(\d+)/i)?.[1];
+  if(!payload) return sdp;
+  const fmtpIndex = audioLines.findIndex(line => line.startsWith('a=fmtp:'+payload+' '));
+  const wanted = `maxaveragebitrate=${bitrate};useinbandfec=1;usedtx=0`;
+  if(fmtpIndex >= 0){
+    const prefix = 'a=fmtp:'+payload+' ';
+    const params = audioLines[fmtpIndex].slice(prefix.length);
+    const cleaned = params.split(';').filter(part => !/^\s*(maxaveragebitrate|useinbandfec|usedtx)=/i.test(part)).join(';');
+    audioLines[fmtpIndex] = prefix + (cleaned ? cleaned+';' : '') + wanted;
+  }else{
+    audioLines.push('a=fmtp:'+payload+' '+wanted);
+  }
+  lines.splice(audioIndex,audioEnd-audioIndex,...audioLines);
+  return lines.join('\r\n');
+}
+async function requestAudioBitrate(peer, bitrate = 128000){
+  for(const sender of peer.getSenders()){
+    if(sender.track?.kind !== 'audio') continue;
+    try{
+      const params = sender.getParameters();
+      params.encodings = params.encodings?.length ? params.encodings : [{}];
+      params.encodings[0].maxBitrate = bitrate;
+      await sender.setParameters(params);
+    }catch(error){ console.debug('Audio bitrate hint not supported by this browser:',error?.message||error); }
+  }
+}
+\nasync function startCall(){
   clearError();
   // Never create a live call unless the matching producer line is confirmed open.
   // Unknown/offline/error states route safely to voicemail rather than failing open.
@@ -522,7 +589,7 @@ async function startCall(){
 
   try{
     localStream = await navigator.mediaDevices.getUserMedia({
-      audio:{ echoCancellation:true, noiseSuppression:true, sampleRate:48000 },
+      audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:false, sampleRate:48000, channelCount:1 },
       video: callMode === 'video' ? { facingMode:'user', width:{ideal:1280}, height:{ideal:720} } : false
     });
     if(callMode==='video'){localVideo.srcObject=localStream;videoStage.classList.add('show');}
@@ -547,7 +614,7 @@ async function startCall(){
   pc.onicecandidateerror = event => console.warn('Caller ICE candidate error:', {
     code: event.errorCode, text: event.errorText, url: event.url
   });
-  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));\n  requestAudioBitrate(pc).catch(()=>{});
 
   // Play remote audio (producer's voice)
   pc.ontrack = (event) => {
@@ -563,7 +630,7 @@ async function startCall(){
   let remoteDescSet = false;
 
   // Create offer BEFORE setting up onicecandidate so we have the callDocRef first
-  const offer = await pc.createOffer();
+  const rawOffer = await pc.createOffer();\n  const offer = { type: rawOffer.type, sdp: tuneOpusSdp(rawOffer.sdp) };
 
   // Save call to Firestore FIRST so we have the ID for ICE candidate collection path
   callDocRef = await addDoc(collection(db, 'liveCalls'), {
@@ -681,12 +748,22 @@ function cleanup(updateFirestore = true){
   }
 }
 
+cameraBtn.addEventListener('click', ()=>{
+  if(!localStream) return;
+  const tracks=localStream.getVideoTracks();
+  if(!tracks.length) return;
+  const enabled=!tracks[0].enabled;
+  tracks.forEach(track=>track.enabled=enabled);
+  cameraBtn.textContent=enabled?'📷 Camera On':'🚫 Camera Off';
+  cameraBtn.classList.toggle('active',!enabled);
+  cameraBtn.setAttribute('aria-pressed',String(enabled));
+});
 muteBtn.addEventListener('click', ()=>{
   if(!localStream) return;
   micMuted = !micMuted;
   localStream.getAudioTracks().forEach(t => t.enabled = !micMuted);
   muteBtn.textContent = micMuted ? '🔇 Unmute' : '🎤 Mute';
-  muteBtn.classList.toggle('active', micMuted);
+  muteBtn.classList.toggle('active', micMuted);\n  muteBtn.setAttribute('aria-pressed',String(micMuted));
 });
 
 endBtn.addEventListener('click', async ()=>{
