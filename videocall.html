@@ -573,7 +573,8 @@ async function requestAudioBitrate(peer, bitrate = 128000){
     }catch(error){ console.debug('Audio bitrate hint not supported by this browser:',error?.message||error); }
   }
 }
-\nasync function startCall(){
+
+async function startCall(){
   clearError();
   // Never create a live call unless the matching producer line is confirmed open.
   // Unknown/offline/error states route safely to voicemail rather than failing open.
