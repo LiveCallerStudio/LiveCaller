@@ -57,7 +57,7 @@
     <div class="pending-counter" id="audioCallCounter" hidden><span class="count" id="audioCallCount">0</span><span>Audio Calls Waiting</span></div>
     <div class="pending-counter" id="videoCallCounter" hidden><span class="count" id="videoCallCount">0</span><span>Video Calls Waiting</span></div>
   </div>
-  <video id="guestVideo" autoplay playsinline></video>
+  <video id="guestVideo" autoplay playsinline muted></video>
   <audio id="liveAudio" autoplay playsinline></audio>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
@@ -85,6 +85,8 @@ let overlayCallPc = null;
 let overlayCallSessionRef = null;
 let overlayCallUnsubs = [];
 let overlayRemoteStream = null;
+let overlayAudioStream = null;
+let overlayVideoStream = null;
 const iceConfig = { iceServers: [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
@@ -95,9 +97,9 @@ const iceConfig = { iceServers: [
 function stopOverlayCallAudio(){
   overlayCallUnsubs.forEach(unsub=>{try{unsub()}catch(e){}}); overlayCallUnsubs=[];
   if(overlayCallPc){try{overlayCallPc.close()}catch(e){} overlayCallPc=null;}
-  overlayCallSessionRef=null; activeCallId=''; overlayRemoteStream=null;
+  overlayCallSessionRef=null; activeCallId=''; overlayRemoteStream=null; overlayAudioStream=null; overlayVideoStream=null;
   liveAudio.pause(); liveAudio.srcObject=null; liveAudio.removeAttribute('src'); liveAudio.muted=false; liveAudio.volume=1; currentAudioUrl='';
-  guestVideo.pause(); guestVideo.srcObject=null; guestVideo.classList.remove('show');
+  guestVideo.pause(); guestVideo.srcObject=null; guestVideo.muted=true; guestVideo.classList.remove('show');
 }
 async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVideo=false){
   if(!callId) return;
@@ -113,21 +115,27 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
   pc.addTransceiver('audio',{direction:'recvonly'});
   if(isVideo) pc.addTransceiver('video',{direction:'recvonly'});
   let remoteSet=false; const pending=[];
+  // Keep OBS audio and video outputs separate. Only the caller/guest's remote
+  // audio track reaches liveAudio; the video element is muted to prevent duplicate
+  // audio or accidental producer-microphone monitoring through the video element.
   pc.ontrack = async (event)=>{
     try {
-      if(!overlayRemoteStream) overlayRemoteStream = new MediaStream();
-      if(!overlayRemoteStream.getTracks().some(t=>t.id===event.track.id)) overlayRemoteStream.addTrack(event.track);
-      liveAudio.srcObject=overlayRemoteStream;
-      liveAudio.muted=false; liveAudio.volume=1;
-      if(event.track.kind==='video'){
-        guestVideo.srcObject=overlayRemoteStream;
-        guestVideo.classList.add('show');
-        await guestVideo.play().catch(()=>{});
-      }
       if(event.track.kind==='audio'){
-        await liveAudio.play().catch(()=>{ fallback.textContent='CALL AUDIO CONNECTED • CHECK OBS BROWSER-SOURCE AUDIO'; });
+        if(!overlayAudioStream) overlayAudioStream = new MediaStream();
+        if(!overlayAudioStream.getTracks().some(t=>t.id===event.track.id)) overlayAudioStream.addTrack(event.track);
+        liveAudio.srcObject=overlayAudioStream;
+        liveAudio.muted=false; liveAudio.volume=1;
+        await liveAudio.play().catch(()=>{ fallback.textContent='CALL AUDIO RECEIVED • CHECK OBS BROWSER-SOURCE AUDIO SETTINGS'; });
+        fallback.textContent = isVideo ? 'VIDEO CALL • GUEST AUDIO RECEIVED' : 'AUDIO CALL • CALLER AUDIO RECEIVED';
+      } else if(event.track.kind==='video'){
+        if(!overlayVideoStream) overlayVideoStream = new MediaStream();
+        if(!overlayVideoStream.getTracks().some(t=>t.id===event.track.id)) overlayVideoStream.addTrack(event.track);
+        guestVideo.srcObject=overlayVideoStream;
+        guestVideo.muted=true;
+        guestVideo.classList.add('show');
+        await guestVideo.play().catch(()=>{ fallback.textContent='GUEST VIDEO RECEIVED • CHECK OBS BROWSER-SOURCE'; });
+        fallback.textContent='VIDEO CALL • GUEST VIDEO RECEIVED';
       }
-      fallback.textContent = isVideo ? 'VIDEO CALL MEDIA • '+event.track.kind.toUpperCase()+' TRACK RECEIVED' : 'AUDIO CALL • AUDIO TRACK RECEIVED';
       fallback.classList.remove('error');
     } catch(err) { showError('Media track: '+(err.message||'playback failed')); }
   };
@@ -183,7 +191,9 @@ function render(data){
     if(!liveAudio.paused) liveAudio.pause();
     currentAudioUrl='';
     if(liveAudio.srcObject) liveAudio.srcObject=null;
+    overlayAudioStream=null; overlayVideoStream=null; overlayRemoteStream=null;
     if(guestVideo.srcObject) guestVideo.srcObject=null;
+    guestVideo.muted=true;
     guestVideo.classList.remove('show');
     headline.textContent='Sending scene on air';
     subtitle.textContent='Waiting for approval';
