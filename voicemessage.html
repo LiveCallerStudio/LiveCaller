@@ -661,6 +661,8 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const MAX_SECONDS = 30;
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+const ALLOWED_AUDIO_MIME = new Set(['audio/webm','audio/mp4','audio/ogg','audio/wav','audio/x-wav','audio/mpeg','audio/aac']);
 
 const micBtn      = document.getElementById('micBtn');
 const tapZone     = document.getElementById('tapZone');
@@ -971,13 +973,24 @@ sendBtn.addEventListener('click', async()=>{
   sendBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg> SENDING…';
   clearError();
   try{
-    const fd = new FormData();
-    fd.append('file',audioBlob);
-    fd.append('upload_preset',CLOUDINARY_UPLOAD_PRESET);
-    fd.append('resource_type','video');
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`,{method:'POST',body:fd});
-    if(!res.ok) throw new Error('Upload failed: '+await res.text());
-    const data = await res.json();
+    if(!audioBlob || audioBlob.size===0) throw new Error('No audio was recorded.');
+    if(audioBlob.size>MAX_UPLOAD_BYTES) throw new Error('Audio is too large. Please record a shorter message and try again.');
+    const mime=(audioBlob.type||'').split(';')[0].toLowerCase();
+    if(mime && !ALLOWED_AUDIO_MIME.has(mime)) throw new Error('This audio format is not supported. Please record again using a supported browser.');
+    const controller=new AbortController();
+    const uploadTimeout=setTimeout(()=>controller.abort(),45000);
+    let data;
+    try{
+      const fd = new FormData();
+      fd.append('file',audioBlob,audioBlob.type.includes('mp4')?'message.mp4':'message.webm');
+      fd.append('upload_preset',CLOUDINARY_UPLOAD_PRESET);
+      fd.append('resource_type','video');
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`,{method:'POST',body:fd,signal:controller.signal});
+      data=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data.error?.message||`Cloudinary upload failed (HTTP ${res.status}).`);
+      const url=new URL(data.secure_url||'');
+      if(url.protocol!=='https:'||url.hostname!=='res.cloudinary.com'||!url.pathname.includes(`/${CLOUDINARY_CLOUD_NAME}/video/upload/`)||typeof data.public_id!=='string') throw new Error('Cloudinary returned an unexpected media URL. Please retry.');
+    }finally{clearTimeout(uploadTimeout);}
     await addDoc(collection(db,'hotlineMessages'),{
       name: document.getElementById('fName').value.trim()||null,
       city: document.getElementById('fCity').value.trim()||null,
@@ -1000,7 +1013,7 @@ sendBtn.addEventListener('click', async()=>{
     },3000);
   }catch(err){
     console.error(err);
-    showError("Something went wrong. Check your connection and try again.");
+    showError(err.name==='AbortError'?"Upload timed out. Check your connection and try again.":(err.message||"Something went wrong. Check your connection and try again."));
     sendBtn.disabled=false;
     sendBtn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg> SEND MESSAGE';
   }
