@@ -16,15 +16,25 @@ join.addEventListener('click',async()=>{join.disabled=true;try{const name=docume
     const sessionRef=doc(db,'videoCalls',callRef.id,'overlaySessions',sessionId),pc=new RTCPeerConnection(ice);
     pcMap.set(sessionId,pc);
     pc.onicecandidate=e=>{if(e.candidate)addDoc(collection(sessionRef,'dashboardCandidates'),e.candidate.toJSON()).catch(err=>console.warn('OBS candidate write failed',err));};
-    pc.onconnectionstatechange=()=>console.info('OBS video peer:',pc.connectionState);
+    pc.onconnectionstatechange=()=>{
+      console.info('OBS guest media peer:',pc.connectionState);
+      if(pc.connectionState==='failed'||pc.connectionState==='disconnected') statusEl.textContent='OBS media connection '+pc.connectionState+'. Check the overlay Browser Source/network.';
+    };
     try{
       // The overlay offers recvonly audio/video sections. Set that offer first,
       // then attach microphone/camera to those exact transceivers before answering.
       await pc.setRemoteDescription(new RTCSessionDescription(sessionData.offer));
       for(const transceiver of pc.getTransceivers()){
         const kind=transceiver.receiver?.track?.kind;
-        const track=stream.getTracks().find(t=>t.kind===kind);
-        if(track){await transceiver.sender.replaceTrack(track);transceiver.direction='sendonly';}
+        // Only the video guest's own camera/mic tracks are sent to OBS.
+        // The producer microphone is never part of this guest stream.
+        const track=kind==='audio' ? stream.getAudioTracks()[0] : kind==='video' ? stream.getVideoTracks()[0] : null;
+        if(track){
+          transceiver.direction='sendonly';
+          await transceiver.sender.replaceTrack(track);
+        } else {
+          transceiver.direction='inactive';
+        }
       }
       const answer=await pc.createAnswer();
       await pc.setLocalDescription(answer);

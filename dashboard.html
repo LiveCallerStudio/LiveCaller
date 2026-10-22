@@ -1750,7 +1750,7 @@ callOnAirBtn.addEventListener('click', async()=>{
     callIsOnAir = true;
     callOnAirBtn.textContent = '⏹ Take Off Air';
     callOnAirBtn.classList.add('live');
-    setCallStatus('ON AIR — Live Call Broadcasting', 'on-air');
+    setCallStatus('ON AIR — Caller audio goes to OBS; producer mic stays on the caller link only', 'on-air');
     onAirBadge.classList.add('show');
     // OBS overlay creates its own WebRTC offer under liveCalls/{id}/overlaySessions;
     // call.html answers that offer directly. Do not create a second, unused peer here.

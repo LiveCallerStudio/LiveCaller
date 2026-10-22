@@ -612,14 +612,26 @@ async function startCall(){
       overlayPc.onicecandidate = (event) => {
         if(event.candidate) addDoc(collection(sessionRef, 'dashboardCandidates'), event.candidate.toJSON()).catch(err => console.warn('OBS candidate write failed', err));
       };
-      overlayPc.onconnectionstatechange = () => console.info('OBS audio peer:', overlayPc.connectionState);
+      overlayPc.onconnectionstatechange = () => {
+        console.info('OBS caller-audio peer:', overlayPc.connectionState);
+        if(overlayPc.connectionState === 'failed' || overlayPc.connectionState === 'disconnected') {
+          console.warn('OBS caller-audio path is not connected; check overlay source and network.');
+        }
+      };
       try {
         await overlayPc.setRemoteDescription(new RTCSessionDescription(sessionData.offer));
         remoteDescriptionSet = true;
         for(const transceiver of overlayPc.getTransceivers()) {
           const kind = transceiver.receiver?.track?.kind;
-          const track = localStream.getTracks().find(t => t.kind === kind);
-          if(track) { await transceiver.sender.replaceTrack(track); transceiver.direction = 'sendonly'; }
+          // Audio-call OBS output is caller microphone only. The producer mic is
+          // on the separate main-call peer and is never attached to this peer.
+          const track = kind === 'audio' ? localStream.getAudioTracks()[0] : null;
+          if(track) {
+            transceiver.direction = 'sendonly';
+            await transceiver.sender.replaceTrack(track);
+          } else {
+            transceiver.direction = 'inactive';
+          }
         }
         const answer = await overlayPc.createAnswer();
         await overlayPc.setLocalDescription(answer);
