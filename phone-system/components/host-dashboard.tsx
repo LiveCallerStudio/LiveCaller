@@ -111,6 +111,7 @@ export default function HostDashboard() {
 
   async function answer(call: CallDoc) {
     if (!user) return;
+    if (active) { setError("Disconnect the current caller before answering another request."); return; }
     if (call.transport !== "livekit" || !call.roomName) {
       setError(`${call.callerName} is using the older WebRTC caller page. New LiveKit rooms can only connect to requests made from /call. Ask this caller to retry on the rebuilt calling page.`);
       return;
