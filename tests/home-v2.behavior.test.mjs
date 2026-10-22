@@ -13,7 +13,7 @@ function makeEl(id) { const cls = new Set(); return { id, style: {}, textContent
 function run(deliver) {                       // deliver(onNext, onError) simulates Firestore
   const els = {}; const get = id => (els[id] ??= makeEl(id));
   let next, error, snapshotOptions;
-  const ctx = { console: { warn() {} }, document: { getElementById: get, documentElement: { dataset: {} } },
+  const ctx = { console: { warn() {}, error() {} }, setTimeout: () => 1, clearTimeout: () => {}, document: { getElementById: get, documentElement: { dataset: {} } },
     initializeApp: () => ({}), getFirestore: () => ({}), doc: () => ({}),
     onSnapshot: (_ref, options, n, e) => {
       if (typeof options === 'function') { snapshotOptions = {}; next = options; error = n; }
