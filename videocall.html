@@ -161,6 +161,9 @@
 
   /* Call screen */
   #callScreen{ display:none; width:100%; text-align:center; flex-direction:column; align-items:center; }
+  #callScreen.video-call .call-visual{display:none;}
+  .video-stage .remote-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#111;}
+  .video-stage .local-video{z-index:2;}
 
   .call-visual{
     width:140px; height:140px; border-radius:50%; margin:0 auto 20px;
@@ -343,7 +346,7 @@
         </svg>
       </div>
 
-      <div class="video-stage" id="videoStage"><video class="local-video" id="localVideo" autoplay playsinline muted></video></div>
+      <div class="video-stage" id="videoStage"><video class="remote-video" id="remoteVideo" autoplay playsinline></video><video class="local-video" id="localVideo" autoplay playsinline muted></video></div>
       <div class="status-badge waiting" id="statusBadge"><span class="status-dot"></span><span id="statusText">Waiting</span></div>
       <div class="call-status" id="callerNameDisplay">—</div>
       <div class="call-timer" id="callTimer"></div>
@@ -499,6 +502,7 @@ const muteBtn          = document.getElementById('muteBtn');\nconst cameraBtn   
 const endBtn           = document.getElementById('endBtn');
 const remoteAudio      = document.getElementById('remoteAudio');
 const localVideo       = document.getElementById('localVideo');
+const remoteVideo      = document.getElementById('remoteVideo');
 const videoStage       = document.getElementById('videoStage');
 let callMode = 'video';
 const errorBanner      = document.getElementById('errorBanner');
@@ -621,6 +625,7 @@ async function requestAudioBitrate(peer, bitrate = 128000){
     if(event.streams && event.streams[0]){
       remoteAudio.srcObject = event.streams[0];
       remoteAudio.play().catch(()=>{});
+      if(callMode==='video' && remoteVideo){remoteVideo.srcObject=event.streams[0];remoteVideo.play().catch(()=>{});}
       
     }
   };
@@ -734,6 +739,7 @@ async function requestAudioBitrate(peer, bitrate = 128000){
   // Show call screen and start ringing
   setupScreen.style.display = 'none';
   callScreen.style.display = 'flex';
+  callScreen.classList.add('video-call');
   callerNameDisplay.textContent = name + (callMode==='video' ? ' · Video Call' : ' · Audio Call');
   setStatus('waiting', 'Calling Live Caller Studio…');
   startOutgoingRing(); // Start outgoing ring while waiting
@@ -741,7 +747,7 @@ async function requestAudioBitrate(peer, bitrate = 128000){
 
 function cleanup(updateFirestore = true){
   if(localStream) localStream.getTracks().forEach(t => t.stop());
-  localVideo.srcObject = null; videoStage.classList.remove('show');
+  localVideo.srcObject = null; if(remoteVideo) remoteVideo.srcObject = null; videoStage.classList.remove('show');
   if(pc){ pc.close(); pc = null; }
   if(updateFirestore && callDocRef){
     updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
