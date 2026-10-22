@@ -938,7 +938,6 @@ sendBtn.addEventListener('click', async()=>{
       fd.append('file',audioBlob,audioBlob.type.includes('mp4')?'message.mp4':'message.webm');
       fd.append('upload_preset',CLOUDINARY_UPLOAD_PRESET);
       fd.append('resource_type','video');
-      fd.append('folder','livecaller/incoming-audio');
       const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`,{method:'POST',body:fd,signal:controller.signal});
       data=await res.json().catch(()=>({}));
       if(!res.ok) throw new Error(data.error?.message||`Cloudinary upload failed (HTTP ${res.status}).`);
