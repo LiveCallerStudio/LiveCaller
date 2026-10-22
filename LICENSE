@@ -1,0 +1,16 @@
+Copyright (c) 2026 Live Caller Studio. All rights reserved.
+
+This repository and the Live Caller Studio source code, interface, visual assets,
+designs, and documentation are proprietary.
+
+No permission or license is granted to copy, reproduce, modify, redistribute,
+publish, sublicense, sell, commercially exploit, or create derivative works from
+this project or its assets without prior written permission from the copyright
+owner, except where applicable law provides otherwise.
+
+Viewing or accessing a publicly hosted page does not grant permission to reuse
+its source code, assets, branding, or implementation.
+
+This notice does not make publicly delivered website files technically private.
+For private deployment and access controls, use authenticated hosting and keep
+sensitive business logic and credentials on a server, not in browser code.
