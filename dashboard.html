@@ -1508,6 +1508,27 @@ function stopOverlayRelayPeers(){
   overlayRelayPeers.forEach(({pc,unsub})=>{ try{if(unsub)unsub();}catch(e){} try{pc.close();}catch(e){} });
   overlayRelayPeers.clear();
 }
+
+// Keep the OBS relay's media lanes in a stable order: caller audio/video,
+// followed by producer audio/video. Tracks may arrive after the overlay offer.
+function syncOverlayRelayTracks(record){
+  if(!record || !record.pc || record.pc.signalingState==='closed') return;
+  const transceivers=record.pc.getTransceivers();
+  for(const kind of ['audio','video']){
+    const lanes=transceivers.filter(t=>t.receiver && t.receiver.track && t.receiver.track.kind===kind);
+    const callerTrack=(callerRemoteStream?.getTracks()||[]).find(t=>t.kind===kind && t.readyState==='live')||null;
+    const producerTrack=(producerStream?.getTracks()||[]).find(t=>t.kind===kind && t.readyState==='live')||null;
+    const tracks=[callerTrack,producerTrack];
+    lanes.forEach((transceiver,index)=>{
+      try{
+        // The overlay offered recvonly lanes; the dashboard answers by sending
+        // on those exact negotiated m-lines, never by creating extra m-lines.
+        transceiver.direction='sendonly';
+        transceiver.sender.replaceTrack(tracks[index]||null).catch(err=>console.warn('OBS relay track update:',err.message||err));
+      }catch(err){console.warn('OBS relay lane update:',err.message||err);}
+    });
+  }
+}
 function cleanupActiveCall(){
   clearInterval(callTimerInterval);
   if(callCandidateUnsub){ callCandidateUnsub(); callCandidateUnsub = null; }
@@ -1525,8 +1546,8 @@ function cleanupActiveCall(){
 }
 
 
-// Answer each OBS overlay offer with the caller's remote tracks. This is a separate
-// WebRTC leg because OBS loads overlay.html in a different browser source.
+// Answer each OBS overlay offer with the caller and producer media. Set the
+// remote offer first so the answer uses its exact audio/video m-lines.
 function watchOverlayRelaySessions(callId){
   stopOverlayRelayPeers();
   overlaySessionsUnsub = onSnapshot(collection(db,'liveCalls',callId,'overlaySessions'), snap=>{
@@ -1543,34 +1564,29 @@ function watchOverlayRelaySessions(callId){
       const record={pc,unsub:null};
       overlayRelayPeers.set(sessionId,record);
       const pending=[]; let remoteSet=false;
-      // Relay both ends of the FaceTime-style call to OBS: caller tracks first,
-      // then producer tracks. overlay.html has matching audio/video transceivers.
-      [callerRemoteStream, producerStream].forEach(stream=>{
-        if(stream) stream.getTracks().forEach(track=>{
-          if(track.readyState==='live') pc.addTrack(track,stream);
-        });
-      });
       pc.onicecandidate=e=>{
-        if(e.candidate) addDoc(collection(sessionRef,'dashboardCandidates'),e.candidate.toJSON()).catch(err=>console.warn('Overlay ICE write:',err.code||err.message));
+        if(e.candidate) addDoc(collection(sessionRef,'dashboardCandidates'),e.candidate.toJSON()).catch(err=>console.warn('OBS relay ICE write:',err.code||err.message));
       };
       record.unsub=onSnapshot(collection(sessionRef,'overlayCandidates'),candidateSnap=>{
         candidateSnap.docChanges().forEach(async c=>{
           if(c.type!=='added') return;
           const candidate=new RTCIceCandidate(c.doc.data());
-          if(remoteSet) await pc.addIceCandidate(candidate).catch(()=>{}); else pending.push(candidate);
+          if(remoteSet) await pc.addIceCandidate(candidate).catch(err=>console.warn('OBS relay remote ICE:',err.message||err)); else pending.push(candidate);
         });
-      },err=>console.warn('Overlay ICE listener:',err.code||err.message));
+      },err=>console.warn('OBS relay ICE listener:',err.code||err.message));
       (async()=>{
         try{
           await pc.setRemoteDescription(new RTCSessionDescription(offer));
           remoteSet=true;
           for(const c of pending) await pc.addIceCandidate(c).catch(()=>{});
           pending.length=0;
+          syncOverlayRelayTracks(record);
           const answer=await pc.createAnswer();
           await pc.setLocalDescription(answer);
           await setDoc(sessionRef,{answer:{type:answer.type,sdp:answer.sdp},answeredAt:Date.now(),client:'dashboard-caller-relay'},{merge:true});
         }catch(err){
-          console.error('Could not connect caller video/audio to OBS overlay:',err);
+          console.error('Could not answer OBS overlay audio/video offer:',err);
+          setCallStatus('OBS overlay relay failed: '+(err.message||'WebRTC negotiation error'));
           try{pc.close()}catch(e){}
           if(overlayRelayPeers.get(sessionId)===record) overlayRelayPeers.delete(sessionId);
         }
@@ -1578,7 +1594,6 @@ function watchOverlayRelaySessions(callId){
     });
   },err=>console.warn('Overlay session listener:',err.code||err.message));
 }
-
 
 function tuneOpusSdp(sdp, bitrate = 128000){
   if(!sdp) return sdp;
@@ -1659,6 +1674,7 @@ async function answerCall(callId, callerName, callerCity){
   callerRemoteStream = new MediaStream();
   activePc.ontrack = async (event)=>{
     if(!callerRemoteStream.getTracks().some(t=>t.id===event.track.id)) callerRemoteStream.addTrack(event.track);
+    overlayRelayPeers.forEach(record=>syncOverlayRelayTracks(record));
     callerAudio.srcObject = callerRemoteStream;
     callerAudio.play().catch(e => console.warn('callerAudio play blocked:', e));
     if(callData && callData.mediaType==='video'){
