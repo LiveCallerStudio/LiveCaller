@@ -497,6 +497,17 @@ async function startCall(){
 
   pc = new RTCPeerConnection(STUN);
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+  pc.onconnectionstatechange = () => {
+    console.info('Caller-to-producer WebRTC:', pc.connectionState, 'ICE:', pc.iceConnectionState);
+    if(pc.connectionState==='failed') showError('Call media connection failed. Check network/TURN and the producer dashboard connection.');
+  };
+  pc.oniceconnectionstatechange = () => {
+    console.info('Caller ICE state:', pc.iceConnectionState);
+    if(pc.iceConnectionState==='failed') showError('ICE negotiation failed. Check Firestore candidate permissions and TURN reachability.');
+  };
+  pc.onicecandidateerror = event => {
+    console.warn('Caller ICE candidate error:', {code:event.errorCode,text:event.errorText,url:event.url});
+  };
 
   // Play remote audio (producer's voice)
   pc.ontrack = (event) => {
@@ -526,7 +537,7 @@ async function startCall(){
   pc.onicecandidate = (e) => {
     if(e.candidate){
       addDoc(collection(db, 'liveCalls', callDocRef.id, 'callerCandidates'), e.candidate.toJSON())
-        .catch(()=>{});
+        .catch(err=>{ console.error('Caller ICE candidate write failed:',err); showError('Call signaling write failed ('+(err.code||'permission denied')+'). Check Firestore rules.'); });
     }
   };
 
@@ -656,7 +667,7 @@ async function startCall(){
       if(change.type === 'added'){
         const candidate = new RTCIceCandidate(change.doc.data());
         if(remoteDescSet){
-          await pc.addIceCandidate(candidate).catch(()=>{});
+          await pc.addIceCandidate(candidate).catch(err=>{ console.warn('Dashboard ICE candidate rejected:',err); });
         } else {
           pendingCandidates.push(candidate);
         }
