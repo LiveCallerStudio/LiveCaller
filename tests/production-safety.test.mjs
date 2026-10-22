@@ -15,6 +15,8 @@ assert.match(video, /if\(callMode==='audio' && phoneLineState!==LINE\.OPEN\)/, '
 assert.match(video, /onSnapshot\(doc\(db, 'hotlineSettings', 'callLines'\)/, 'caller page must subscribe to producer line settings');
 assert.match(video, /phoneLineState = LINE\.UNKNOWN;\s*videoLineState = LINE\.UNKNOWN;/, 'Firestore read errors must fail closed for live calls');
 assert.match(video, /function updateLineUi\(\)/, 'line UI must reflect the currently selected call mode');
+assert.match(video, /onicecandidateerror/, 'caller WebRTC must log ICE candidate errors');
+assert.match(video, /pc\.connectionState === 'failed'/, 'caller must expose failed WebRTC connections');
 assert.match(sw, /requestUrl\.origin !== self\.location\.origin/, 'service worker must not intercept third-party requests');
 assert.match(sw, /event\.request\.mode === 'navigate'/, 'offline HTML fallback must be limited to document navigations');
 assert.match(sw, /manifest-songrequest\.json/, 'song request PWA manifest must be included in the app shell');
@@ -23,6 +25,11 @@ assert.match(dashboard, /\$\{escapeHtml\(c\.status \|\| ''\)\}/, 'call history m
 assert.doesNotMatch(dashboard, /queueListenerStarted/, 'dashboard queue subscription must be restartable after sign-out');
 assert.match(dashboard, /function stopQueueListener\(\)/, 'dashboard must be able to unsubscribe from the queue');
 assert.match(dashboard, /function startQueueListener\(\)/, 'dashboard must be able to restart the queue subscription');
+assert.match(dashboard, /onicecandidateerror/, 'producer and OBS peers must log ICE candidate errors');
+assert.match(dashboard, /RECORDING_UPLOAD_PRESET = 'djdeeze_hotline_recordings'/, 'call recordings must use a dedicated Cloudinary preset');
+assert.match(dashboard, /MAX_CALL_RECORDING_BYTES = 50 \* 1024 \* 1024/, 'call recordings must enforce a 50 MB ceiling');
+assert.match(dashboard, /AbortController/, 'call recording uploads must have a timeout');
+assert.match(dashboard, /Unexpected Cloudinary response URL/, 'call recording uploads must validate the returned media URL');
 assert.doesNotMatch(setup, /allow\s+read\s*,\s*update\s*,\s*delete\s*:\s*if\s+true/i, 'setup guide must not recommend public read/update/delete access');
 assert.doesNotMatch(setup, /allow\s+read\s*,\s*write\s*:\s*if\s+true/i, 'setup guide must not recommend public read/write access');
 
