@@ -831,6 +831,19 @@ const typeLabels = {
   general:'🎙️ General Message', song:'🎵 Song Request',
   shoutout:'📢 Shout-Out', birthday:'🎂 Birthday', dedication:'💌 Dedication'
 };
+const voicemailParams = new URLSearchParams(window.location.search);
+if(voicemailParams.get('source') === 'voicemail'){
+  const callerName = document.getElementById('fName');
+  const callerCity = document.getElementById('fCity');
+  if(callerName && voicemailParams.get('name')) callerName.value = voicemailParams.get('name').slice(0,40);
+  if(callerCity && voicemailParams.get('city')) callerCity.value = voicemailParams.get('city').slice(0,60);
+  const hero = document.querySelector('.type-hero h1');
+  if(hero) hero.textContent = 'LEAVE A VOICEMAIL';
+  const lead = document.querySelector('.type-hero .tagline');
+  if(lead) lead.textContent = 'The studio is closed — leave your message in the producer queue.';
+  const badge = document.getElementById('formTypeBadge');
+  if(badge) badge.textContent = '📮 Studio Voicemail';
+}
 
 typeCards.forEach(card=>{
   card.addEventListener('click',()=>{
