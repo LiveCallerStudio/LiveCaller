@@ -2017,7 +2017,7 @@ async function screenVideoGuest(callId){
   try{
     const offer=await pc.createOffer();
     await pc.setLocalDescription(offer);
-    await setDoc(sessionRef,{offer:{type:offer.type,sdp:offer.sdp},client:'dashboard-screen',createdAt:Date.now(),mediaType:'video'});
+    await setDoc(sessionRef,{offer:{type:offer.type,sdp:offer.sdp},client:'dashboard-screen',producerUid:auth.currentUser.uid,createdAt:Date.now(),mediaType:'video'});
     screeningUnsubs.push(onSnapshot(sessionRef,snap=>{
       const data=snap.data();
       if(!data||!data.answer||remoteSet||screeningPc!==pc)return;
