@@ -2211,6 +2211,7 @@ document.getElementById('songQueue').addEventListener('click',async e=>{
       await updateDoc(doc(db,'songRequests',r.id),{status:'approved',playedAt:serverTimestamp(),reviewedAt:serverTimestamp()});
     } else if(action==='reject'){
       if(!confirm('Reject this song request? It will be removed from Incoming and the OBS queue.')) return;
+      if(liveSongRequestId === r.id) await setDoc(doc(db,'songRequestLive','now'),{active:false,requestId:null,updatedAt:Date.now()},{merge:true});
       await updateDoc(doc(db,'songRequests',r.id),{status:'rejected',queuedForOverlay:false,rejectedAt:serverTimestamp(),reviewedAt:serverTimestamp()});
     } else if(action==='queue'){
       const queued = !r.queuedForOverlay;
