@@ -2,7 +2,7 @@
 // Caches the listener page shell so it loads instantly and works offline.
 // Firebase/Cloudinary calls always go to the network — we never cache live data.
 
-const CACHE_NAME = 'lcs-v17';
+const CACHE_NAME = 'lcs-v18';
 const SHELL = [
   '/LiveCaller/index.html',
   '/LiveCaller/home.html',
@@ -18,6 +18,7 @@ const SHELL = [
   '/LiveCaller/lib/line-state.js',
   '/LiveCaller/manifest.json',
   '/LiveCaller/manifest-voicemessage.json',
+  '/LiveCaller/manifest-songrequest.json',
   '/LiveCaller/manifest-call.json',
   '/LiveCaller/manifest-videocall.json',
   '/LiveCaller/manifest-dashboard.json',
@@ -54,10 +55,11 @@ self.addEventListener('activate', (event) => {
 // - Everything else → cache first, fall back to network
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
+  const requestUrl = new URL(url);
 
-  // Only apply the app-shell cache strategy to GET requests. Never turn a failed
-  // POST/PUT/DELETE into an HTML fallback response.
-  if (event.request.method !== 'GET') return;
+  // Only cache this app's own GET requests. Let Firebase, Cloudinary, CDNs, and
+  // all other third-party requests use the browser's normal network handling.
+  if (event.request.method !== 'GET' || requestUrl.origin !== self.location.origin) return;
 
   // Always network for live data sources
   if (
@@ -83,8 +85,10 @@ self.addEventListener('fetch', (event) => {
         return response;
       });
     }).catch(() => {
-      // Offline fallback — return cached home.html if available
-      return caches.match('/LiveCaller/home.html');
+      // Only document navigations may fall back to a page. Returning home HTML
+      // for a failed script, image, manifest, or other asset breaks MIME handling.
+      if (event.request.mode === 'navigate') return caches.match('/LiveCaller/home.html');
+      return Response.error();
     })
   );
 });
