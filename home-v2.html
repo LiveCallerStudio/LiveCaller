@@ -562,9 +562,10 @@
     };
     for (const kind of ['phone', 'video']) {
       const label = document.getElementById(kind + 'ChipLabel');
-      const title = document.getElementById(kind + 'ClosedTitle');
-      const copy = document.getElementById(kind + 'ClosedCopy');
-      const badge = document.getElementById(kind + 'ClosedBadge');
+      const cardPrefix = kind === 'phone' ? 'call' : kind;
+      const title = document.getElementById(cardPrefix + 'ClosedTitle');
+      const copy = document.getElementById(cardPrefix + 'ClosedCopy');
+      const badge = document.getElementById(cardPrefix + 'ClosedBadge');
       if (label) label.textContent = statusCopy[kind][0];
       if (title) title.textContent = statusCopy[kind][0];
       if (copy) copy.textContent = statusCopy[kind][1];
@@ -617,9 +618,14 @@
     closedEl.style.display = isOpen ? 'none' : 'grid';
     if(!isOpen){
       const [title, copy, badge] = COPY[kind][state];
-      document.getElementById(kind + 'ClosedTitle').textContent = title;
-      document.getElementById(kind + 'ClosedCopy').textContent  = copy;
-      document.getElementById(kind + 'ClosedBadge').textContent = badge;
+      // The phone card uses "callClosed*" IDs; the video card uses "videoClosed*" IDs.
+      const cardPrefix = kind === 'phone' ? 'call' : kind;
+      const titleEl = document.getElementById(cardPrefix + 'ClosedTitle');
+      const copyEl = document.getElementById(cardPrefix + 'ClosedCopy');
+      const badgeEl = document.getElementById(cardPrefix + 'ClosedBadge');
+      if (titleEl) titleEl.textContent = title;
+      if (copyEl) copyEl.textContent = copy;
+      if (badgeEl) badgeEl.textContent = badge;
     }
   }
 
