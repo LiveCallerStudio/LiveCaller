@@ -387,6 +387,15 @@
   .call-card-city{font-size:12px; color:var(--sub);}
   .call-card-time{font-size:11px; color:#555; margin-top:3px;}
   .call-card-actions{display:flex; gap:8px;}
+  .video-screening-panel{display:none;margin:12px 0 18px;padding:16px;background:#101010;border:1px solid var(--green);border-radius:14px}
+  .video-screening-panel.show{display:block}
+  .video-screening-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+  #screeningPreview{width:100%;max-height:420px;aspect-ratio:16/9;object-fit:contain;background:#000;border:1px solid #333;border-radius:10px}
+  .screening-status{font-size:12px;color:var(--sub);line-height:1.45;margin:8px 0}
+  .screening-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .screening-actions button{padding:9px 12px;border-radius:8px;border:1px solid #333;background:#1b1b1b;color:#fff;font-weight:800;cursor:pointer}
+  .screening-actions .screening-stop{border-color:var(--red);color:var(--red)}
+
   .ibtn-answer{background:var(--green); color:#0a0a0a; border:none; font-weight:900;}
   .ibtn-reject{border-color:var(--red); color:var(--red);}
 
@@ -703,6 +712,17 @@
     <!-- Incoming video guest requests -->
     <div class="calls-section-title" id="incomingVideoTitle" style="display:none;">
       Waiting to Join
+    </div>
+    <div class="video-screening-panel" id="videoScreeningPanel" aria-live="polite">
+      <div style="font-size:12px;font-weight:900;letter-spacing:1.4px;color:var(--green);text-transform:uppercase;">Private Guest Screening — Not On Air</div>
+      <div id="screeningGuestName" style="font-size:18px;font-weight:900;margin-top:6px;">Waiting for guest…</div>
+      <video id="screeningPreview" autoplay playsinline muted></video>
+      <div class="screening-status" id="screeningStatus">This private preview is separate from the OBS broadcast.</div>
+      <div class="screening-actions">
+        <button type="button" id="screeningAudioBtn">Enable Preview Audio</button>
+        <button type="button" id="screeningRetryBtn">Reconnect Preview</button>
+        <button type="button" class="screening-stop" id="screeningStopBtn">Stop Screening</button>
+      </div>
     </div>
     <div class="empty" id="videoEmpty">
       <div class="ic">🎥</div>
@@ -1952,6 +1972,7 @@ function startVideoCallsListener(){
             <div class="call-card-time">${timeAgo(c.createdAt)}</div>
           </div>
           <div class="call-card-actions">
+            <button class="ibtn ibtn-answer" data-action="video-screen" data-id="${c.id}">👁 Screen Guest</button>
             <button class="ibtn ibtn-answer" data-action="video-air" data-id="${c.id}">🔴 Send On Air</button>
             <button class="ibtn ibtn-reject" data-action="video-reject" data-id="${c.id}">✕ Reject</button>
           </div>
@@ -1968,12 +1989,19 @@ videoEndBtn.addEventListener('click', async()=>{
 });
 
 document.addEventListener('click', async(e)=>{
-  const btn = e.target.closest('[data-action="video-air"],[data-action="video-reject"]');
+  const btn = e.target.closest('[data-action="video-screen"],[data-action="video-air"],[data-action="video-reject"]');
   if(!btn) return;
   const id = btn.dataset.id;
   const action = btn.dataset.action;
 
+  if(action === 'video-screen'){
+    btn.disabled=true;
+    try{await screenVideoGuest(id);}catch(err){console.error('Private guest screening failed:',err);alert('Could not screen guest: '+(err.message||'check Firestore rules and connection'));}finally{btn.disabled=false;}
+    return;
+  }
   if(action === 'video-air'){
+    // Stop the private screening peer before starting the separate OBS broadcast peer.
+    if(screeningCallId===id) await stopVideoScreening(true);
     // Only one guest on air at a time — end any other live call first
     if(currentLiveVideoId && currentLiveVideoId !== id){
       await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
