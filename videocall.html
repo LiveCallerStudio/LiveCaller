@@ -490,7 +490,11 @@ function stopTimer(){ clearInterval(timerInterval); }
 
 async function startCall(){
   clearError();
-  if(!linesOpen){ showError("Phone lines are currently closed — please check back soon."); return; }
+  if(!linesOpen){
+    const params = new URLSearchParams({source:'voicemail', name:callerNameInput.value.trim(), city:callerCityInput.value.trim(), callType:callMode});
+    window.location.href = 'voicemessage.html?' + params.toString();
+    return;
+  }
   const name = callerNameInput.value.trim();
   if(!name){ showError('Please enter your name before calling in.'); return; }
 
@@ -687,8 +691,14 @@ onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
   const d = snap.data();
   linesOpen = d ? d.open !== false : true;
   linesClosedBanner.classList.toggle('show', !linesOpen);
-  callBtn.disabled = !linesOpen;
-  callBtn.style.opacity = linesOpen ? '' : '.4';
+  callBtn.disabled = false;
+  callBtn.style.opacity = '';
+  if(!linesOpen){
+    callBtn.innerHTML = '📮 Leave Voicemail';
+    linesClosedBanner.innerHTML = '<strong>📞 Phone Lines Are Closed</strong><br>Tap “Leave Voicemail” to record a message for the producer’s Messages queue.';
+  }else{
+    callBtn.innerHTML = callMode==='video' ? '🎥 Start FaceTime Video Call' : '📞 Start FaceTime Audio Call';
+  }
 }, ()=>{ /* if this ever errors, leave calls enabled rather than block listeners */ });
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
