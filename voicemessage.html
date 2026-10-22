@@ -722,7 +722,7 @@ async function playVoicemailBeep(){
 
 async function startRecording(){
   clearError();
-  if(!navigator.mediaDevices?.getUserMedia){
+  if(!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder){
     showError("Your browser doesn't support mic recording. Try Chrome, Safari, or Firefox."); return;
   }
   try{ stream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true } }); }
