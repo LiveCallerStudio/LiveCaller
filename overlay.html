@@ -91,8 +91,6 @@ let overlayCallUnsubs = [];
 let overlayRemoteStream = null;
 let overlayAudioStream = null;
 let overlayVideoStream = null;
-let overlayAudioContext = null;
-let overlayAudioDestination = null;
 let overlayAudioSources = new Set();
 const iceConfig = { iceServers: [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -106,8 +104,6 @@ function stopOverlayCallAudio(){
   if(overlayCallPc){try{overlayCallPc.close()}catch(e){} overlayCallPc=null;}
   overlayCallSessionRef=null; activeCallId=''; overlayRemoteStream=null; overlayAudioStream=null; overlayVideoStream=null;
   overlayAudioSources.forEach(source=>{try{source.disconnect()}catch(e){}}); overlayAudioSources.clear();
-  if(overlayAudioContext){overlayAudioContext.close().catch(()=>{});overlayAudioContext=null;}
-  overlayAudioDestination=null;
   liveAudio.pause(); liveAudio.srcObject=null; liveAudio.removeAttribute('src'); liveAudio.muted=false; liveAudio.volume=1; currentAudioUrl='';
   guestVideo.pause(); guestVideo.srcObject=null; guestVideo.muted=true; guestVideo.classList.remove('show');
 }
@@ -133,25 +129,25 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
   pc.ontrack = async (event)=>{
     try {
       if(event.track.kind==='audio'){
-        // This negotiated audio lane carries the caller only; producer mic is excluded.
-        if(!overlayAudioContext){
-          const AudioContextClass=window.AudioContext||window.webkitAudioContext;
-          overlayAudioContext=new AudioContextClass();
-          overlayAudioDestination=overlayAudioContext.createMediaStreamDestination();
-          liveAudio.srcObject=overlayAudioDestination.stream;
-          liveAudio.muted=false; liveAudio.volume=1;
-          await overlayAudioContext.resume().catch(()=>{});
-          await liveAudio.play().catch(()=>{});
-        }
+        // Attach the negotiated caller-only track directly to the media element.
+        // This avoids an extra AudioContext/MediaStreamDestination layer that can
+        // be silent or fail to be captured by some OBS Chromium builds.
         if(!overlayAudioStream) overlayAudioStream=new MediaStream();
         if(!overlayAudioStream.getTracks().some(t=>t.id===event.track.id)){
           overlayAudioStream.addTrack(event.track);
-          const source=overlayAudioContext.createMediaStreamSource(new MediaStream([event.track]));
-          const gain=overlayAudioContext.createGain();
-          gain.gain.value=1;
-          source.connect(gain).connect(overlayAudioDestination);
-          overlayAudioSources.add(source);
         }
+        liveAudio.pause();
+        liveAudio.srcObject=overlayAudioStream;
+        liveAudio.removeAttribute('src');
+        liveAudio.muted=false;
+        liveAudio.volume=1;
+        liveAudio.autoplay=true;
+        event.track.onmute=()=>{ if(overlayCallPc===pc) fallback.textContent='CALLER AUDIO TRACK MUTED'; };
+        event.track.onunmute=()=>{ if(overlayCallPc===pc) fallback.textContent=isVideo?'VIDEO CALL • CALLER AUDIO RECEIVED':'AUDIO CALL • CALLER AUDIO RECEIVED'; };
+        event.track.onended=()=>{ if(overlayCallPc===pc) showError('Caller audio track ended'); };
+        await liveAudio.play().catch(err=>{
+          showError('Caller audio playback blocked: '+(err.message||'press play / check OBS browser audio settings'));
+        });
         fallback.textContent=isVideo?'VIDEO CALL • CALLER AUDIO RECEIVED':'AUDIO CALL • CALLER AUDIO RECEIVED';
       } else if(event.track.kind==='video'){
         // There is one negotiated video lane, assigned to the caller camera.
@@ -169,7 +165,10 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
   pc.onconnectionstatechange=()=>{
     if(overlayCallPc!==pc) return;
     if(pc.connectionState==='connected'){
-      fallback.textContent=isVideo?'VIDEO CALL CONNECTED':'AUDIO CALL CONNECTED';
+      const hasAudio=!!(overlayAudioStream && overlayAudioStream.getAudioTracks().some(t=>t.readyState==='live'));
+      fallback.textContent=hasAudio
+        ? (isVideo?'VIDEO CALL • AUDIO CONNECTED':'AUDIO CALL • AUDIO CONNECTED')
+        : (isVideo?'VIDEO CALL SIGNAL CONNECTED • WAITING FOR AUDIO TRACK':'AUDIO SIGNAL CONNECTED • WAITING FOR AUDIO TRACK');
       fallback.classList.remove('error');
     } else if(pc.connectionState==='failed' || pc.connectionState==='disconnected') {
       showError('WebRTC '+pc.connectionState+' — check guest connection and TURN/ICE');
