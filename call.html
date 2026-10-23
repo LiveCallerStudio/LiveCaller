@@ -588,6 +588,24 @@ async function startCall(){
   }
 
   pc = new RTCPeerConnection(STUN);
+  pc.onconnectionstatechange = () => {
+    if (!pc || callerSessionEnding) return;
+    const state = pc.connectionState;
+    console.info('Caller peer connection state:', state);
+    if (state === 'connected') {
+      clearTimeout(peerDisconnectTimer);
+      peerDisconnectTimer = null;
+    } else if (state === 'failed' || state === 'closed') {
+      finishCallerSession('The producer ended the call. Returning home…', 500);
+    } else if (state === 'disconnected') {
+      clearTimeout(peerDisconnectTimer);
+      peerDisconnectTimer = setTimeout(() => {
+        if (pc && (pc.connectionState === 'disconnected' || pc.connectionState === 'failed')) {
+          finishCallerSession('Call connection ended. Returning home…', 500);
+        }
+      }, 8000);
+    }
+  };
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
   requestAudioBitrate(pc).catch(()=>{});
 
@@ -656,20 +674,13 @@ async function startCall(){
       setStatus('held', 'You\'re on hold — producer will be right with you');
       startHoldMusicCaller();
     } else if(data.status === 'rejected'){
-      stopOutgoingRing();
-      stopHoldMusicCaller();
-      setStatus('ended', 'Call could not be connected right now. Try again soon!');
-      stopTimer();
-      cleanup(false);
-      returnToPhoneHome(700);
+      finishCallerSession('Call could not be connected. Returning home…');
     } else if(data.status === 'ended'){
-      stopOutgoingRing();
-      stopHoldMusicCaller();
-      setStatus('ended', 'Call ended. Thank you for calling in!');
-      stopTimer();
-      cleanup(false);
-      returnToPhoneHome(700);
+      finishCallerSession('Call ended by the producer. Returning home…');
     }
+  }, (error) => {
+    console.error('Caller status listener failed:', error.code || error.message || error);
+    showError('Call status connection lost. If the producer ended the call, this screen will close automatically.');
   });
 
   // Listen for dashboard ICE candidates — buffer them if remote desc not set yet
@@ -695,8 +706,24 @@ async function startCall(){
   startOutgoingRing(); // Start outgoing ring while waiting
 }
 
+let callerSessionEnding = false;
+let peerDisconnectTimer = null;
+
 function returnToPhoneHome(delay=700){
   window.setTimeout(()=>window.location.replace('home-v2.html'), delay);
+}
+
+function finishCallerSession(message='Call ended. Returning home…', delay=700){
+  if(callerSessionEnding) return;
+  callerSessionEnding = true;
+  clearTimeout(peerDisconnectTimer);
+  peerDisconnectTimer = null;
+  stopOutgoingRing();
+  stopHoldMusicCaller();
+  stopTimer();
+  setStatus('ended', message);
+  cleanup(false);
+  returnToPhoneHome(delay);
 }
 
 function cleanup(updateFirestore = true){
@@ -729,13 +756,8 @@ muteBtn.addEventListener('click', ()=>{
 
 endBtn.addEventListener('click', async ()=>{
   endBtn.disabled = true;
-  stopOutgoingRing();
-  stopHoldMusicCaller();
-  stopTimer();
-  setStatus('ended', 'Call ended. Thank you for calling in!');
   if(callDocRef) await updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
-  cleanup(false);
-  returnToPhoneHome(400);
+  finishCallerSession('Call ended. Returning home…', 400);
 });
 
 callBtn.addEventListener('click', startCall);
