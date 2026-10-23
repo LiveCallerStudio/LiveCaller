@@ -50,8 +50,10 @@ assert.match(dashboard, /if\(callIsOnAir\)\{\s*silenceOverlayRelayMedia\(\);\s*a
 assert.match(dashboard, /const resumedStatus = callIsOnAir \? 'live' : 'answered';[\s\S]*?await setDoc\(activeCallRef, \{ status: resumedStatus \}/, 'resuming an on-air caller must persist live status before republishing overlay state');
 assert.match(dashboard, /if\(!callIsOnAir && callIsOnHold\)[\s\S]*?Resume the caller before sending them on air/, 'a held caller must be resumed before being put back on air');
 assert.match(dashboard, /status: callIsOnHold \? 'held' : 'answered'/, 'taking a held caller off air must preserve the held call state');
-assert.match(dashboard, /allowOnAir: true/, 'experimental three-line mode must expose the integrated program-routing action');
-assert.match(dashboard, /if \(action === 'air'\)[\s\S]*?status: 'live'[\s\S]*?await setDoc\(liveStateRef, \{[\s\S]*?active: true/, 'multi-line on-air state must be published only after the call is live');
-assert.match(dashboard, /experimentalMultiLineController\?\.getSnapshot\?\.\(\)\.sessions\?\.length/, 'safe refresh must account for experimental multi-line sessions');
+assert.doesNotMatch(dashboard, /experimentalMultiLine|multiline=1|Experimental · Three-line audio console/, 'dashboard must not expose the experimental three-line panel or opt-in mode');
+assert.match(dashboard, /async function takeMultiLineOnAir\(callId\)[\s\S]*?await multiLineAdapter\.takeOnAir\(callId\)[\s\S]*?active:true/, 'multi-line program routing must be explicitly selected and published through the existing live-state document');
+assert.match(dashboard, /async function answerMultiLineCall\(callId, callerName, callerCity, lineId\)[\s\S]*?lineId:Number\(lineId\)/, 'incoming audio calls must be assigned to a specific fixed line');
+assert.match(dashboard, /const onAir = multiLineOnAirCallId === callId[\s\S]*?onAir \? \(stream\.getAudioTracks\(\)/, 'multi-line OBS relay must send caller audio only after explicit on-air selection');
+assert.match(dashboard, /function refreshIsBlockedByLiveMedia\(\)[\s\S]*?multiLineController && multiLineController\.sessions\.size > 0/, 'safe refresh must account for controller-managed live calls');
 
 console.log('production-safety checks: all passed');
