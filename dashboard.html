@@ -2282,21 +2282,39 @@ function stopCallsListener(){
   latestCallsForCleanup = [];
 }
 
+function callCreatedAtMillis(call){
+  const value = call.createdAt ?? call.timestamp ?? call.created;
+  if(value && typeof value.toMillis === 'function') return value.toMillis();
+  if(value && typeof value.toDate === 'function') return value.toDate().getTime();
+  if(typeof value === 'number') {
+    // Accept Unix seconds as well as JavaScript milliseconds.
+    return value > 0 && value < 100000000000 ? value * 1000 : value;
+  }
+  if(typeof value === 'string') {
+    const parsed = Date.parse(value);
+    if(Number.isFinite(parsed)) return parsed;
+  }
+  if(value && typeof value.seconds === 'number') return value.seconds * 1000;
+  if(value && typeof value._seconds === 'number') return value._seconds * 1000;
+  return 0;
+}
+
 function sweepStaleWaitingCalls(calls = latestCallsForCleanup){
   const now = Date.now();
-  calls.forEach(c=>{
-    if(c.status !== 'waiting' || c.id === activeCallId || c.screeningSessionId) return;
-    const created = c.createdAt?.toMillis ? c.createdAt.toMillis()
-      : (typeof c.createdAt === 'number' ? c.createdAt
-      : (typeof c.createdAt?.seconds === 'number' ? c.createdAt.seconds * 1000 : 0));
+  calls.forEach(call=>{
+    if(call.status !== 'waiting' || call.id === activeCallId || call.screeningSessionId) return;
+    const created = callCreatedAtMillis(call);
     if(!created || now - created < STALE_WAITING_CALL_MS) return;
-    const lastAttempt = staleCallCleanupLastAttempt.get(c.id) || 0;
+    const lastAttempt = staleCallCleanupLastAttempt.get(call.id) || 0;
     if(now - lastAttempt < 60000) return;
-    staleCallCleanupLastAttempt.set(c.id, now);
-    updateDoc(doc(db, 'liveCalls', c.id), { status: 'ended' }).then(()=>{
-      console.info('Closed stale waiting call:', c.id);
+    staleCallCleanupLastAttempt.set(call.id, now);
+    updateDoc(doc(db, 'liveCalls', call.id), { status: 'ended' }).then(()=>{
+      staleCallCleanupLastAttempt.delete(call.id);
+      console.info('Closed stale waiting call:', call.id);
     }).catch(err=>{
-      console.warn('Could not close stale waiting call:', c.id, err.code || err.message || err);
+      // Permit another attempt after the cooldown and log the exact Firestore failure.
+      staleCallCleanupLastAttempt.set(call.id, Date.now() - 45000);
+      console.error('Stale call cleanup failed; check Firestore update permission for liveCalls/' + call.id + ':', err.code || err.message || err);
     });
   });
 }
