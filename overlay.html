@@ -32,8 +32,10 @@
   @keyframes notifyPulse{from{box-shadow:0 0 12px #53fc1844,0 8px 28px #000b}to{box-shadow:0 0 28px #53fc18aa,0 8px 28px #000b}}
   #fallback.error{color:#ff7777;border:1px solid #ff777766}
   audio#liveAudio{position:fixed;width:1px;height:1px;left:-10px;bottom:0;opacity:.01;pointer-events:none}
-  #guestVideo{display:none;position:fixed;inset:0;width:100vw;height:100vh;max-width:none;max-height:none;object-fit:cover;object-position:center;background:transparent;border:0;border-radius:0;box-shadow:none;z-index:10}
+  /* Framed guest shot; only the caller's remote video is relayed to OBS. */
+  #guestVideo{display:none;position:fixed;right:28px;bottom:148px;width:min(420px,36vw);height:min(236px,26vh);object-fit:cover;object-position:center;background:#101010;border:3px solid rgba(255,255,255,.96);border-radius:18px;box-shadow:0 12px 42px #000c;z-index:10;transform:translateZ(0);contain:layout paint}
   #guestVideo.show{display:block}
+  @media(max-width:700px){#guestVideo{right:14px;bottom:112px;width:min(360px,42vw);height:min(203px,24vh);border-width:2px;border-radius:13px}}
   #producerGuestVideo{display:none;position:fixed;right:28px;bottom:160px;width:min(260px,28vw);max-height:28vh;object-fit:cover;background:#050505;border:2px solid #fff;border-radius:14px;box-shadow:0 8px 34px #000c;z-index:11;transform:scaleX(-1)}
   #producerGuestVideo.show{display:block}
   @media(max-width:500px){#producerGuestVideo{right:12px;bottom:120px;width:25vw}}
@@ -155,6 +157,7 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
         if(!overlayVideoStream.getTracks().some(t=>t.id===event.track.id)) overlayVideoStream.addTrack(event.track);
         guestVideo.srcObject=overlayVideoStream;
         guestVideo.muted=true;
+        // Caller video stays in its own framed surface; audio is handled by liveAudio.
         guestVideo.classList.add('show');
         await guestVideo.play().catch(()=>{fallback.textContent='CALLER VIDEO RECEIVED • CHECK OBS BROWSER SOURCE';});
         fallback.textContent='VIDEO CALL • CALLER CAMERA RECEIVED';
