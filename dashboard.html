@@ -1574,6 +1574,8 @@ function cleanupActiveCall(){
   callerVideo.srcObject = null; producerVideo.srcObject = null; producerVideoStage.style.display='none';
   activePc = null; activeCallId = null; activeCallRef = null;
   callIsOnAir = false; callIsOnHold = false;
+  callOnAirBtn.textContent = '🔴 Send On Air';
+  callOnAirBtn.classList.remove('live');
   activeCallPanel.style.display = 'none';
   onAirBadge.classList.remove('show');
 }
@@ -2003,10 +2005,11 @@ callOnAirBtn.addEventListener('click', async()=>{
 async function handleRemoteHangup(){
   if(localEndInProgress || !activeCallRef) return;
   localEndInProgress = true;
+  // Take the OBS scene off air immediately, whether or not the UI toggle is in sync.
+  await setDoc(liveStateRef, {active:false, callId:null, updatedAt:Date.now()},{merge:true}).catch(()=>{});
   stopHoldMusic(); stopPhoneRing();
   let recUrl = null;
   if(isRecording) recUrl = await stopCallRecording().catch(()=>null);
-  if(callIsOnAir) await setDoc(liveStateRef, {active:false, callId:null, updatedAt:Date.now()},{merge:true}).catch(()=>{});
   await saveCallHistory(recUrl);
   cleanupActiveCall();
   endBtn.disabled=false; endBtn.textContent='📵 End Call';
@@ -2021,9 +2024,9 @@ endBtn.addEventListener('click', async()=>{
   let recUrl = null;
   if(isRecording) recUrl = await stopCallRecording().catch(()=>null);
   stopHoldMusic(); stopPhoneRing();
-  const wasOnAir = callIsOnAir;
   await setDoc(activeCallRef, { status: 'ended', endedAt: Date.now(), endedBy:'producer' }, { merge: true }).catch(()=>{});
-  if(wasOnAir) await setDoc(liveStateRef, { active:false, callId:null, updatedAt:Date.now() }, {merge:true}).catch(()=>{});
+  // Always clear the live scene when ending a call; do not rely only on the UI toggle.
+  await setDoc(liveStateRef, { active:false, callId:null, updatedAt:Date.now() }, {merge:true}).catch(()=>{});
   await saveCallHistory(recUrl);
   cleanupActiveCall();
   localEndInProgress = false;
