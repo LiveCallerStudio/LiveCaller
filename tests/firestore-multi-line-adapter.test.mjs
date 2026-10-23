@@ -4,6 +4,7 @@ import { FirestoreMultiLineAdapter } from '../lib/firestore-multi-line-adapter.j
 const docs = new Map();
 const listeners = new Map();
 const writes = [];
+let failNextUpdate = false;
 const pathOf = parts => parts.join('/');
 const db = {};
 const doc = (_db, ...parts) => ({ path: pathOf(parts) });
@@ -17,6 +18,10 @@ const setDoc = async (ref, data, options = {}) => {
   writes.push({ type: 'set', path: ref.path, data });
 };
 const updateDoc = async (ref, data) => {
+  if (failNextUpdate) {
+    failNextUpdate = false;
+    throw new Error('simulated Firestore write failure');
+  }
   docs.set(ref.path, { ...(docs.get(ref.path) || {}), ...data });
   writes.push({ type: 'update', path: ref.path, data });
 };
@@ -44,6 +49,7 @@ const fakeController = {
   answered: [],
   candidates: [],
   ended: [],
+  held: [],
   closed: false,
   async answerCall(args) {
     this.answered.push(args);
@@ -51,7 +57,7 @@ const fakeController = {
   },
   async addRemoteCandidate(callId, candidate) { this.candidates.push({ callId, candidate }); },
   takeOnAir(callId) { return { callId, state: 'on-air' }; },
-  holdCall(callId) { return { callId, state: 'held' }; },
+  holdCall(callId) { this.held.push(callId); return { callId, state: 'held' }; },
   endCall(callId) { this.ended.push(callId); },
   getSnapshot() { return { lines: [] }; },
   close() { this.closed = true; }
@@ -93,6 +99,11 @@ await adapter.takeOnAir('a');
 assert.equal(docs.get('liveCalls/a').status, 'on-air');
 await adapter.holdCall('b');
 assert.equal(docs.get('liveCalls/b').status, 'on-hold');
+
+failNextUpdate = true;
+await assert.rejects(adapter.takeOnAir('c'), /simulated Firestore write failure/);
+assert.ok(fakeController.held.includes('c'), 'failed on-air persistence must force the selected caller back to hold');
+assert.notEqual(docs.get('liveCalls/c').status, 'on-air', 'Firestore must not falsely claim the call went on-air');
 
 emit('liveCalls/b', { exists: () => true, data: () => ({ status: 'ended' }) });
 assert.ok(fakeController.ended.includes('b'));
