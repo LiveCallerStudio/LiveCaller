@@ -865,8 +865,8 @@
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
         <input class="search" id="songRequestSearch" aria-label="Search song requests" placeholder="Search artist, song, name, city…" style="flex:1;min-width:190px;width:auto;">
         <select id="songRequestFilter" aria-label="Filter song requests">
-          <option value="pending">Incoming / Pending</option>
-          <option value="all">All requests</option>
+          <option value="pending">Incoming / Pending (Priority)</option>
+          <option value="all">Full Request History</option>
           <option value="played">Played</option>
         </select>
       </div>
@@ -2702,9 +2702,15 @@ function renderSongRequests(){
     return true;
   });
   requests.sort((a,b) => {
-    const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-    const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-    return ta - tb; // FIFO: oldest incoming request first
+    const statusA = a.status || 'pending';
+    const statusB = b.status || 'pending';
+    // Keep incoming requests at the top in every view; newest requests first.
+    const pendingA = statusA === 'pending' ? 0 : 1;
+    const pendingB = statusB === 'pending' ? 0 : 1;
+    if(filter === 'all' && pendingA !== pendingB) return pendingA - pendingB;
+    const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : (typeof a.createdAt === 'number' ? a.createdAt : 0);
+    const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : (typeof b.createdAt === 'number' ? b.createdAt : 0);
+    return tb - ta;
   });
   if(songRequestsStatus) songRequestsStatus.textContent = allSongRequests.length
     ? pendingCount + ' incoming · ' + allSongRequests.filter(r => r.status === 'played' || r.status === 'approved').length + ' played'
@@ -2728,7 +2734,6 @@ function renderSongRequests(){
           ${played
             ? '<button class="ibtn" data-song-action="pending">↩ Move to Incoming</button>'
             : '<button class="ibtn approve" data-song-action="played">✓ Mark Played</button>'}
-          <button class="ibtn delete" data-song-action="delete">🗑 Delete</button>
         </div>
       </article>`;
   }).join('');
@@ -2780,10 +2785,6 @@ songRequestsList?.addEventListener('click', async e => {
       await updateDoc(doc(db, 'songRequests', id), { status: 'played', playedAt: serverTimestamp() });
     } else if(action === 'pending'){
       await updateDoc(doc(db, 'songRequests', id), { status: 'pending', playedAt: null });
-    } else if(action === 'delete'){
-      if(!confirm('Delete this song request? This cannot be undone.')) return;
-      await deleteDoc(doc(db, 'songRequests', id));
-    }
   } catch(err) {
     alert('Could not update song request: ' + (err.message || 'check Firestore rules.'));
   } finally {
