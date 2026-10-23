@@ -44,4 +44,11 @@ assert.match(voice, /await startRecording\(\)/, 'voicemail recording must start 
 assert.match(voice, /MAX_UPLOAD_BYTES = 8 \* 1024 \* 1024/, 'voice upload must enforce an 8 MB ceiling');
 assert.match(voice, /AbortController/, 'voice upload must time out rather than hang indefinitely');
 
+// Legacy OBS relay must fail closed during Hold and off-air transitions.
+assert.match(dashboard, /function silenceOverlayRelayMedia\(\)[\s\S]*?sender\.replaceTrack\(null\)/, 'legacy OBS senders must be detached immediately');
+assert.match(dashboard, /if\(callIsOnAir\)\{\s*silenceOverlayRelayMedia\(\);\s*await setDoc\(liveStateRef, \{ active:false/, 'holding an on-air caller must immediately deactivate the overlay state');
+assert.match(dashboard, /const resumedStatus = callIsOnAir \? 'live' : 'answered';[\s\S]*?await setDoc\(activeCallRef, \{ status: resumedStatus \}/, 'resuming an on-air caller must persist live status before republishing overlay state');
+assert.match(dashboard, /if\(!callIsOnAir && callIsOnHold\)[\s\S]*?Resume the caller before sending them on air/, 'a held caller must be resumed before being put back on air');
+assert.match(dashboard, /status: callIsOnHold \? 'held' : 'answered'/, 'taking a held caller off air must preserve the held call state');
+
 console.log('production-safety checks: all passed');
