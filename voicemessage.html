@@ -725,16 +725,22 @@ async function startRecording(){
   if(!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder){
     showError("Your browser doesn't support mic recording. Try Chrome, Safari, or Firefox."); return;
   }
-  try{ stream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true } }); }
+  try{ stream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true, sampleRate:{ideal:48000}, channelCount:{ideal:1} } }); }
   catch(err){ showError("Microphone access blocked. Please allow mic permissions and try again."); return; }
 
   // A classic voicemail tone plays after microphone permission, before recording begins.
   try{ await playVoicemailBeep(); }
   catch(err){ console.warn('Voicemail beep could not play:',err); }
 
-  const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' :
-                   MediaRecorder.isTypeSupported('audio/mp4')  ? 'audio/mp4' : '';
-  mediaRecorder = mimeType ? new MediaRecorder(stream,{mimeType}) : new MediaRecorder(stream);
+  // Prefer Opus in WebM for voice: efficient, low-latency, high-quality speech.
+  // The 48 kHz constraint is best-effort; browsers/devices may negotiate another rate.
+  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' :
+                   MediaRecorder.isTypeSupported('audio/ogg;codecs=opus') ? 'audio/ogg;codecs=opus' :
+                   MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+  const recorderOptions = { audioBitsPerSecond:128000 };
+  if(mimeType) recorderOptions.mimeType = mimeType;
+  try{ mediaRecorder = new MediaRecorder(stream,recorderOptions); }
+  catch(err){ showError('This browser cannot record the preferred high-quality audio format. Try Safari or Chrome updated to the latest version.'); stream.getTracks().forEach(t=>t.stop()); stream=null; return; }
   audioChunks = [];
   mediaRecorder.ondataavailable = e => { if(e.data.size>0) audioChunks.push(e.data); };
   mediaRecorder.onstop = onRecordingStop;
