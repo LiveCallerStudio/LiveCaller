@@ -2763,6 +2763,7 @@ function renderSongRequests(){
           ${played
             ? '<button class="ibtn" data-song-action="pending">↩ Move to Incoming</button>'
             : '<button class="ibtn approve" data-song-action="played">✓ Mark Played</button>'}
+          <button class="ibtn" data-song-action="delete" style="border-color:#e5484d;color:#e5484d;">🗑 Delete</button>
         </div>
       </article>`;
   }).join('');
@@ -2810,7 +2811,10 @@ songRequestsList?.addEventListener('click', async e => {
   const action = btn.dataset.songAction;
   btn.disabled = true;
   try {
-    if(action === 'played'){
+    if(action === 'delete'){
+      if(!confirm('Delete this song request permanently? This cannot be undone.')) return;
+      await deleteDoc(doc(db, 'songRequests', id));
+    } else if(action === 'played'){
       await updateDoc(doc(db, 'songRequests', id), { status: 'played', playedAt: serverTimestamp() });
     } else if(action === 'pending'){
       await updateDoc(doc(db, 'songRequests', id), { status: 'pending', playedAt: null });
