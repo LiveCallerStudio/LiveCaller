@@ -2695,9 +2695,9 @@ micMuteBtn.addEventListener('click', async()=>{
 function startCallRecording(){
   if(!callerAudio.srcObject){ recordStatus.textContent = 'No call audio to record.'; return; }
   callRecordingChunks = [];
-  const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus') ? 'audio/ogg;codecs=opus' : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : (MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '')));
   try{
-    callRecorder = new MediaRecorder(callerAudio.srcObject, { mimeType });
+    callRecorder = new MediaRecorder(callerAudio.srcObject, { ...(mimeType ? {mimeType} : {}), audioBitsPerSecond:192000 });
   }catch(e){
     recordStatus.textContent = 'Recording not supported in this browser.'; return;
   }
@@ -2731,7 +2731,7 @@ async function stopCallRecording(){
       const timeoutId = setTimeout(()=>controller.abort(), 45000);
       try{
         const fd = new FormData();
-        fd.append('file', blob, callRecorder.mimeType.includes('mp4') ? 'call-recording.mp4' : 'call-recording.webm');
+        fd.append('file', blob, callRecorder.mimeType.includes('mp4') ? 'call-recording.mp4' : (callRecorder.mimeType.includes('ogg') ? 'call-recording.ogg' : 'call-recording.webm'));
         fd.append('upload_preset', RECORDING_UPLOAD_PRESET);
         fd.append('asset_folder', 'call-recordings');
         const res = await fetch('https://api.cloudinary.com/v1_1/vz1v6nzp/video/upload',{
@@ -2768,7 +2768,7 @@ recordBtn.addEventListener('click', ()=>{
 // ── Save call to history ──
 async function saveCallHistory(recordingUrl = null){
   const endTime = Date.now();
-  const duration = callStartTime ? Math.floor((endTime - callStartTime) / 1000) : 0;
+  const duration = callStartTime ? Math.max(0, Math.floor((endTime - callStartTime) / 1000)) : 0;
   try{
     await addDoc(collection(db, 'callHistory'), {
       callerName: document.getElementById('activeCallerName').textContent || 'Unknown',
@@ -2776,6 +2776,8 @@ async function saveCallHistory(recordingUrl = null){
       duration,
       recordingUrl: recordingUrl || null,
       status: 'completed',
+      startedAt: callStartTime ? new Date(callStartTime) : null,
+      endedAt: new Date(endTime),
       createdAt: serverTimestamp()
     });
   }catch(e){ console.warn('Could not save call history:', e); }
@@ -3226,7 +3228,7 @@ function startCallHistoryListener(){
       }).length;
       updateTabNotice("historyTabNotice", missedCount, "missed call");
       histToday.textContent = calls.filter(c=>{
-        const t = c.createdAt?.toDate ? c.createdAt.toDate() : null;
+        const t = toReliableDate(c.createdAt);
         return t && t >= today;
       }).length;
       histRec.textContent = calls.filter(c=> c.recordingUrl).length;
@@ -3234,8 +3236,8 @@ function startCallHistoryListener(){
       const durations = calls.filter(c=>{
         const status = String(c.status || '').toLowerCase();
         const duration = Number(c.duration);
-        const notConnected = /missed|no answer|no-answer|rejected|declined|busy|cancelled|canceled/.test(status);
-        return Number.isFinite(duration) && duration > 0 && !notConnected;
+        const notConnected = /missed|no answer|no-answer|rejected|declined|busy|cancelled|canceled|failed/.test(status);
+        return Number.isFinite(duration) && duration >= 0 && !notConnected && (status === 'completed' || status === 'ended' || status === 'connected' || duration > 0);
       }).map(c=>Number(c.duration));
       histAvgDur.textContent = durations.length
         ? formatDur(Math.round(durations.reduce((a,b)=>a+b,0)/durations.length))
@@ -3268,7 +3270,7 @@ function startCallHistoryListener(){
               ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}
             </div>
             <div class="hist-time-row">
-              <div class="hist-time">${escapeHtml(c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString() : (c.createdAt ? new Date(c.createdAt).toLocaleString() : "Date unavailable"))}</div>
+              <div class="hist-time">${escapeHtml(formatReliableDate(c.createdAt))}</div>
               <button class="hist-delete" data-action="delete-history" data-id="${c.id}" title="Delete" aria-label="Delete call history record">🗑</button>
             </div>
           </div>
@@ -3276,12 +3278,10 @@ function startCallHistoryListener(){
 
       // ── Recordings section remains the full recording archive regardless of history filter ──
       const recorded = calls.filter(c => c.recordingUrl);
-      const recSection = document.getElementById('recordingsSection');
       const recList    = document.getElementById('recordingsList');
       const recEmpty   = document.getElementById('recordingsEmpty');
 
-      if(recSection){
-        if(recorded.length === 0){
+      if(recorded.length === 0){
           recEmpty.style.display = 'block';
           recList.innerHTML = '';
         } else {
@@ -3302,7 +3302,6 @@ function startCallHistoryListener(){
               </div>
             </div>`).join('');
         }
-      }
     }
   );
   callHistoryFilter?.addEventListener('change', ()=>{
@@ -3326,14 +3325,30 @@ function startCallHistoryListener(){
       <div class="hist-card" data-histid="${escapeHtml(c.id)}">
         <div class="hist-icon">${c.recordingUrl ? '🔴' : '📞'}</div>
         <div class="hist-body"><div class="hist-name">${escapeHtml(c.callerName || 'Unknown')}</div><div class="hist-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${escapeHtml(c.status || '')}</div></div>
-        <div class="hist-right"><div class="hist-dur">${formatDur(c.duration || 0)}</div><div class="hist-actions" style="margin-top:4px;">${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" target="_blank" rel="noopener">▶ Play</a><a class="hist-play" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}</div><div class="hist-time-row"><div class="hist-time">${escapeHtml(c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString() : (c.createdAt ? new Date(c.createdAt).toLocaleString() : 'Date unavailable'))}</div><button class="hist-delete" data-action="delete-history" data-id="${escapeHtml(c.id)}" title="Delete" aria-label="Delete call history record">🗑</button></div></div>
+        <div class="hist-right"><div class="hist-dur">${formatDur(c.duration || 0)}</div><div class="hist-actions" style="margin-top:4px;">${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" target="_blank" rel="noopener">▶ Play</a><a class="hist-play" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}</div><div class="hist-time-row"><div class="hist-time">${escapeHtml(formatReliableDate(c.createdAt))}</div><button class="hist-delete" data-action="delete-history" data-id="${escapeHtml(c.id)}" title="Delete" aria-label="Delete call history record">🗑</button></div></div>
       </div>`).join('');
   });
 }
 
+function toReliableDate(value){
+  if(value && typeof value.toDate === 'function'){ const date=value.toDate(); return Number.isFinite(date.getTime())?date:null; }
+  if(value instanceof Date) return Number.isFinite(value.getTime())?value:null;
+  if(typeof value==='number' && Number.isFinite(value)){ const date=new Date(value<1e12?value*1000:value); return Number.isFinite(date.getTime())?date:null; }
+  if(typeof value==='string' && value.trim()){
+    const numeric=Number(value); const date=Number.isFinite(numeric)?new Date(numeric<1e12?numeric*1000:numeric):new Date(value);
+    return Number.isFinite(date.getTime())?date:null;
+  }
+  if(value && typeof value.seconds==='number'){ const date=new Date(value.seconds*1000+Math.floor((value.nanoseconds||0)/1e6)); return Number.isFinite(date.getTime())?date:null; }
+  return null;
+}
+function formatReliableDate(value){
+  const date=toReliableDate(value);
+  return date?date.toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',second:'2-digit'}):'Date unavailable';
+}
 function formatDur(s){
-  const m = Math.floor(s/60);
-  return `${m}:${(s%60).toString().padStart(2,'0')}`;
+  const seconds=Number(s); if(!Number.isFinite(seconds)||seconds<0)return '—';
+  const whole=Math.floor(seconds), h=Math.floor(whole/3600), m=Math.floor((whole%3600)/60), sec=whole%60;
+  return h?`${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:`${m}:${String(sec).padStart(2,'0')}`;
 }
 
 // ── Dedicated public song-request queue (songrequest.html writes to songRequests) ──
@@ -3379,7 +3394,7 @@ function renderSongRequests(){
   songRequestsList.innerHTML = requests.map(r => {
     const status = r.status || 'pending';
     const played = status === 'played' || status === 'approved';
-    const date = r.createdAt?.toDate ? r.createdAt.toDate().toLocaleString() : 'Just received';
+    const date = formatReliableDate(r.createdAt);
     return `
       <article class="card ${played ? 'approved' : 'new'}" data-song-request-id="${escapeHtml(r.id)}">
         <div class="card-body">
