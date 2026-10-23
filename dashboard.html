@@ -1527,7 +1527,11 @@ function setCallStatus(text, cls=''){
 
 function stopOverlayRelayPeers(){
   if(overlaySessionsUnsub){ overlaySessionsUnsub(); overlaySessionsUnsub=null; }
-  overlayRelayPeers.forEach(({pc,unsub})=>{ try{if(unsub)unsub();}catch(e){} try{pc.close();}catch(e){} });
+  overlayRelayPeers.forEach(record=>{
+    if(record.disconnectTimer) clearTimeout(record.disconnectTimer);
+    try{if(record.unsub)record.unsub();}catch(e){}
+    try{record.pc.close();}catch(e){}
+  });
   overlayRelayPeers.clear();
 }
 
@@ -1604,8 +1608,22 @@ function watchOverlayRelaySessions(callId){
       pc.onconnectionstatechange=()=>console.info('OBS relay WebRTC:',pc.connectionState,'ICE:',pc.iceConnectionState);
       pc.oniceconnectionstatechange=()=>console.info('OBS relay ICE state:',pc.iceConnectionState);
       pc.onicecandidateerror=e=>console.warn('OBS relay ICE candidate error:',{code:e.errorCode,text:e.errorText,url:e.url});
-      const record={pc,unsub:null};
+      const record={pc,unsub:null,disconnectTimer:null};
       overlayRelayPeers.set(sessionId,record);
+      pc.onconnectionstatechange=()=>{
+        if(pc.connectionState==='connected'){
+          if(record.disconnectTimer){clearTimeout(record.disconnectTimer);record.disconnectTimer=null;}
+        }else if(['disconnected','failed','closed'].includes(pc.connectionState)){
+          if(record.disconnectTimer)clearTimeout(record.disconnectTimer);
+          record.disconnectTimer=setTimeout(()=>{
+            if(['disconnected','failed','closed'].includes(pc.connectionState)){
+              try{if(record.unsub)record.unsub();}catch(e){}
+              try{pc.close();}catch(e){}
+              if(overlayRelayPeers.get(sessionId)===record)overlayRelayPeers.delete(sessionId);
+            }
+          },5000);
+        }
+      };
       const pending=[]; let remoteSet=false;
       pc.onicecandidate=e=>{
         if(e.candidate) addDoc(collection(sessionRef,'dashboardCandidates'),e.candidate.toJSON()).catch(err=>console.warn('OBS relay ICE write:',err.code||err.message));
