@@ -24,6 +24,8 @@ jobs:
         run: node --experimental-default-type=module tests/check-syntax.mjs
       - name: Test line-state resolution
         run: node --experimental-default-type=module tests/line-state.test.mjs
+      - name: Test three-line call manager routing safety
+        run: node --experimental-default-type=module tests/multi-line-call-manager.test.mjs
       - name: Test public home page line-state behavior
         run: node --experimental-default-type=module tests/home-v2.behavior.test.mjs
       - name: Test caller cleanup regressions
