@@ -7,6 +7,7 @@ function fakeSnapshot(changes = [], data = {}, exists = true) {
 }
 function setup() {
   const listeners = new Map();
+  const errorListeners = new Map();
   const writes = [];
   const candidates = [];
   const audioTrack = { kind: 'audio', readyState: 'live', id: 'program' };
@@ -35,10 +36,14 @@ function setup() {
     collection: (dbOrRef, ...parts) => typeof dbOrRef === 'string' ? [dbOrRef, ...parts].join('/') : parts.join('/'),
     setDoc: async (...args) => writes.push(args),
     addDoc: async (...args) => candidates.push(args),
-    onSnapshot: (path, next) => { listeners.set(path, next); return () => listeners.delete(path); },
+    onSnapshot: (path, next, error) => {
+      listeners.set(path, next);
+      if (error) errorListeners.set(path, error);
+      return () => { listeners.delete(path); errorListeners.delete(path); };
+    },
     onError: error => { throw error; }
   });
-  return { adapter, listeners, writes, candidates, controller, audioTrack };
+  return { adapter, listeners, errorListeners, writes, candidates, controller, audioTrack };
 }
 
 test('watches a call, answers overlay offers, and silences relay while no call is selected', async () => {
@@ -107,6 +112,26 @@ test('parent call deletion closes all relays and removes subscriptions', async (
   assert.equal(adapter.calls.has('call-deleted'), false);
   assert.equal(relay.pc.closed, true);
   assert.equal(listeners.has('liveCalls/call-deleted/overlaySessions'), false);
+  await adapter.close();
+});
+
+
+test('candidate signaling errors close the affected relay and remove its listener', async () => {
+  const { adapter, listeners, errorListeners } = setup();
+  adapter.watchCall('call-error');
+  listeners.get('liveCalls/call-error/overlaySessions')(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-error', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  const relay = adapter.calls.get('call-error').sessions.get('overlay-error');
+  const candidatePath = 'liveCalls/call-error/overlaySessions/overlay-error/overlayCandidates';
+  assert.equal(typeof errorListeners.get(candidatePath), 'function');
+  assert.throws(() => errorListeners.get(candidatePath)(new Error('permission denied')), /permission denied/);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(relay.pc.closed, true);
+  assert.equal(adapter.calls.get('call-error').sessions.has('overlay-error'), false);
+  assert.equal(listeners.has(candidatePath), false);
   await adapter.close();
 });
 
