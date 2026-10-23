@@ -1741,7 +1741,17 @@ function ensureMultiLineController(){
       // also runs while the controller safely mutes the previous caller.
       refreshPhoneLineBank();
     },
-    onTrack: ({callId}) => syncMultiLineOverlayTracks(callId),
+    onTrack: ({callId}) => {
+      syncMultiLineOverlayTracks(callId);
+      // A caller's audio track may arrive after the SDP answer. Enable private
+      // monitoring when it exists, but never open the program route here.
+      try{
+        const line=multiLineController?.getSnapshot().lines.find(item=>item?.callId===callId);
+        if(line?.state==='connected' && multiLineController.getSnapshot().programCallId!==callId){
+          multiLineController.setMonitor(callId);
+        }
+      }catch(error){ console.debug('Caller monitor will activate when media is ready:',error?.message||error); }
+    },
     onCallClosed: ({callId}) => {
       cleanupMultiLineOverlayRelay(callId);
       if(multiLineOnAirCallId === callId){
@@ -1813,8 +1823,9 @@ async function answerMultiLineCall(callId, callerName, callerCity, lineId){
       localStream,
       lineId:Number(lineId)
     });
-    // Monitoring is local only. The program/OBS route stays silent until Take On Air.
-    multiLineController.setMonitor(callId);
+    // Try to enable private monitoring now. If the remote track has not arrived
+    // yet, onTrack will enable it later; this must not fail the answered call.
+    try{multiLineController.setMonitor(callId);}catch(error){console.debug('Caller monitor pending remote audio:',error?.message||error);}
     watchMultiLineOverlayRelay(callId);
     refreshPhoneLineBank();
   }catch(error){
