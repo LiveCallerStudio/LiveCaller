@@ -962,13 +962,6 @@
       <div class="queue" id="waitingCallsQueue"></div>
     </section>
 
-    <section id="experimentalMultiLinePanel" style="display:none;margin:18px 0;padding:16px;border:1px solid rgba(255,180,0,.45);border-radius:14px;background:rgba(255,180,0,.06);" aria-live="polite">
-      <div style="font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#ffc45c;">Experimental · Three-line audio console</div>
-      <p style="font-size:12px;line-height:1.5;color:var(--sub);margin:8px 0;">Opt-in test mode. Audio calls only. This console does not send caller audio to OBS; Take On Air is intentionally disabled. Hold silences the program route but does not play hold music. Do not use as a live broadcast workflow.</p>
-      <div id="experimentalMultiLineStatus" role="status" style="font-size:12px;margin-bottom:10px;">Starting isolated call sessions…</div>
-      <div id="experimentalMultiLineLines"></div>
-    </section>
-
     <!-- Hidden audio element — producer hears caller here, OBS captures via Browser Source -->
     <audio id="callerAudio" autoplay style="display:none;"></audio>
   </div>
@@ -1082,10 +1075,6 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { MultiLineMediaController } from "./lib/multi-line-media-controller.js";
-import { FirestoreMultiLineAdapter } from "./lib/firestore-multi-line-adapter.js";
-import { MultiLineDashboardView } from "./lib/multi-line-dashboard-view.js";
-import { MultiLineOverlayRelayAdapter } from "./lib/multi-line-overlay-relay-adapter.js";
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
@@ -1104,130 +1093,6 @@ const firebaseConfig = {
   appId: "1:663942225296:web:c6117cf6c23656b9842715"
 };
 // ============================================================================
-
-const experimentalMultiLineEnabled = new URLSearchParams(window.location.search).get('multiline') === '1';
-let experimentalMultiLineController = null;
-let experimentalMultiLineAdapter = null;
-let experimentalMultiLineView = null;
-let experimentalMultiLineOverlayRelayAdapter = null;
-let experimentalMultiLineInitPromise = null;
-
-async function startExperimentalMultiLine() {
-  if (!experimentalMultiLineEnabled || experimentalMultiLineView) return;
-  if (experimentalMultiLineInitPromise) return experimentalMultiLineInitPromise;
-  experimentalMultiLineInitPromise = (async () => {
-    const panel = document.getElementById('experimentalMultiLinePanel');
-    const root = document.getElementById('experimentalMultiLineLines');
-    const status = document.getElementById('experimentalMultiLineStatus');
-    panel.style.display = 'block';
-    try {
-      experimentalMultiLineController = new MultiLineMediaController({
-        iceConfig,
-        onTrack: () => {
-          experimentalMultiLineOverlayRelayAdapter?.sync().catch(error =>
-            console.warn('Experimental OBS relay audio sync failed:', error)
-          );
-        }
-      });
-      experimentalMultiLineAdapter = new FirestoreMultiLineAdapter({
-        db,
-        controller: experimentalMultiLineController,
-        doc, getDoc, setDoc, updateDoc, collection, addDoc, onSnapshot, serverTimestamp
-      });
-      experimentalMultiLineOverlayRelayAdapter = new MultiLineOverlayRelayAdapter({
-        db, controller: experimentalMultiLineController,
-        doc, setDoc, collection, addDoc, onSnapshot, iceConfig,
-        onError: error => {
-          status.textContent = 'OBS relay warning: ' + (error?.message || 'relay setup failed');
-          console.error('Experimental OBS relay:', error);
-        }
-      });
-      experimentalMultiLineView = new MultiLineDashboardView({
-        root,
-        adapter: experimentalMultiLineAdapter,
-        controller: experimentalMultiLineController,
-        allowOnAir: true,
-        onActionComplete: async ({ action, callId }) => {
-          try {
-            if (action === 'answer') {
-              experimentalMultiLineOverlayRelayAdapter?.watchCall(callId);
-            }
-
-            if (action === 'air') {
-              // The adapter persists status=live before this global state is published.
-              // overlay.html then creates a WebRTC offer under this call's overlaySessions;
-              // the selected program-bus track is supplied by the relay bridge.
-              const callSnap = await getDoc(doc(db, 'liveCalls', callId));
-              const callData = callSnap.data() || {};
-              if (callData.status !== 'live') {
-                throw new Error('Call status was not persisted as live; OBS was not activated');
-              }
-              await setDoc(liveStateRef, {
-                active: true,
-                callId,
-                name: callData.callerName || 'Anonymous Caller',
-                city: callData.callerCity || '',
-                messageType: 'livecall',
-                audioUrl: null,
-                updatedAt: Date.now()
-              });
-            }
-
-            if (action === 'hold' || action === 'end') {
-              const liveSnap = await getDoc(liveStateRef);
-              if (liveSnap.exists?.() && liveSnap.data()?.callId === callId) {
-                await setDoc(liveStateRef, { active: false, updatedAt: Date.now() }, { merge: true });
-              }
-            }
-
-            if (action === 'end') {
-              await experimentalMultiLineOverlayRelayAdapter?.unwatchCall(callId);
-            }
-            await experimentalMultiLineOverlayRelayAdapter?.sync();
-            if (action === 'end') runDeferredDashboardRefreshIfIdle();
-          } catch (error) {
-            // If publishing the selected caller to the overlay fails, do not leave
-            // the program bus active without its matching OBS scene/relay state.
-            if (action === 'air') {
-              try { await experimentalMultiLineAdapter?.holdCall(callId); }
-              catch (rollbackError) {
-                console.error('Could not fail closed after OBS activation failed:', rollbackError);
-              }
-              await setDoc(liveStateRef, { active: false, updatedAt: Date.now() }, { merge: true }).catch(() => {});
-            }
-            try { await experimentalMultiLineOverlayRelayAdapter?.sync(); } catch {}
-            status.textContent = 'OBS relay warning: ' + (error?.message || 'relay setup failed');
-            console.error('Experimental OBS relay action:', error);
-          }
-        },
-        getLocalStream: async () => {
-          if (!navigator.mediaDevices?.getUserMedia) throw new Error('Microphone access is unavailable in this browser.');
-          return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        },
-        onError: error => {
-          status.textContent = 'Call action failed: ' + (error?.message || 'unknown error');
-          console.error('Experimental multi-line console:', error);
-        }
-      });
-      status.textContent = 'Ready · three isolated audio lines · OBS program routing enabled for controlled testing';
-    } catch (error) {
-      status.textContent = 'Could not start experimental console: ' + (error?.message || 'unknown error');
-      console.error('Experimental multi-line startup failed:', error);
-    }
-  })();
-  return experimentalMultiLineInitPromise;
-}
-
-function stopExperimentalMultiLine() {
-  try { experimentalMultiLineView?.close(); } catch {}
-  try { void experimentalMultiLineOverlayRelayAdapter?.close(); } catch {}
-  try { experimentalMultiLineAdapter?.close(); } catch {}
-  experimentalMultiLineView = null;
-  experimentalMultiLineOverlayRelayAdapter = null;
-  experimentalMultiLineAdapter = null;
-  experimentalMultiLineController = null;
-  experimentalMultiLineInitPromise = null;
-}
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -1260,7 +1125,6 @@ onAuthStateChanged(auth, async (user)=>{
   if(user){
     loginScreen.style.display = 'none';
     dashboardApp.style.display = 'block';
-    if (experimentalMultiLineEnabled) await startExperimentalMultiLine();
     startQueueListener();
     startSongRequestsListener();
     startCallsListener();
@@ -1268,7 +1132,6 @@ onAuthStateChanged(auth, async (user)=>{
     startLinesToggleListener();
     startVideoToggleListener();
   } else {
-    stopExperimentalMultiLine();
     stopQueueListener();
     stopSongRequestsListener();
     stopCallsListener();
@@ -1855,8 +1718,7 @@ function performDashboardRefresh(){
   window.location.replace(next.toString());
 }
 function refreshIsBlockedByLiveMedia(){
-  const experimentalSessions = experimentalMultiLineController?.getSnapshot?.().sessions?.length || 0;
-  return !!(activePc || screeningPc || activeCallId || screeningCallId || experimentalSessions > 0);
+  return !!(activePc || screeningPc || activeCallId || screeningCallId);
 }
 function runDeferredDashboardRefreshIfIdle(){
   if(!refreshAfterCall || refreshIsBlockedByLiveMedia()) return;
@@ -2934,12 +2796,7 @@ function startCallsListener(){
         stopPhoneRing();
       }
 
-      if (experimentalMultiLineView) {
-        experimentalMultiLineView.setIncomingCalls(ringing.filter(c =>
-          c.mediaType !== 'video' && c.offer && c.status === 'waiting'
-        ));
-      }
-      const isBusy = !!activePc || !!experimentalMultiLineView;
+      const isBusy = !!activePc;
       refreshPhoneLineBank();
       const waitingSection = document.getElementById('callWaitingSection');
       const waitingQueue = document.getElementById('waitingCallsQueue');
