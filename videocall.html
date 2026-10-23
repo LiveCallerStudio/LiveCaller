@@ -275,6 +275,22 @@
     .call-visual{ width:120px; height:120px; }
     .call-timer{ font-size:26px; }
   }
+
+  /* Clean video-call layout: caller preview is the main canvas, controls float above it. */
+  #callScreen.video-call{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;min-height:0!important;max-width:none!important;z-index:21!important;display:none;flex-direction:column!important;align-items:center!important;justify-content:space-between!important;padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 18px)!important;}
+  #callScreen.video-call[style*="display: flex"],#callScreen.video-call[style*="display:flex"]{display:flex!important;}
+  #callScreen.video-call .video-stage{display:block!important;position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-height:none!important;aspect-ratio:auto!important;margin:0!important;border:0!important;border-radius:0!important;background:#000!important;box-shadow:none!important;z-index:20!important;}
+  #callScreen.video-call .local-video{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-height:none!important;aspect-ratio:auto!important;object-fit:cover!important;object-position:center!important;border:0!important;border-radius:0!important;background:#000!important;transform:scaleX(-1);z-index:1!important;}
+  #callScreen.video-call .remote-video{display:none!important;}
+  #callScreen.video-call .status-badge,#callScreen.video-call .call-status,#callScreen.video-call .call-timer,#callScreen.video-call .call-sub{z-index:22!important;flex:0 0 auto!important;align-self:center!important;margin:0!important;background:rgba(0,0,0,.58)!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:999px!important;padding:8px 13px!important;}
+  #callScreen.video-call .status-badge{margin-top:4px!important;}
+  #callScreen.video-call .call-status{font-size:clamp(16px,4vw,22px)!important;}
+  #callScreen.video-call .call-timer{font-size:20px!important;min-height:0!important;letter-spacing:1px!important;}
+  #callScreen.video-call .call-sub{font-size:12px!important;max-width:min(90vw,360px)!important;text-align:center!important;}
+  #callScreen.video-call .call-controls{position:relative!important;z-index:23!important;align-self:center!important;width:auto!important;max-width:100%!important;flex:0 0 auto!important;margin:0 0 2px!important;padding:10px 12px!important;gap:clamp(10px,3vw,18px)!important;border:1px solid rgba(255,255,255,.16)!important;border-radius:999px!important;background:rgba(18,20,19,.68)!important;backdrop-filter:blur(24px)!important;-webkit-backdrop-filter:blur(24px)!important;box-shadow:0 8px 32px #0005!important;}
+  #callScreen.video-call .ctrl-btn{flex:0 0 64px!important;width:64px!important;min-width:64px!important;height:64px!important;border-radius:50%!important;}
+  #callScreen.video-call .ctrl-btn.endcall{background:#ff453a!important;}
+  @media(max-width:380px){#callScreen.video-call .ctrl-btn{flex-basis:58px!important;width:58px!important;min-width:58px!important;height:58px!important;}#callScreen.video-call .call-controls{gap:8px!important;padding:8px!important;}}
 </style>
 </head>
 <body>
