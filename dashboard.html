@@ -663,6 +663,10 @@
   .phone-console p{font-size:12px;color:var(--sub);margin:0;line-height:1.5}
   .phone-console-legend{display:flex;flex-wrap:wrap;gap:10px 14px;font-size:10px;color:var(--sub)}
   .phone-console-legend span{display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .phone-console-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .phone-console-mic{border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:9px 12px;background:rgba(255,255,255,.06);color:var(--text);font-size:11px;font-weight:900;cursor:pointer}
+  .phone-console-mic[aria-pressed="true"]{border-color:var(--red);background:rgba(255,59,59,.15);color:#ff8b84}
+  .phone-console-mic:focus-visible{outline:2px solid var(--green);outline-offset:3px}
   .line-led{display:inline-block;width:8px;height:8px;border-radius:50%;background:#69727b;box-shadow:0 0 0 3px rgba(255,255,255,.04)}
   .led-ringing{background:#ffbd4a;box-shadow:0 0 10px rgba(255,189,74,.65)}
   .led-active{background:#53fc18;box-shadow:0 0 10px rgba(83,252,24,.65)}
@@ -883,11 +887,16 @@
           <h2>Multi-Line Controller</h2>
           <p>Monitor every line at a glance. Selectable call handling depends on the connection state.</p>
         </div>
-        <div class="phone-console-legend" aria-label="Line status legend">
-          <span><i class="line-led led-ringing"></i>Ringing</span>
-          <span><i class="line-led led-screening"></i>Screening</span>
-          <span><i class="line-led led-active"></i>On air</span>
-          <span><i class="line-led led-hold"></i>On hold</span>
+        <div>
+          <div class="phone-console-legend" aria-label="Line status legend">
+            <span><i class="line-led led-ringing"></i>Ringing</span>
+            <span><i class="line-led led-screening"></i>Screening</span>
+            <span><i class="line-led led-active"></i>On air</span>
+            <span><i class="line-led led-hold"></i>On hold</span>
+          </div>
+          <div class="phone-console-tools">
+            <button type="button" class="phone-console-mic" id="multiLineMicMuteBtn" aria-pressed="false" title="Mute or unmute the studio microphone sent to callers">🎤 Studio Mic: LIVE</button>
+          </div>
         </div>
       </div>
       <div class="phone-line-bank" id="phoneLineBank" aria-live="polite">
@@ -1736,6 +1745,7 @@ let screeningRemoteStream = null;
 let multiLineController = null;
 let multiLineAdapter = null;
 let multiLineOnAirCallId = null;
+let multiLineMicMuted = false;
 const multiLineOverlayUnsubs = new Map();
 const multiLineOverlayPeers = new Map();
 
@@ -1821,6 +1831,22 @@ function getAvailableMultiLineIds(){
   return [1,2,3].filter(lineId=>!occupied.has(lineId));
 }
 
+function setMultiLineMicMuted(muted){
+  multiLineMicMuted=!!muted;
+  if(multiLineController){
+    for(const entry of multiLineController.sessions.values()){
+      for(const track of entry.localStream?.getAudioTracks?.()||[]) track.enabled=!multiLineMicMuted;
+    }
+  }
+  const button=document.getElementById('multiLineMicMuteBtn');
+  if(button){
+    button.setAttribute('aria-pressed',String(multiLineMicMuted));
+    button.textContent=multiLineMicMuted?'🎤 Studio Mic: MUTED':'🎤 Studio Mic: LIVE';
+    button.title=multiLineMicMuted?'Unmute the studio microphone sent to callers':'Mute the studio microphone sent to callers';
+  }
+  return multiLineMicMuted;
+}
+
 async function answerMultiLineCall(callId, callerName, callerCity, lineId){
   ensureMultiLineController();
   if(activePc) throw new Error('End the current video call before answering an audio line.');
@@ -1835,6 +1861,8 @@ async function answerMultiLineCall(callId, callerName, callerCity, lineId){
     audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:false,sampleRate:48000,channelCount:1},
     video:false
   });
+  // Preserve the studio-wide mute state when a new caller is answered.
+  localStream.getAudioTracks().forEach(track=>{track.enabled=!multiLineMicMuted;});
   try{
     await multiLineAdapter.answerCall({
       callId,
@@ -2188,8 +2216,8 @@ function cleanupActiveCall(){
 function refreshPhoneLineBank(releasedCallId = null){
   const lineBank = document.getElementById('phoneLineBank');
   if(!lineBank) return;
-  // Keep queued callers visible in the existing call queue without assigning
-  // them to a line; only an explicit Answer Line action reserves a fixed slot.
+  // Waiting callers appear as lit, virtual ringing tiles without reserving a
+  // real line. The Answer Line action performs the authoritative slot check.
   const queuedCallers = latestCallsForCleanup.filter(c => c.status === 'waiting' && c.id !== releasedCallId);
   let controllerLines = [];
   try{
@@ -2209,13 +2237,28 @@ function refreshPhoneLineBank(releasedCallId = null){
   } : null;
   const byId = new Map(controllerLines.map(line=>[line.lineId,line]));
   if(activeLine?.lineId && !byId.get(activeLine.lineId)?.callId) byId.set(activeLine.lineId,activeLine);
+  const ringingByLine = new Map();
+  let ringingIndex = 0;
+  for(const lineId of [1,2,3]){
+    if(!byId.get(lineId)?.callId && queuedCallers[ringingIndex]) ringingByLine.set(lineId,queuedCallers[ringingIndex++]);
+  }
   lineBank.innerHTML = [1,2,3].map(lineId=>{
     const line=byId.get(lineId);
-    if(!line?.callId) return `<div class="phone-line-tile" role="group" aria-label="Line ${lineId}, available">
-      <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(lineId).padStart(2,'0')}</span><span class="phone-line-state">AVAILABLE</span></div>
-      <div class="phone-line-name">No caller assigned</div>
-      <div class="phone-line-detail">Ready for the next queued call${queuedCallers.length ? ' · ' + queuedCallers.length + ' waiting' : ''}</div>
-    </div>`;
+    if(!line?.callId){
+      const ringing=ringingByLine.get(lineId);
+      if(ringing) return `<div class="phone-line-tile line-ringing" role="group" aria-label="Line ${lineId}, ringing">
+        <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(lineId).padStart(2,'0')}</span><span class="phone-line-state"><i class="line-led led-ringing"></i>RINGING</span></div>
+        <div class="phone-line-name">${escapeHtml(ringing.callerName || 'Anonymous Caller')}</div>
+        <div class="phone-line-detail">${escapeHtml(ringing.callerCity || '')}</div>
+        <div class="phone-line-detail">${ringing.mediaType==='video'?'VIDEO CALL · USE SCREEN GUEST BELOW':'CALL WAITING · NOT CONNECTED'}</div>
+        ${ringing.mediaType==='video' ? '' : `<div class="phone-line-controls" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;"><button class="ibtn ibtn-answer" data-action="answer-line" data-line-id="${lineId}" data-id="${escapeHtml(ringing.id)}" data-name="${escapeHtml(ringing.callerName||'')}" data-city="${escapeHtml(ringing.callerCity||'')}">Answer Line ${lineId}</button><button class="ibtn ibtn-reject" data-action="reject" data-id="${escapeHtml(ringing.id)}">Reject</button></div>`}
+      </div>`;
+      return `<div class="phone-line-tile" role="group" aria-label="Line ${lineId}, available">
+        <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(lineId).padStart(2,'0')}</span><span class="phone-line-state">AVAILABLE</span></div>
+        <div class="phone-line-name">No caller assigned</div>
+        <div class="phone-line-detail">Ready for the next queued call${queuedCallers.length ? ' · ' + queuedCallers.length + ' waiting' : ''}</div>
+      </div>`;
+    }
     const state=String(line.state || 'connected').toLowerCase();
     const status=state==='on-air'?'active':state==='held'?'hold':state==='waiting'?'ringing':'screening';
     const statusLabel=status==='active'?'ON AIR':status==='hold'?'ON HOLD':status==='ringing'?'RINGING':'SCREENING';
@@ -2230,7 +2273,7 @@ function refreshPhoneLineBank(releasedCallId = null){
       <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(lineId).padStart(2,'0')}</span><span class="phone-line-state"><i class="line-led led-${status}"></i>${statusLabel}</span></div>
       <div class="phone-line-name">${escapeHtml(name)}</div>
       <div class="phone-line-detail">${escapeHtml(city)}</div>
-      <div class="phone-line-detail">${line.mediaType==='video'?'VIDEO LINE':'AUDIO LINE'} · ${state==='on-air'?'ON PROGRAM':state==='held'?'HELD / SILENT':'PRIVATE MONITOR'}</div>
+      <div class="phone-line-detail">${line.mediaType==='video'?'VIDEO LINE':'AUDIO LINE'} · ${state==='on-air'?'CALLER ONLY TO OBS':state==='held'?'HELD / SILENT':'PRIVATE MONITOR'}${multiLineMicMuted?' · STUDIO MIC MUTED':''}</div>
       ${controls}
     </div>`;
   }).join('');
@@ -3292,6 +3335,8 @@ document.addEventListener('click', async(e)=>{
 });
 
 // ── Calls tab action delegation ──
+document.getElementById('multiLineMicMuteBtn')?.addEventListener('click',()=>setMultiLineMicMuted(!multiLineMicMuted));
+
 document.addEventListener('click', async(e)=>{
   const btn = e.target.closest('[data-action="video-screen"],[data-action="answer"],[data-action="reject"],[data-action="answer-line"],[data-action="multi-air"],[data-action="multi-hold"],[data-action="multi-resume"],[data-action="multi-end"]');
   if(!btn)return;
