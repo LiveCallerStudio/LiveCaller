@@ -29,6 +29,7 @@ const adapter = {
   getSnapshot: () => snapshot,
   answerCall: async args => calls.push(['answer', args]),
   holdCall: async id => calls.push(['hold', id]),
+  resumeCall: async id => calls.push(['resume', id]),
   takeOnAir: async id => calls.push(['air', id]),
   endCall: async id => calls.push(['end', id])
 };
@@ -51,6 +52,12 @@ assert.equal(calls[1][0], 'answer');
 assert.equal(calls[1][1].lineId, 2);
 assert.equal(calls[1][1].localStream.forCall, 'waiting-x');
 assert.deepEqual(errors, []);
+
+snapshot.lines[0].state = 'held';
+view.render();
+assert.match(root.innerHTML, /data-ml-action="resume"/, 'held calls must offer a Resume action');
+await root.click({ inside: true, disabled: false, dataset: { mlAction: 'resume', callId: 'a' } });
+assert.deepEqual(calls[2], ['resume', 'a']);
 view.close();
 assert.equal(root.listeners.has('click'), false);
 assert.equal(root.innerHTML, '');
