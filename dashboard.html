@@ -312,18 +312,16 @@
   .record-status.saved{color:var(--green);}
 
   /* History cards */
-  .hist-card{
-    background:var(--panel); border:1px solid var(--line); border-radius:12px;
-    padding:14px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
-    margin-bottom:10px;
-  }
-  .hist-icon{font-size:22px; min-width:28px;}
-  .hist-body{flex:1; min-width:160px;}
-  .hist-name{font-weight:800; font-size:14px;}
-  .hist-meta{font-size:12px; color:var(--sub); margin-top:2px; font-family:Arial,sans-serif;}
-  .hist-right{display:flex; flex-direction:column; align-items:flex-end; gap:6px;}
-  .hist-dur{font-size:13px; color:var(--green); font-weight:700; font-variant-numeric:tabular-nums;}
-  .hist-time{font-size:11px; color:#5a5a5a;}
+  .hist-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;grid-template-columns:32px minmax(0,1fr) minmax(150px,auto);align-items:center;gap:12px;margin-bottom:10px;min-width:0;}
+  .hist-icon{font-size:22px;width:32px;text-align:center;}
+  .hist-body{min-width:0;overflow-wrap:anywhere;}
+  .hist-name{font-weight:800;font-size:14px;overflow-wrap:anywhere;}
+  .hist-meta{font-size:12px;color:var(--sub);margin-top:4px;font-family:Arial,sans-serif;overflow-wrap:anywhere;}
+  .hist-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;min-width:0;max-width:100%;text-align:right;}
+  .hist-dur{font-size:13px;color:var(--green);font-weight:700;font-variant-numeric:tabular-nums;}
+  .hist-time{font-size:11px;color:var(--sub);overflow-wrap:anywhere;line-height:1.45;}
+  .hist-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;max-width:100%;}
+  @media(max-width:640px){.hist-card{grid-template-columns:28px minmax(0,1fr);gap:10px;padding:12px}.hist-right{grid-column:2;align-items:flex-start;text-align:left;width:100%;border-top:1px solid var(--line);padding-top:9px}.hist-actions{justify-content:flex-start}.hist-time{font-size:12px}}
   .hist-play{
     padding:6px 12px; border-radius:6px; border:1px solid var(--green); background:transparent;
     color:var(--green); font-size:11px; font-weight:700; cursor:pointer; text-decoration:none;
@@ -778,7 +776,7 @@
 
 <!-- Tab Navigation -->
 <nav class="tab-nav" aria-label="Studio sections">
-  <button class="tab-btn active" data-tab="calls">☎ Phone System <span class="tab-notification" id="callsTabNotice" aria-label="0 incoming calls" hidden>0</span></button>
+  <button class="tab-btn active" data-tab="calls">☎ Phone System <span class="tab-notification" id="callsTabNotice" aria-label="0 total pending messages" hidden>0</span></button>
   <button class="tab-btn" data-tab="queue">♫ Voice Messages <span class="tab-notification" id="queueTabNotice" aria-label="0 pending requests" hidden>0</span></button>
   <button class="tab-btn" data-tab="songrequests">🎵 Song Requests <span class="tab-notification" id="songRequestsTabNotice" aria-label="0 pending song requests" hidden>0</span></button>
   <button class="tab-btn" data-tab="history">◷ Call History <span class="tab-notification" id="historyTabNotice" aria-label="0 missed calls" hidden>0</span></button>
@@ -842,8 +840,8 @@
         </div>
       </div>
     </section>
-    <section class="phone-desk-metrics" aria-label="Phone system status">
-      <div class="desk-metric"><span class="metric-icon">☎</span><div><strong id="deskLineState">Accepting Callers</strong><small id="deskLineStateDetail">Open</small></div></div>
+    <section class="phone-desk-metrics" aria-label="Incoming audio and video callers">
+      <div class="desk-metric"><span class="metric-icon">☎</span><div><strong id="deskIncomingCount">0 CALLERS WAITING</strong><small>Incoming audio and video</small></div></div>
     </section>
     <section class="broadcast-phone-queue" aria-labelledby="phoneQueueTitle">
       <div class="broadcast-queue-head">
@@ -955,7 +953,7 @@
       <div class="ic">📋</div>
       <div>No call history yet. Calls appear here after they end.</div>
     </div>
-    <div class="queue" id="histList"></div>
+    <div class="queue history-list" id="histList"></div>
 
     <!-- Recordings Section -->
     <div id="recordingsSection" style="margin-top:32px;">
@@ -1279,6 +1277,7 @@ function render(){
 
   const pendingCount = allMessages.filter(m=>m.status==='pending').length;
   updateTabNotice('queueTabNotice', pendingCount, 'pending request');
+  updateTotalMessageNotice();
   queueCount.textContent = `${pendingCount} waiting`;
 
   if(list.length === 0){
@@ -1458,6 +1457,12 @@ function updateTabNotice(id, count, itemLabel){
   badge.textContent = n > 99 ? '99+' : String(n);
   badge.hidden = n === 0;
   badge.setAttribute('aria-label', n + ' ' + itemLabel + (n === 1 ? '' : 's'));
+}
+
+function updateTotalMessageNotice(){
+  const pendingVoice = allMessages.filter(m => m.status === 'pending').length;
+  const pendingSongs = allSongRequests.filter(r => !r.status || r.status === 'pending').length;
+  updateTabNotice('callsTabNotice', pendingVoice + pendingSongs, 'total pending message');
 }
 
 // ── Tab switching ──
@@ -2522,10 +2527,9 @@ function startCallsListener(){
       // Incoming FaceTime-style audio AND video calls are both stored in liveCalls.
       const ringing = calls.filter(c => c.status === 'waiting');
       const count = ringing.length;
-      updateTabNotice('callsTabNotice', count, 'incoming call');
       callCountNum.textContent = count;
-      const deskIncomingMetric = document.getElementById('deskIncomingMetric');
-      if(deskIncomingMetric) deskIncomingMetric.textContent = count ? `${count} waiting ${count===1?'caller':'callers'}` : 'No callers waiting';
+      const deskIncomingCount = document.getElementById('deskIncomingCount');
+      if(deskIncomingCount) deskIncomingCount.textContent = `${count} ${count===1?'CALLER':'CALLERS'} WAITING`;
       const phoneQueueCount = document.getElementById('phoneQueueCount');
       if(phoneQueueCount) phoneQueueCount.textContent = `${count} ${count===1?'CALLER':'CALLERS'} WAITING`;
       count > 0 ? callCounter.classList.add('show') : callCounter.classList.remove('show');
@@ -2662,7 +2666,7 @@ function startCallHistoryListener(){
           <div class="hist-right">
             <div class="hist-dur">${formatDur(c.duration || 0)}</div>
             <div class="hist-time">${escapeHtml(c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString() : (c.createdAt ? new Date(c.createdAt).toLocaleString() : "Date unavailable"))}</div>
-            <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+            <div class="hist-actions" style="margin-top:4px;">
               ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" target="_blank" rel="noopener">▶ Play</a>` : ''}
               ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}
               <button class="hist-delete" data-action="delete-history" data-id="${c.id}" title="Delete">🗑</button>
@@ -2723,6 +2727,7 @@ function renderSongRequests(){
   const filter = songRequestFilter?.value || 'pending';
   const pendingCount = allSongRequests.filter(r => !r.status || r.status === 'pending').length;
   updateTabNotice('songRequestsTabNotice', pendingCount, 'pending song request');
+  updateTotalMessageNotice();
   let requests = allSongRequests.filter(r => {
     const status = r.status || 'pending';
     if(filter === 'pending' && status !== 'pending') return false;
