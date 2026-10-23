@@ -633,6 +633,20 @@
   }
 
  
+  /* Broadcast-style studio phone queue */
+  .broadcast-phone-queue{margin:0 0 14px;padding:18px 20px;border:1px solid #334239;border-radius:16px;background:linear-gradient(135deg,rgba(17,25,20,.98),rgba(8,12,10,.98));box-shadow:inset 0 1px rgba(255,255,255,.035)}
+  .broadcast-queue-head{display:flex;align-items:center;justify-content:space-between;gap:18px}
+  .broadcast-queue-head h3{font-size:clamp(18px,2.5vw,24px);margin:7px 0 4px;font-weight:900;letter-spacing:-.025em}
+  .broadcast-queue-head p{margin:0;color:#aab8ae;font-size:13px;line-height:1.5}
+  .broadcast-queue-live{display:flex;align-items:center;gap:9px;white-space:nowrap;border:1px solid #38503b;border-radius:999px;padding:10px 13px;color:#b9ff9b;font-size:10px;font-weight:900;letter-spacing:.1em;background:rgba(83,252,24,.055)}
+  #callsQueue{display:flex;flex-direction:column;gap:10px}
+  #callsQueue .card{border-left:3px solid var(--green);background:linear-gradient(100deg,rgba(24,35,27,.98),rgba(13,18,15,.98))}
+  #callsQueue .card-top{align-items:center}
+  #callsQueue .card-actions .ibtn{min-height:42px}
+  .desk-line-control{align-items:center}
+  .desk-line-control>div{min-width:0}
+  .desk-line-control strong{letter-spacing:.01em}
+  @media(max-width:640px){.broadcast-queue-head{align-items:flex-start;flex-direction:column}.broadcast-queue-live{align-self:flex-start}.phone-desk-hero{grid-template-columns:minmax(0,1fr)}}
   /* Unified phone system redesign */
   .tab-nav{display:flex;gap:6px;align-items:center;overflow-x:auto;scrollbar-width:thin}
   .tab-btn{border-radius:12px 12px 0 0!important;font-weight:800;letter-spacing:.015em}
@@ -776,7 +790,7 @@
   <div class="tab-content" id="tab-queue" style="display:none;">
     <div id="emptyState" class="empty" style="display:none;">
       <div class="ic">📭</div>
-      <div>No messages waiting. The queue's clear.</div>
+      <div>No voice messages waiting.</div>
     </div>
     <div class="queue" id="queue"></div>
   </div>
@@ -828,14 +842,17 @@
         </div>
       </div>
     </section>
-    <section class="phone-desk-metrics" aria-label="Phone system overview">
-      <div class="desk-metric"><span class="metric-icon">↗</span><div><strong id="deskIncomingMetric">Live queue</strong><small>Incoming audio + video</small></div></div>
-      <div class="desk-metric"><span class="metric-icon">◉</span><div><strong>Private first</strong><small>Video is screened off-air</small></div></div>
-      <div class="desk-metric"><span class="metric-icon">▣</span><div><strong>OBS ready</strong><small>Send to broadcast when approved</small></div></div>
+    <section class="phone-desk-metrics" aria-label="Phone system status">
+      <div class="desk-metric"><span class="metric-icon">●</span><div><strong>Video &amp; Audio Guests</strong><small id="deskIncomingMetric">Waiting for callers</small></div></div>
+      <div class="desk-metric"><span class="metric-icon">☎</span><div><strong id="deskLineState">Accepting Callers</strong><small id="deskLineStateDetail">Open</small></div></div>
     </section>
-    <div class="calls-section-title" id="incomingCallsTitle" style="display:none;">
-      Incoming Calls
-    </div>
+    <section class="broadcast-phone-queue" aria-labelledby="phoneQueueTitle">
+      <div class="broadcast-queue-head">
+        <div><div class="desk-status-label">STUDIO PHONE BOARD</div><h3 id="phoneQueueTitle">Incoming Call Queue</h3><p>Audio and video callers waiting to be answered</p></div>
+        <div class="broadcast-queue-live"><span class="live-pip"></span><span id="phoneQueueCount">0 WAITING</span></div>
+      </div>
+    </section>
+    <div class="calls-section-title" id="incomingCallsTitle" style="display:none;">Incoming Calls</div>
     <section class="video-screening-panel" id="videoScreeningPanel" aria-live="polite">
       <div style="font-size:12px;font-weight:900;letter-spacing:1.4px;color:var(--green);text-transform:uppercase;">Private Guest Screening — Not On Air</div>
       <div id="screeningGuestName" style="font-size:18px;font-weight:900;margin-top:6px;">Waiting for guest…</div>
