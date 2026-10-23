@@ -64,7 +64,9 @@
     flex-wrap:wrap; gap:14px;
   }
   .brand{display:flex; align-items:center; gap:10px;}
-  .brand .bolt{color:var(--green); font-size:22px;}
+  .brand .bolt{color:var(--green); font-size:22px; background:transparent; border:0; padding:0; cursor:pointer; line-height:1; transition:transform .15s ease,filter .15s ease;}
+  .brand .bolt:hover{transform:scale(1.08);filter:drop-shadow(0 0 8px rgba(83,252,24,.55));}
+  .brand .bolt:focus-visible{outline:2px solid var(--green);outline-offset:5px;border-radius:4px;}
   .brand h1{font-size:16px; letter-spacing:1.5px; margin:0; text-transform:uppercase; font-weight:800;}
   .brand h1 span{color:var(--green);}
   .brand small{display:block; color:var(--sub); font-size:11px; letter-spacing:1px;}
@@ -735,7 +737,7 @@
 
 <header>
   <div class="brand">
-    <span class="bolt">⚡</span>
+    <button class="bolt" id="safeRefreshBtn" type="button" aria-label="Refresh dashboard safely" title="Refresh dashboard; active calls are protected">⚡</button>
     <div>
       <h1>LIVE <span>CALLER</span> STUDIO</h1>
       <small>BROADCAST CONTROL CENTER</small>
@@ -1549,6 +1551,45 @@ let screeningCallId = null;
 let screeningUnsubs = [];
 let screeningRemoteStream = null;
 
+let screeningRemoteStream = null;
+
+// The lightning button is a safe refresh, not a forced teardown. A full document
+// reload destroys this page's WebRTC peer connections, so defer it until both
+// the live call and private video screening have ended.
+let refreshAfterCall = false;
+function performDashboardRefresh(){
+  const next = new URL(window.location.href);
+  next.searchParams.set('_refresh', String(Date.now()));
+  window.location.replace(next.toString());
+}
+function refreshIsBlockedByLiveMedia(){
+  return !!(activePc || screeningPc || activeCallId || screeningCallId);
+}
+function runDeferredDashboardRefreshIfIdle(){
+  if(!refreshAfterCall || refreshIsBlockedByLiveMedia()) return;
+  refreshAfterCall = false;
+  const refreshButton = document.getElementById('safeRefreshBtn');
+  if(refreshButton){
+    refreshButton.title = 'Refreshing dashboard…';
+    refreshButton.setAttribute('aria-label','Refreshing dashboard');
+  }
+  // Let teardown finish before navigating away.
+  setTimeout(performDashboardRefresh, 300);
+}
+const safeRefreshBtn = document.getElementById('safeRefreshBtn');
+safeRefreshBtn?.addEventListener('click',()=>{
+  if(refreshIsBlockedByLiveMedia()){
+    refreshAfterCall = true;
+    safeRefreshBtn.title = 'Refresh queued — current call will not be interrupted';
+    safeRefreshBtn.setAttribute('aria-label','Refresh queued until active call ends');
+    safeRefreshBtn.style.filter = 'drop-shadow(0 0 8px rgba(83,252,24,.75))';
+    if(typeof setCallStatus === 'function') setCallStatus('Refresh queued — your active call is protected until it ends.');
+    else alert('Refresh queued. Your active call or private video screening will not be interrupted. The dashboard will refresh when the session ends.');
+    return;
+  }
+  performDashboardRefresh();
+});
+
 // DOM refs for call UI
 const activeCallPanel  = document.getElementById('activeCallPanel');
 const activeCallerName = document.getElementById('activeCallerName');
@@ -1686,6 +1727,7 @@ function cleanupActiveCall(){
   callOnAirBtn.classList.remove('live');
   activeCallPanel.style.display = 'none';
   onAirBadge.classList.remove('show');
+  runDeferredDashboardRefreshIfIdle();
 }
 
 
@@ -2293,6 +2335,7 @@ function stopVideoScreening(clearGuest = true){
   if(screeningPanel)screeningPanel.classList.remove('show');
   if(screeningStatus)screeningStatus.textContent='Private preview stopped.';
   if(clearGuest && oldId)updateDoc(doc(db,'liveCalls',oldId),{screeningSessionId:null}).catch(err=>console.warn('Could not clear screening session:',err&&err.code));
+  runDeferredDashboardRefreshIfIdle();
 }
 async function screenVideoGuest(callId){
   if(!callId)throw new Error('Missing video guest ID.');
