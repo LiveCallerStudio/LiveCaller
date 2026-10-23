@@ -68,6 +68,16 @@ assert.equal(router.programCallId, null, 'removing the program caller silences p
 assert.equal(router.getCall('caller-a'), null);
 
 assert.throws(() => router.attachTrack('caller-b', new FakeTrack('video', 'video-b')), /audio track/);
+
+// An ended track must never leave the previous caller routed to program.
+router.setProgramCall('caller-b');
+trackB.readyState = 'ended';
+assert.throws(() => router.setProgramCall('caller-b'), /no live incoming audio track/);
+assert.equal(router.programCallId, null, 'ended program track fails closed');
+assert.deepEqual([...router.calls.values()].map(call => call.programGain.gain.value), [0, 0]);
+assert.throws(() => router.setMonitorCall('caller-b'), /no live incoming audio track/);
+assert.equal(router.monitorCallId, null, 'ended monitor track is rejected');
+assert.deepEqual([...router.calls.values()].map(call => call.monitorGain.gain.value), [0, 0]);
 router.close();
 assert.equal(router.closed, true);
 assert.equal(router.calls.size, 0);
