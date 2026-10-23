@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { isActiveOverlayCallStatus } from '../lib/overlay-call-status.js';
 
 test('keeps overlay signaling alive for legacy and multi-line active statuses', () => {
-  for (const status of ['live', 'answered', 'on-air', 'on-hold', 'LIVE', ' Answered ']) {
+  for (const status of ['live', 'answered', 'on-air', 'on-hold', 'held', 'LIVE', ' Answered ']) {
     assert.equal(isActiveOverlayCallStatus(status), true, status);
   }
 });

@@ -78,7 +78,7 @@ const [a, b, c] = await Promise.all([
 ]);
 assert.deepEqual([a.lineId, b.lineId, c.lineId], [1, 2, 3]);
 assert.equal(docs.get('liveCalls/a').status, 'answered');
-assert.equal(docs.get('liveCalls/c').producerLineId, 3);
+assert.equal('producerLineId' in docs.get('liveCalls/c'), false, 'adapter must not write fields rejected by the rules schema');
 assert.equal(adapter.getSnapshot().firestoreCalls.length, 3);
 
 fakeController.callbacks.onIceCandidate({
@@ -96,14 +96,14 @@ await Promise.resolve();
 assert.deepEqual(fakeController.candidates, [{ callId: 'a', candidate: { candidate: 'incoming-a' } }]);
 
 await adapter.takeOnAir('a');
-assert.equal(docs.get('liveCalls/a').status, 'on-air');
+assert.equal(docs.get('liveCalls/a').status, 'live');
 await adapter.holdCall('b');
-assert.equal(docs.get('liveCalls/b').status, 'on-hold');
+assert.equal(docs.get('liveCalls/b').status, 'held');
 
 failNextUpdate = true;
 await assert.rejects(adapter.takeOnAir('c'), /simulated Firestore write failure/);
 assert.ok(fakeController.held.includes('c'), 'failed on-air persistence must force the selected caller back to hold');
-assert.notEqual(docs.get('liveCalls/c').status, 'on-air', 'Firestore must not falsely claim the call went on-air');
+assert.notEqual(docs.get('liveCalls/c').status, 'live', 'Firestore must not falsely claim the call went on-air');
 
 emit('liveCalls/b', { exists: () => true, data: () => ({ status: 'ended' }) });
 assert.ok(fakeController.ended.includes('b'));
