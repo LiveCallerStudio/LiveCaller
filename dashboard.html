@@ -841,7 +841,7 @@
       </div>
     </section>
     <section class="phone-desk-metrics" aria-label="Incoming audio and video callers">
-      <div class="desk-metric" id="deskIncomingMetric"><span class="metric-icon">☎</span><div><strong id="phoneQueueCount">0 CALLERS WAITING</strong><small>Incoming audio and video</small></div></div>
+      <div class="desk-metric"><span class="metric-icon">☎</span><div><strong id="deskIncomingCount">0 CALLERS WAITING</strong><small>Incoming audio and video</small></div></div>
     </section>
     <section class="broadcast-phone-queue" aria-labelledby="phoneQueueTitle">
       <div class="broadcast-queue-head">
@@ -2528,8 +2528,8 @@ function startCallsListener(){
       const ringing = calls.filter(c => c.status === 'waiting');
       const count = ringing.length;
       callCountNum.textContent = count;
-      const deskIncomingMetric = document.getElementById('deskIncomingMetric');
-      if(deskIncomingMetric) deskIncomingMetric.textContent = count ? `${count} waiting ${count===1?'caller':'callers'}` : 'No callers waiting';
+      const deskIncomingCount = document.getElementById('deskIncomingCount');
+      if(deskIncomingCount) deskIncomingCount.textContent = `${count} ${count===1?'CALLER':'CALLERS'} WAITING`;
       const phoneQueueCount = document.getElementById('phoneQueueCount');
       if(phoneQueueCount) phoneQueueCount.textContent = `${count} ${count===1?'CALLER':'CALLERS'} WAITING`;
       count > 0 ? callCounter.classList.add('show') : callCounter.classList.remove('show');
