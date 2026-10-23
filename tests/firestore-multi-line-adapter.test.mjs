@@ -126,7 +126,7 @@ const allowedCallFields = new Set([
 const allowedCallStatuses = new Set([
   'waiting', 'answered', 'held', 'live', 'ended', 'timeout', 'rejected'
 ]);
-for (const write of writes.filter(item => /^liveCalls\\/[^/]+$/.test(item.path))) {
+for (const write of writes.filter(item => item.path.split('/').length === 2 && item.path.startsWith('liveCalls/'))) {
   for (const field of Object.keys(write.data)) {
     assert.ok(allowedCallFields.has(field), `unexpected liveCalls field: ${field}`);
   }
