@@ -84,4 +84,34 @@ assert.deepEqual(failedRouteEvents, [
   ['hold', 'stale', true]
 ], 'failed program routing must attempt silence and restore hold state');
 
+
+// If switching away from an on-air caller fails, both callers must be held
+// and the program route must remain disconnected rather than restoring stale audio.
+const failedSwitchEvents = [];
+const failedSwitchManager = new MultiLineCallManager({
+  routeToProgram: id => {
+    failedSwitchEvents.push(['route', id]);
+    if (id === 'stale-next') throw new Error('Selected caller has no live incoming audio track');
+  },
+  setHoldAudio: (id, enabled) => failedSwitchEvents.push(['hold', id, enabled])
+});
+failedSwitchManager.registerCall({ callId: 'previous-on-air' });
+failedSwitchManager.registerCall({ callId: 'stale-next' });
+failedSwitchManager.markConnected(1);
+failedSwitchManager.markConnected(2);
+failedSwitchManager.takeOnAir(1);
+failedSwitchEvents.length = 0;
+assert.throws(() => failedSwitchManager.takeOnAir(2), /no live incoming audio track/);
+assert.equal(failedSwitchManager.getSnapshot().programCallId, null);
+assert.equal(failedSwitchManager.getCall(1).state, CALL_STATE.HELD);
+assert.equal(failedSwitchManager.getCall(2).state, CALL_STATE.HELD);
+assert.deepEqual(failedSwitchEvents, [
+  ['route', null],
+  ['hold', 'previous-on-air', true],
+  ['hold', 'stale-next', false],
+  ['route', 'stale-next'],
+  ['route', null],
+  ['hold', 'stale-next', true]
+], 'a failed switch must not restore the previous program caller or leave either caller unheld');
+
 console.log('three-line call manager: all tests passed');
