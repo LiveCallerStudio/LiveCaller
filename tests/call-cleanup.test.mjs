@@ -38,8 +38,14 @@ assert.match(lineRefresh, /latestCallsForCleanup[\s\S]*filter\(c => c\.status ==
   'line-board refresh must retain queued callers after the active call ends');
 assert.match(lineRefresh, /const activeLine = activePc \?/,
   'the line-board refresh must not show SCREENING when no active peer connection exists');
-assert.match(lineRefresh, /lineBank\.innerHTML/,
+assert.match(lineRefresh, /lineBank\\.innerHTML/,
   'the line-board refresh must repaint the displayed tiles');
+
+const callsListener = extractFunction('startCallsListener');
+assert.match(callsListener, /refreshPhoneLineBank\\(\\);/,
+  'Firestore snapshots must use the same line renderer as call cleanup');
+assert.doesNotMatch(callsListener, /lineBank\\.innerHTML/,
+  'snapshot rendering must not keep a second divergent copy of the phone-line template');
 
 const screening = extractFunction('stopVideoScreening');
 assert.match(screening, /screeningUnsubs\.forEach/,
