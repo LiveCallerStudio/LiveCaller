@@ -1075,6 +1075,8 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { MultiLineMediaController } from "./lib/multi-line-media-controller.js";
+import { FirestoreMultiLineAdapter } from "./lib/firestore-multi-line-adapter.js";
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
@@ -1127,6 +1129,7 @@ onAuthStateChanged(auth, async (user)=>{
     dashboardApp.style.display = 'block';
     startQueueListener();
     startSongRequestsListener();
+    ensureMultiLineController();
     startCallsListener();
     startCallHistoryListener();
     startLinesToggleListener();
@@ -1708,6 +1711,274 @@ let screeningCallId = null;
 let screeningUnsubs = [];
 let screeningRemoteStream = null;
 
+/*
+ * Production multi-line controller integration.
+ * The existing dashboard remains the only UI; no experimental panel is added.
+ * Incoming audio callers are explicitly assigned to a fixed line. The controller
+ * never routes a caller to program output until the producer presses Take On Air.
+ */
+let multiLineController = null;
+let multiLineAdapter = null;
+let multiLineOnAirCallId = null;
+const multiLineOverlayUnsubs = new Map();
+const multiLineOverlayPeers = new Map();
+
+function ensureMultiLineController(){
+  if(multiLineController && multiLineAdapter) return;
+  multiLineController = new MultiLineMediaController({
+    iceConfig,
+    onHoldState: ({callId, held}) => {
+      // Holding silences both the program route and the producer's monitor.
+      // Resuming only restores monitoring; it does NOT put the caller on air.
+      try {
+        if(held && multiLineController?.audioRouter?.monitorCallId === callId) multiLineController?.setMonitor(null);
+        else if(!held) multiLineController?.setMonitor(callId);
+      } catch(error) {
+        console.warn('Could not update multi-line monitor route:', error?.message || error);
+      }
+      // Detach this caller from the OBS relay immediately when the controller
+      // holds it. During a line switch this prevents a brief overlap while the
+      // next call's Firestore status is being saved.
+      if(held && multiLineOnAirCallId === callId){
+        multiLineOnAirCallId = null;
+        syncMultiLineOverlayTracks(callId);
+      }
+      refreshPhoneLineBank();
+    },
+    onTrack: ({callId}) => {
+      syncMultiLineOverlayTracks(callId);
+      // A caller's audio track may arrive after the SDP answer. Enable private
+      // monitoring when it exists, but never open the program route here.
+      try{
+        const line=multiLineController?.getSnapshot().lines.find(item=>item?.callId===callId);
+        if(line?.state==='connected' && multiLineController.getSnapshot().programCallId!==callId){
+          multiLineController.setMonitor(callId);
+        }
+      }catch(error){ console.debug('Caller monitor will activate when media is ready:',error?.message||error); }
+    },
+    onCallClosed: ({callId}) => {
+      cleanupMultiLineOverlayRelay(callId);
+      if(multiLineOnAirCallId === callId){
+        multiLineOnAirCallId = null;
+        setDoc(liveStateRef, {active:false, updatedAt:Date.now()}, {merge:true})
+          .catch(error=>console.warn('Could not clear on-air state after call ended:',error?.message||error));
+      }
+      refreshPhoneLineBank();
+    },
+    onConnectionState: ({callId,state}) => {
+      if(state === 'failed') console.warn('Multi-line WebRTC connection failed:',callId);
+    }
+  });
+  multiLineAdapter = new FirestoreMultiLineAdapter({
+    db,
+    controller: multiLineController,
+    doc,
+    getDoc,
+    setDoc,
+    updateDoc,
+    collection,
+    addDoc,
+    onSnapshot
+  });
+  // OBS browser sources use their own peer connection. Keep a separate relay per
+  // call so ending one caller cannot tear down another caller's relay.
+  window.addEventListener('pagehide', closeMultiLineController, {once:true});
+}
+
+function closeMultiLineController(){
+  for(const callId of [...multiLineOverlayUnsubs.keys()]) cleanupMultiLineOverlayRelay(callId);
+  try{multiLineAdapter?.close();}catch(error){console.warn('Multi-line shutdown:',error?.message||error);}
+  multiLineAdapter = null;
+  multiLineController = null;
+  multiLineOnAirCallId = null;
+}
+
+function getMultiLineSnapshot(){
+  ensureMultiLineController();
+  return multiLineAdapter.getSnapshot();
+}
+
+function getAvailableMultiLineIds(){
+  if(activePc) return [];
+  const snapshot = getMultiLineSnapshot();
+  const occupied = new Set((snapshot.lines || []).filter(line=>line?.callId).map(line=>line.lineId));
+  return [1,2,3].filter(lineId=>!occupied.has(lineId));
+}
+
+async function answerMultiLineCall(callId, callerName, callerCity, lineId){
+  ensureMultiLineController();
+  if(activePc) throw new Error('End the current video call before answering an audio line.');
+  if(![1,2,3].includes(Number(lineId))) throw new Error('Choose Line 1, Line 2, or Line 3.');
+  if(!getAvailableMultiLineIds().includes(Number(lineId))) throw new Error('That line is already occupied. Choose another available line.');
+  unlockCallerPlayback();
+  const callSnap = await getDoc(doc(db,'liveCalls',callId));
+  const callData = callSnap.data();
+  if(!callData?.offer) throw new Error('This caller is no longer available.');
+  if(callData.mediaType === 'video') throw new Error('Video calls use the existing video screening workflow.');
+  const localStream = await navigator.mediaDevices.getUserMedia({
+    audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:false,sampleRate:48000,channelCount:1},
+    video:false
+  });
+  try{
+    await multiLineAdapter.answerCall({
+      callId,
+      callerName: callerName || callData.callerName || 'Anonymous Caller',
+      mediaType:'audio',
+      localStream,
+      lineId:Number(lineId)
+    });
+    // Try to enable private monitoring now. If the remote track has not arrived
+    // yet, onTrack will enable it later; this must not fail the answered call.
+    try{multiLineController.setMonitor(callId);}catch(error){console.debug('Caller monitor pending remote audio:',error?.message||error);}
+    watchMultiLineOverlayRelay(callId);
+    refreshPhoneLineBank();
+  }catch(error){
+    for(const track of localStream.getTracks()) try{track.stop();}catch{}
+    throw error;
+  }
+}
+
+async function takeMultiLineOnAir(callId){
+  ensureMultiLineController();
+  const line = multiLineController.getSnapshot().lines.find(item=>item?.callId===callId);
+  if(!line) throw new Error('That caller no longer owns a line.');
+  await multiLineAdapter.takeOnAir(callId);
+  multiLineOnAirCallId = callId;
+  for(const activeId of multiLineController.sessions.keys()) syncMultiLineOverlayTracks(activeId);
+  const callSnap = await getDoc(doc(db,'liveCalls',callId));
+  const data = callSnap.data() || {};
+  await setDoc(liveStateRef,{
+    active:true,
+    callId,
+    name:data.callerName || line.callerName || 'Caller',
+    city:data.callerCity || '',
+    messageType:'livecall',
+    audioUrl:null,
+    updatedAt:Date.now()
+  });
+  refreshPhoneLineBank();
+}
+
+async function holdMultiLineCall(callId){
+  ensureMultiLineController();
+  const wasOnAir = multiLineOnAirCallId === callId;
+  await multiLineAdapter.holdCall(callId);
+  if(wasOnAir){
+    multiLineOnAirCallId = null;
+    syncMultiLineOverlayTracks(callId);
+    await setDoc(liveStateRef,{active:false,updatedAt:Date.now()},{merge:true});
+  }
+  refreshPhoneLineBank();
+}
+
+async function resumeMultiLineCall(callId){
+  ensureMultiLineController();
+  await multiLineAdapter.resumeCall(callId);
+  // Resume returns the caller to private monitoring only; Take On Air is separate.
+  refreshPhoneLineBank();
+}
+
+async function endMultiLineCall(callId){
+  ensureMultiLineController();
+  if(multiLineOnAirCallId === callId){
+    multiLineOnAirCallId = null;
+    syncMultiLineOverlayTracks(callId);
+    await setDoc(liveStateRef,{active:false,updatedAt:Date.now()},{merge:true});
+  }
+  await multiLineAdapter.endCall(callId);
+  cleanupMultiLineOverlayRelay(callId);
+  refreshPhoneLineBank();
+}
+
+function watchMultiLineOverlayRelay(callId){
+  if(multiLineOverlayUnsubs.has(callId)) return;
+  const unsub = onSnapshot(collection(db,'liveCalls',callId,'overlaySessions'),snap=>{
+    snap.docChanges().forEach(change=>{
+      if(change.type==='removed') return;
+      const sessionId = change.doc.id;
+      const offer = change.doc.data()?.offer;
+      const key = callId + ':' + sessionId;
+      if(!offer || multiLineOverlayPeers.has(key)) return;
+      const pc = new RTCPeerConnection(iceConfig);
+      const record = {callId,sessionId,pc,unsub:null,disconnectTimer:null};
+      multiLineOverlayPeers.set(key,record);
+      pc.onicecandidate = event=>{
+        if(event.candidate) addDoc(collection(db,'liveCalls',callId,'overlaySessions',sessionId,'dashboardCandidates'),event.candidate.toJSON()).catch(error=>console.warn('OBS relay ICE write:',error?.message||error));
+      };
+      pc.onconnectionstatechange = ()=>{
+        if(pc.connectionState==='connected'){
+          if(record.disconnectTimer){clearTimeout(record.disconnectTimer);record.disconnectTimer=null;}
+        }else if(['disconnected','failed','closed'].includes(pc.connectionState)){
+          if(record.disconnectTimer) clearTimeout(record.disconnectTimer);
+          record.disconnectTimer=setTimeout(()=>{
+            if(['disconnected','failed','closed'].includes(pc.connectionState)) cleanupMultiLineOverlayPeer(key);
+          },5000);
+        }
+      };
+      (async()=>{
+        try{
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
+          const answer=await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          await setDoc(doc(db,'liveCalls',callId,'overlaySessions',sessionId),{
+            answer:{type:answer.type,sdp:answer.sdp},
+            status:'answered',
+            updatedAt:Date.now()
+          },{merge:true});
+          record.unsub=onSnapshot(collection(db,'liveCalls',callId,'overlaySessions',sessionId,'overlayCandidates'),cs=>{
+            cs.docChanges().forEach(item=>{
+              if(item.type==='added') pc.addIceCandidate(new RTCIceCandidate(item.doc.data())).catch(error=>console.warn('OBS relay candidate:',error?.message||error));
+            });
+          });
+          syncMultiLineOverlayTracks(callId);
+        }catch(error){
+          console.error('Multi-line OBS relay setup failed:',callId,sessionId,error?.message||error);
+          cleanupMultiLineOverlayPeer(key);
+        }
+      })();
+    });
+  },error=>console.warn('Multi-line OBS relay listener:',error?.message||error));
+  multiLineOverlayUnsubs.set(callId,unsub);
+}
+
+function syncMultiLineOverlayTracks(callId){
+  if(!multiLineController) return;
+  const entry=multiLineController.sessions.get(callId);
+  const stream=entry?.session?.remoteStream;
+  if(!stream) return;
+  for(const [key,record] of multiLineOverlayPeers){
+    if(record.callId!==callId || record.pc.signalingState==='closed') continue;
+    const transceivers=record.pc.getTransceivers();
+    // Never relay screened/held callers into OBS. The producer's explicit
+    // Take On Air selection is the sole gate for caller media leaving this page.
+    const onAir = multiLineOnAirCallId === callId;
+    const audio=onAir ? (stream.getAudioTracks().find(track=>track.readyState==='live')||null) : null;
+    const video=onAir ? (stream.getVideoTracks().find(track=>track.readyState==='live')||null) : null;
+    transceivers.filter(t=>t.receiver?.track?.kind==='audio').forEach((t,index)=>{
+      try{t.direction='sendonly';t.sender.replaceTrack(index===0?audio:null).catch(error=>console.warn('OBS audio relay:',error?.message||error));}catch{}
+    });
+    transceivers.filter(t=>t.receiver?.track?.kind==='video').forEach((t,index)=>{
+      try{t.direction='sendonly';t.sender.replaceTrack(index===0?video:null).catch(error=>console.warn('OBS video relay:',error?.message||error));}catch{}
+    });
+  }
+}
+
+function cleanupMultiLineOverlayPeer(key){
+  const record=multiLineOverlayPeers.get(key);
+  if(!record) return;
+  multiLineOverlayPeers.delete(key);
+  if(record.disconnectTimer) clearTimeout(record.disconnectTimer);
+  try{record.unsub?.();}catch{}
+  try{record.pc.close();}catch{}
+}
+
+function cleanupMultiLineOverlayRelay(callId){
+  try{multiLineOverlayUnsubs.get(callId)?.();}catch{}
+  multiLineOverlayUnsubs.delete(callId);
+  for(const [key,record] of multiLineOverlayPeers) if(record.callId===callId) cleanupMultiLineOverlayPeer(key);
+}
+
+
 // The lightning button is a safe refresh, not a forced teardown. A full document
 // reload destroys this page's WebRTC peer connections, so defer it until both
 // the live call and private video screening have ended.
@@ -1718,7 +1989,8 @@ function performDashboardRefresh(){
   window.location.replace(next.toString());
 }
 function refreshIsBlockedByLiveMedia(){
-  return !!(activePc || screeningPc || activeCallId || screeningCallId);
+  return !!(activePc || screeningPc || activeCallId || screeningCallId ||
+    (multiLineController && multiLineController.sessions.size > 0));
 }
 function runDeferredDashboardRefreshIfIdle(){
   if(!refreshAfterCall || refreshIsBlockedByLiveMedia()) return;
@@ -1900,43 +2172,53 @@ function cleanupActiveCall(){
 function refreshPhoneLineBank(releasedCallId = null){
   const lineBank = document.getElementById('phoneLineBank');
   if(!lineBank) return;
-
-  const ringing = latestCallsForCleanup
-    .filter(c => c.status === 'waiting' && c.id !== releasedCallId)
-    .slice()
-    .sort((a,b) => callCreatedAtMillis(b) - callCreatedAtMillis(a));
+  // Keep queued callers visible in the existing call queue without assigning
+  // them to a line; only an explicit Answer Line action reserves a fixed slot.
+  const queuedCallers = latestCallsForCleanup.filter(c => c.status === 'waiting' && c.id !== releasedCallId);
+  let controllerLines = [];
+  try{
+    if(multiLineController && multiLineAdapter){
+      controllerLines = multiLineAdapter.getSnapshot().lines || [];
+    }
+  }catch(error){ console.warn('Could not read multi-line state:',error?.message||error); }
+  const used = new Set(controllerLines.filter(line=>line?.callId).map(line=>line.lineId));
+  // The legacy video workflow remains visible and uses the first free display tile.
   const activeLine = activePc ? {
-    id: activeCallId || 'active',
-    callerName: document.getElementById('activeCallerName')?.textContent || 'Active caller',
-    callerCity: document.getElementById('activeCallerCity')?.textContent || '',
-    mediaType: activeCallMediaType,
-    lineStatus: callIsOnHold ? 'hold' : callIsOnAir ? 'active' : 'screening'
+    lineId:[1,2,3].find(id=>!used.has(id)) || null,
+    callId:activeCallId || 'legacy-active',
+    callerName:document.getElementById('activeCallerName')?.textContent || 'Active video caller',
+    callerCity:document.getElementById('activeCallerCity')?.textContent || '',
+    state:callIsOnHold?'held':callIsOnAir?'on-air':'screening',
+    legacy:true
   } : null;
-  const boardLines = [
-    ...(activeLine ? [activeLine] : []),
-    ...ringing.slice(0, activeLine ? 2 : 3).map(c => ({...c, lineStatus:'ringing'}))
-  ];
-  const fixedLines = Array.from({length:3}, (_,index) => boardLines[index] || null);
-  lineBank.innerHTML = fixedLines.map((line,index) => {
-    if(!line) return `<div class="phone-line-tile" role="group" aria-label="Line ${index+1}, available">
-      <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(index+1).padStart(2,'0')}</span><span class="phone-line-state">AVAILABLE</span></div>
+  const byId = new Map(controllerLines.map(line=>[line.lineId,line]));
+  if(activeLine?.lineId && !byId.get(activeLine.lineId)?.callId) byId.set(activeLine.lineId,activeLine);
+  lineBank.innerHTML = [1,2,3].map(lineId=>{
+    const line=byId.get(lineId);
+    if(!line?.callId) return `<div class="phone-line-tile" role="group" aria-label="Line ${lineId}, available">
+      <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(lineId).padStart(2,'0')}</span><span class="phone-line-state">AVAILABLE</span></div>
       <div class="phone-line-name">No caller assigned</div>
-      <div class="phone-line-detail">Ready for the next queued call</div>
+      <div class="phone-line-detail">Ready for the next queued call${queuedCallers.length ? ' · ' + queuedCallers.length + ' waiting' : ''}</div>
     </div>`;
-    const status = line.lineStatus;
-    const statusLabel = status === 'active' ? 'ON AIR' : status === 'screening' ? 'SCREENING' : status === 'hold' ? 'ON HOLD' : 'RINGING';
-    const name = line.callerName || 'Anonymous Caller';
-    const city = line.callerCity || 'Location not provided';
-    const media = line.mediaType === 'video' ? 'VIDEO LINE' : 'AUDIO LINE';
-    return `<div class="phone-line-tile line-${status}" role="group" aria-label="Line ${index+1}, ${statusLabel}">
-      <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(index+1).padStart(2,'0')}</span><span class="phone-line-state"><i class="line-led led-${status}"></i>${statusLabel}</span></div>
+    const state=String(line.state || 'connected').toLowerCase();
+    const status=state==='on-air'?'active':state==='held'?'hold':state==='waiting'?'ringing':'screening';
+    const statusLabel=status==='active'?'ON AIR':status==='hold'?'ON HOLD':status==='ringing'?'RINGING':'SCREENING';
+    const name=line.callerName || line.callId || 'Caller';
+    const city=line.callerCity || '';
+    const controls=line.legacy ? '' : `<div class="phone-line-controls" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;">
+      ${state==='held' ? `<button class="ibtn ibtn-answer" data-action="multi-resume" data-id="${escapeHtml(line.callId)}">Resume</button>` : `<button class="ibtn" data-action="multi-hold" data-id="${escapeHtml(line.callId)}">Hold</button>`}
+      ${state==='on-air' ? `<button class="ibtn" data-action="multi-hold" data-id="${escapeHtml(line.callId)}">Take Off Air</button>` : `<button class="ibtn ibtn-answer" data-action="multi-air" data-id="${escapeHtml(line.callId)}">Take On Air</button>`}
+      <button class="ibtn ibtn-reject" data-action="multi-end" data-id="${escapeHtml(line.callId)}">End Call</button>
+    </div>`;
+    return `<div class="phone-line-tile line-${status}" role="group" aria-label="Line ${lineId}, ${statusLabel}">
+      <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(lineId).padStart(2,'0')}</span><span class="phone-line-state"><i class="line-led led-${status}"></i>${statusLabel}</span></div>
       <div class="phone-line-name">${escapeHtml(name)}</div>
       <div class="phone-line-detail">${escapeHtml(city)}</div>
-      <div class="phone-line-detail">${media} ${status === 'active' ? '· ON PROGRAM' : status === 'screening' ? '· PRIVATE SCREENING' : status === 'hold' ? '· HOLD AUDIO' : '· AWAITING ANSWER'}</div>
+      <div class="phone-line-detail">${line.mediaType==='video'?'VIDEO LINE':'AUDIO LINE'} · ${state==='on-air'?'ON PROGRAM':state==='held'?'HELD / SILENT':'PRIVATE MONITOR'}</div>
+      ${controls}
     </div>`;
   }).join('');
 }
-
 
 // Answer each OBS overlay offer with the caller and producer media. Set the
 // remote offer first so the answer uses its exact audio/video m-lines.
@@ -2817,6 +3099,7 @@ function startCallsListener(){
       callsEmpty.style.display = isBusy ? 'none' : 'none';
       incomingCallsTitle.style.display = 'block';
       incomingCallsTitle.textContent = 'Incoming Calls';
+      const freeMultiLineIds = getAvailableMultiLineIds();
       const renderCall = c => `
         <div class="call-card ${isBusy ? 'call-waiting-card' : ''}" data-id="${escapeHtml(c.id)}">
           <div class="call-queue-label" role="status">${isBusy ? '☎ WAITING FOR A LINE' : '☎ INCOMING CALL'}</div>
@@ -2832,8 +3115,11 @@ function startCallsListener(){
           </div>
           <div class="call-card-actions">
             ${c.mediaType === 'video' ? `<button class="ibtn ibtn-answer" data-action="video-screen" data-id="${escapeHtml(c.id)}">👁 Screen Guest</button>` : ''}
-            <button class="ibtn ibtn-answer" data-action="answer" data-id="${escapeHtml(c.id)}"
-              data-name="${escapeHtml(c.callerName||'')}" data-city="${escapeHtml(c.callerCity||'')}" ${isBusy ? 'disabled title="This caller is waiting while the active call is in progress"' : ''}>${isBusy ? '⏳ Waiting' : '✆ Answer'}</button>
+            ${c.mediaType === 'video'
+              ? `<button class="ibtn ibtn-answer" data-action="answer" data-id="${escapeHtml(c.id)}" data-name="${escapeHtml(c.callerName||'')}" data-city="${escapeHtml(c.callerCity||'')}" ${isBusy || (multiLineController && multiLineAdapter && getMultiLineSnapshot().lines.some(line=>line?.callId)) ? 'disabled title="Finish active audio/video calls before using the legacy video workflow"' : ''}>✆ Answer Video</button>`
+              : (freeMultiLineIds.length
+                  ? freeMultiLineIds.map(lineId=>`<button class="ibtn ibtn-answer" data-action="answer-line" data-line-id="${lineId}" data-id="${escapeHtml(c.id)}" data-name="${escapeHtml(c.callerName||'')}" data-city="${escapeHtml(c.callerCity||'')}">Answer Line ${lineId}</button>`).join('')
+                  : `<button class="ibtn" disabled title="All lines are occupied">All Lines Busy</button>`)}
             <button class="ibtn ibtn-reject" data-action="reject" data-id="${escapeHtml(c.id)}">✕ Reject</button>
           </div>
         </div>`;
@@ -2884,18 +3170,36 @@ document.addEventListener('click', async(e)=>{
 
 // ── Calls tab action delegation ──
 document.addEventListener('click', async(e)=>{
-  const btn = e.target.closest('[data-action="video-screen"],[data-action="answer"],[data-action="reject"]');
+  const btn = e.target.closest('[data-action="video-screen"],[data-action="answer"],[data-action="reject"],[data-action="answer-line"],[data-action="multi-air"],[data-action="multi-hold"],[data-action="multi-resume"],[data-action="multi-end"]');
   if(!btn)return;
-  const id=btn.dataset.id,name=btn.dataset.name,city=btn.dataset.city;
-  if(btn.dataset.action==='video-screen'){
+  const id=btn.dataset.id,name=btn.dataset.name,city=btn.dataset.city,action=btn.dataset.action;
+  if(action==='answer-line'){
+    btn.disabled=true;
+    try{await answerMultiLineCall(id,name,city,Number(btn.dataset.lineId));}
+    catch(err){console.error('Could not answer caller on assigned line:',err);alert('Could not answer on Line '+btn.dataset.lineId+': '+(err?.message||err));}
+    finally{btn.disabled=false;}
+    return;
+  }
+  if(action==='multi-air' || action==='multi-hold' || action==='multi-resume' || action==='multi-end'){
+    btn.disabled=true;
+    try{
+      if(action==='multi-air') await takeMultiLineOnAir(id);
+      else if(action==='multi-hold') await holdMultiLineCall(id);
+      else if(action==='multi-resume') await resumeMultiLineCall(id);
+      else await endMultiLineCall(id);
+    }catch(err){console.error('Multi-line action failed:',err);alert('Could not complete call action: '+(err?.message||err));}
+    finally{btn.disabled=false;refreshPhoneLineBank();}
+    return;
+  }
+  if(action==='video-screen'){
     btn.disabled=true;
     try{await screenVideoGuest(id);}catch(err){console.error('Private video screening failed:',err);alert('Could not screen guest: '+(err.message||'check Firestore rules and connection'));}
     finally{btn.disabled=false;}
     return;
   }
   if(screeningCallId===id)stopVideoScreening(true);
-  if(btn.dataset.action==='answer')await answerCall(id,name,city);
-  if(btn.dataset.action==='reject')await setDoc(doc(db,'liveCalls',id),{status:'rejected',screeningSessionId:null},{merge:true});
+  if(action==='answer')await answerCall(id,name,city);
+  if(action==='reject')await setDoc(doc(db,'liveCalls',id),{status:'rejected',screeningSessionId:null},{merge:true});
 });
 
 function startCallHistoryListener(){
