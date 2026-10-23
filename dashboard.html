@@ -3351,7 +3351,7 @@ function startCallHistoryListener(){
               <div class="rec-actions">
                 <audio class="rec-audio" src="${c.recordingUrl}" controls preload="none"></audio>
                 <div class="rec-btns">
-                  <a class="rbtn rbtn-save" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save Opus</a>
+                  <a class="rbtn rbtn-save" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save Original</a>
                   <button class="rbtn rbtn-save" data-action="download-recording-wav" data-id="${c.id}" data-url="${escapeHtml(c.recordingUrl)}" data-name="${escapeHtml(c.callerName || 'caller')}">⬇ WAV 48 kHz</button>
                   <button class="rbtn rbtn-del" data-action="delete-recording" data-id="${c.id}">🗑 Delete</button>
                 </div>
