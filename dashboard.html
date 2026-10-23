@@ -1894,6 +1894,7 @@ producerCameraBtn.addEventListener('click', async()=>{
     const track=stream.getVideoTracks()[0];
     if(!track) throw new Error('No camera track was returned by the browser.');
     await producerVideoSender.replaceTrack(track);
+    requestVideoQuality(activePc,650000,24).catch(()=>{});
     producerCameraStream=stream;
     producerCameraBtn.textContent='🚫 Turn Camera Off';
     producerCameraBtn.classList.add('active');
