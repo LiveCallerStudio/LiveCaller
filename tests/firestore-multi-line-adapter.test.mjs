@@ -107,5 +107,5 @@ assert.equal(adapter.calls.has('c'), true);
 adapter.close();
 assert.equal(fakeController.closed, true);
 assert.equal(adapter.calls.size, 0);
-assert.throws(() => adapter.getSnapshot().firestoreCalls.length && adapter.answerCall({ callId: 'c', localStream }), /closed/);
+await assert.rejects(adapter.answerCall({ callId: 'c', localStream }), /closed/);
 console.log('Firestore multi-line adapter: all tests passed');
