@@ -32,7 +32,7 @@ function setup() {
     RTCIceCandidate: class { constructor(value) { Object.assign(this, value); } },
     RTCSessionDescription: class { constructor(value) { Object.assign(this, value); } },
     doc: (_db, ...parts) => parts.join('/'),
-    collection: (_dbOrRef, ...parts) => parts.join('/'),
+    collection: (dbOrRef, ...parts) => typeof dbOrRef === 'string' ? [dbOrRef, ...parts].join('/') : parts.join('/'),
     setDoc: async (...args) => writes.push(args),
     addDoc: async (...args) => candidates.push(args),
     onSnapshot: (path, next) => { listeners.set(path, next); return () => listeners.delete(path); },
