@@ -5,7 +5,7 @@ import { MultiLineOverlayRelayAdapter } from '../lib/multi-line-overlay-relay-ad
 function fakeSnapshot(changes = [], data = {}, exists = true) {
   return { docChanges: () => changes, data: () => data, exists: () => exists };
 }
-function setup({ addDocError = null, rejectRemoteDescription = false, onError = error => { throw error; } } = {}) {
+function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemoteCandidate = false, onError = error => { throw error; } } = {}) {
   const listeners = new Map();
   const errorListeners = new Map();
   const writes = [];
@@ -26,7 +26,10 @@ function setup({ addDocError = null, rejectRemoteDescription = false, onError = 
       if (rejectRemoteDescription) throw new Error('invalid remote offer');
       this.remoteDescription = value;
     }
-    async addIceCandidate(value) { (this.remoteCandidates ||= []).push(value); }
+    async addIceCandidate(value) {
+      if (rejectRemoteCandidate) throw new Error('remote ICE candidate rejected');
+      (this.remoteCandidates ||= []).push(value);
+    }
     async createAnswer() { return { type: 'answer', sdp: 'v=0\\r\\nanswer' }; }
     async setLocalDescription(value) { this.localDescription = value; }
     close() { this.closed = true; this.connectionState = 'closed'; }
@@ -210,6 +213,28 @@ test('local ICE publication failure closes the relay instead of leaving it activ
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(relay.pc.closed, true);
   assert.equal(adapter.calls.get('call-local-ice-error').sessions.has('overlay-local-ice-error'), false);
+  await adapter.close();
+});
+
+
+test('rejected early remote ICE candidates close the relay and remove the session', async () => {
+  const reportedErrors = [];
+  const { adapter, listeners } = setup({
+    rejectRemoteCandidate: true,
+    onError: error => reportedErrors.push(error)
+  });
+  adapter.watchCall('call-remote-ice-error');
+  listeners.get('liveCalls/call-remote-ice-error/overlaySessions')(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-remote-ice-error', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+  }]));
+  listeners.get('liveCalls/call-remote-ice-error/overlaySessions/overlay-remote-ice-error/overlayCandidates')(fakeSnapshot([{
+    type: 'added', doc: { id: 'candidate-rejected', data: () => ({ candidate: 'invalid-candidate' }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  const call = adapter.calls.get('call-remote-ice-error');
+  assert.equal(call.sessions.has('overlay-remote-ice-error'), false);
+  assert.equal(reportedErrors.some(error => /remote ICE candidate rejected/.test(error.message)), true);
   await adapter.close();
 });
 
