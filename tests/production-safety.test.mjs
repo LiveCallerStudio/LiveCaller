@@ -25,7 +25,7 @@ assert.match(dashboard, /data-action="video-screen"/, 'video queue must offer a 
 assert.match(dashboard, /function stopVideoScreening\(/, 'producer must be able to stop the private preview independently');
 assert.match(video, /pc\.connectionState === 'failed'/, 'caller must expose failed WebRTC connections');
 assert.match(sw, /requestUrl\.origin !== self\.location\.origin/, 'service worker must not intercept third-party requests');
-assert.match(sw, /event\.request\.mode === 'navigate'/, 'offline HTML fallback must be limited to document navigations');
+assert.match(sw, /request\.mode === 'navigate'/, 'offline HTML fallback must be limited to document navigations');
 assert.match(sw, /manifest-songrequest\.json/, 'song request PWA manifest must be included in the app shell');
 assert.match(dashboard, /\$\{escapeHtml\(typeLabels\[k\]\|\|k\)\}/, 'analytics must escape untrusted message type labels');
 assert.match(dashboard, /\$\{escapeHtml\(c\.status \|\| ''\)\}/, 'call history must escape status values before HTML rendering');
