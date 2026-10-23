@@ -1085,6 +1085,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/fireba
 import { MultiLineMediaController } from "./lib/multi-line-media-controller.js";
 import { FirestoreMultiLineAdapter } from "./lib/firestore-multi-line-adapter.js";
 import { MultiLineDashboardView } from "./lib/multi-line-dashboard-view.js";
+import { MultiLineOverlayRelayAdapter } from "./lib/multi-line-overlay-relay-adapter.js";
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
@@ -1108,6 +1109,7 @@ const experimentalMultiLineEnabled = new URLSearchParams(window.location.search)
 let experimentalMultiLineController = null;
 let experimentalMultiLineAdapter = null;
 let experimentalMultiLineView = null;
+let experimentalMultiLineOverlayRelayAdapter = null;
 let experimentalMultiLineInitPromise = null;
 
 async function startExperimentalMultiLine() {
@@ -1119,17 +1121,42 @@ async function startExperimentalMultiLine() {
     const status = document.getElementById('experimentalMultiLineStatus');
     panel.style.display = 'block';
     try {
-      experimentalMultiLineController = new MultiLineMediaController({ iceConfig });
+      experimentalMultiLineController = new MultiLineMediaController({
+        iceConfig,
+        onTrack: () => {
+          experimentalMultiLineOverlayRelayAdapter?.sync().catch(error =>
+            console.warn('Experimental OBS relay audio sync failed:', error)
+          );
+        }
+      });
       experimentalMultiLineAdapter = new FirestoreMultiLineAdapter({
         db,
         controller: experimentalMultiLineController,
         doc, getDoc, setDoc, updateDoc, collection, addDoc, onSnapshot, serverTimestamp
+      });
+      experimentalMultiLineOverlayRelayAdapter = new MultiLineOverlayRelayAdapter({
+        db, controller: experimentalMultiLineController,
+        doc, setDoc, collection, addDoc, onSnapshot, iceConfig,
+        onError: error => {
+          status.textContent = 'OBS relay warning: ' + (error?.message || 'relay setup failed');
+          console.error('Experimental OBS relay:', error);
+        }
       });
       experimentalMultiLineView = new MultiLineDashboardView({
         root,
         adapter: experimentalMultiLineAdapter,
         controller: experimentalMultiLineController,
         allowOnAir: false,
+        onActionComplete: async ({ action, callId }) => {
+          try {
+            if (action === 'answer') experimentalMultiLineOverlayRelayAdapter?.watchCall(callId);
+            if (action === 'end') await experimentalMultiLineOverlayRelayAdapter?.unwatchCall(callId);
+            await experimentalMultiLineOverlayRelayAdapter?.sync();
+          } catch (error) {
+            status.textContent = 'OBS relay warning: ' + (error?.message || 'relay setup failed');
+            console.error('Experimental OBS relay action:', error);
+          }
+        },
         getLocalStream: async () => {
           if (!navigator.mediaDevices?.getUserMedia) throw new Error('Microphone access is unavailable in this browser.');
           return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -1139,7 +1166,7 @@ async function startExperimentalMultiLine() {
           console.error('Experimental multi-line console:', error);
         }
       });
-      status.textContent = 'Ready · audio calls only · OBS routing disabled';
+      status.textContent = 'Ready · isolated audio relay signaling enabled · Take On Air remains disabled pending device/OBS validation';
     } catch (error) {
       status.textContent = 'Could not start experimental console: ' + (error?.message || 'unknown error');
       console.error('Experimental multi-line startup failed:', error);
@@ -1150,8 +1177,10 @@ async function startExperimentalMultiLine() {
 
 function stopExperimentalMultiLine() {
   try { experimentalMultiLineView?.close(); } catch {}
+  try { void experimentalMultiLineOverlayRelayAdapter?.close(); } catch {}
   try { experimentalMultiLineAdapter?.close(); } catch {}
   experimentalMultiLineView = null;
+  experimentalMultiLineOverlayRelayAdapter = null;
   experimentalMultiLineAdapter = null;
   experimentalMultiLineController = null;
   experimentalMultiLineInitPromise = null;
