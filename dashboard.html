@@ -712,7 +712,7 @@
       <div class="active-call-status" id="activeCallStatus">Screening</div>
       <div id="producerVideoStage" style="display:none;position:relative;width:100%;max-width:720px;aspect-ratio:16/9;background:#050505;border:1px solid #333;border-radius:14px;overflow:hidden;margin:14px 0;">
         <video id="callerVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;background:#050505;"></video>
-        <video id="producerVideo" autoplay playsinline muted style="position:absolute;right:10px;bottom:10px;width:24%;aspect-ratio:3/4;object-fit:cover;border:2px solid var(--green);border-radius:10px;background:#111;transform:scaleX(-1);"></video>
+        <video id="producerVideo" autoplay playsinline muted style="display:none !important;"></video>
       </div>
       <div class="active-call-controls">
         <button class="cbtn cbtn-hold" id="holdBtn">⏸ Hold</button>
@@ -1672,18 +1672,21 @@ async function answerCall(callId, callerName, callerCity){
     callData = initialSnap.data();
     if(!callData || !callData.offer){alert('Could not read the incoming call offer.');return;}
     const isVideoCall = callData.mediaType === 'video';
+    // Producer camera is intentionally not requested: caller video is the
+    // guest-priority picture for screening and the OBS overlay. Producer sends audio only.
     producerStream = await navigator.mediaDevices.getUserMedia({
       audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:false, sampleRate:48000, channelCount:1 },
-      video: isVideoCall ? { facingMode:'user', width:{ideal:640,max:960}, height:{ideal:360,max:540}, frameRate:{ideal:24,max:30} } : false
+      video: false
     });
-    if(isVideoCall){producerVideo.srcObject=producerStream;producerVideoStage.style.display='block';}
+    if(isVideoCall){producerVideo.srcObject=null;producerVideoStage.style.display='block';}
   }catch(err){
     alert('Could not access the microphone'+(err && err.name==='NotAllowedError'?' or camera. Allow the requested permissions and try again.':': '+(err.message||err)));
     cleanupActiveCall();
     return;
   }
 
-  // Create peer connection and add producer audio and (for video calls) camera.
+  // Create peer connection and add producer audio only. Caller video is received
+  // for screening and the overlay; the producer camera is never part of this call.
   activePc = new RTCPeerConnection(iceConfig);
   activePc.onconnectionstatechange=()=>{
     if(!activePc)return;
@@ -1996,9 +1999,7 @@ callOnAirBtn.addEventListener('click', async()=>{
     await setDoc(activeCallRef, { status: 'live' }, { merge: true });
     const callSnap = await getDoc(activeCallRef);
     const currentCall = callSnap.data() || {};
-    // Hide the producer's local self-view while the guest is on air.
-    // This is dashboard-only; the OBS relay remains caller-video-only.
-    if(producerVideo) producerVideo.style.display = 'none';
+    // The producer camera is disabled for the entire call; publish the caller only.
     // Publish overlay state only after the parent call's live status is committed.
     await setDoc(liveStateRef, {
       active: true,
@@ -2014,7 +2015,6 @@ callOnAirBtn.addEventListener('click', async()=>{
     callOnAirBtn.classList.remove('live');
     setCallStatus('Screening — call taken off air');
     onAirBadge.classList.remove('show');
-    if(producerVideo) producerVideo.style.display = '';
     await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
     await setDoc(activeCallRef, { status: 'answered' }, { merge: true });
   }
