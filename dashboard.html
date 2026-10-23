@@ -1794,8 +1794,12 @@ function ensureMultiLineController(){
       // A caller's audio track may arrive after the SDP answer. Enable private
       // monitoring when it exists, but never open the program route here.
       try{
-        const line=multiLineController?.getSnapshot().lines.find(item=>item?.callId===callId);
-        if(line?.state==='connected' && multiLineController.getSnapshot().programCallId!==callId){
+        const snapshot=multiLineController?.getSnapshot();
+        const line=snapshot?.lines.find(item=>item?.callId===callId);
+        // Never privately monitor a second guest over the live program caller.
+        // Only auto-monitor a connected caller when the program and monitor buses
+        // are both free; Take On Air clears any prior monitor route explicitly.
+        if(line?.state==='connected' && !snapshot.programCallId && !multiLineController.audioRouter.monitorCallId){
           multiLineController.setMonitor(callId);
         }
       }catch(error){ console.debug('Caller monitor will activate when media is ready:',error?.message||error); }
@@ -1984,9 +1988,27 @@ async function answerMultiLineCall(callId, callerName, callerCity, lineId){
 
 async function takeMultiLineOnAir(callId){
   ensureMultiLineController();
-  const line = multiLineController.getSnapshot().lines.find(item=>item?.callId===callId);
+  const snapshot = multiLineController.getSnapshot();
+  const line = snapshot.lines.find(item=>item?.callId===callId);
   if(!line) throw new Error('That caller no longer owns a line.');
-  // Restore the selected caller's normal producer mic before opening the program route.
+
+  // Serialize line switching: detach the previous program caller, persist Hold,
+  // and wait until its hold loop has replaced the producer mic before opening
+  // the next caller. This avoids overlapping guest audio during the transition.
+  const previousCallId = snapshot.programCallId;
+  if(previousCallId && previousCallId !== callId){
+    await multiLineAdapter.holdCall(previousCallId);
+    await setMultiLineHoldAudio(previousCallId,true);
+    if(multiLineOnAirCallId === previousCallId){
+      multiLineOnAirCallId = null;
+      syncMultiLineOverlayTracks(previousCallId);
+      await setDoc(liveStateRef,{active:false,updatedAt:Date.now()},{merge:true});
+    }
+  }
+
+  // The monitor bus is a separate audible path; clear it before routing the
+  // selected caller to program so a monitored guest cannot be heard alongside it.
+  multiLineController.setMonitor(null);
   await setMultiLineHoldAudio(callId,false);
   await multiLineAdapter.takeOnAir(callId);
   multiLineOnAirCallId = callId;
