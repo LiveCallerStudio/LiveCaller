@@ -2172,6 +2172,9 @@ function cleanupActiveCall(){
 function refreshPhoneLineBank(releasedCallId = null){
   const lineBank = document.getElementById('phoneLineBank');
   if(!lineBank) return;
+  // Keep queued callers visible in the existing call queue without assigning
+  // them to a line; only an explicit Answer Line action reserves a fixed slot.
+  const queuedCallers = latestCallsForCleanup.filter(c => c.status === 'waiting' && c.id !== releasedCallId);
   let controllerLines = [];
   try{
     if(multiLineController && multiLineAdapter){
@@ -2195,7 +2198,7 @@ function refreshPhoneLineBank(releasedCallId = null){
     if(!line?.callId) return `<div class="phone-line-tile" role="group" aria-label="Line ${lineId}, available">
       <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(lineId).padStart(2,'0')}</span><span class="phone-line-state">AVAILABLE</span></div>
       <div class="phone-line-name">No caller assigned</div>
-      <div class="phone-line-detail">Ready for the next queued call</div>
+      <div class="phone-line-detail">Ready for the next queued call${queuedCallers.length ? ' · ' + queuedCallers.length + ' waiting' : ''}</div>
     </div>`;
     const state=String(line.state || 'connected').toLowerCase();
     const status=state==='on-air'?'active':state==='held'?'hold':state==='waiting'?'ringing':'screening';
