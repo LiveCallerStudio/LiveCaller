@@ -2580,7 +2580,6 @@ function startCallsListener(){
       }
       callsEmpty.style.display = 'none';
       incomingCallsTitle.style.display = 'block';
-      incomingCallsTitle.textContent = activePc ? 'CALL WAITING QUEUE' : 'INCOMING CALLS';
       incomingCallsTitle.textContent = activePc ? 'Call Waiting Queue' : 'Incoming Calls';
 
       callsQueue.innerHTML = ringing.map(c=>`
