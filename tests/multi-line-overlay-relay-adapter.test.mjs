@@ -92,3 +92,25 @@ test('ending a call closes its relay and unsubscribes its listeners', async () =
   assert.equal(adapter.calls.has('call-a'), false);
   assert.equal(relay.pc.closed, true);
 });
+
+test('queues early ICE candidates until the remote offer is applied and publishes local candidates', async () => {
+  const { adapter, listeners, candidates } = setup();
+  adapter.watchCall('call-ice');
+  listeners.get('liveCalls/call-ice/overlaySessions')(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-ice', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+  }]));
+  const candidateListener = listeners.get('liveCalls/call-ice/overlaySessions/overlay-ice/overlayCandidates');
+  candidateListener(fakeSnapshot([{
+    type: 'added', doc: { id: 'candidate-early', data: () => ({ candidate: 'early-candidate' }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  const relay = adapter.calls.get('call-ice').sessions.get('overlay-ice');
+  assert.deepEqual(relay.pc.remoteCandidates, [{ candidate: 'early-candidate' }]);
+  relay.pc.onicecandidate({ candidate: { toJSON: () => ({ candidate: 'local-candidate' }) } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0][0], 'liveCalls/call-ice/overlaySessions/overlay-ice/dashboardCandidates');
+  assert.deepEqual(candidates[0][1], { candidate: 'local-candidate' });
+  await adapter.close();
+});
