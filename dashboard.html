@@ -667,7 +667,9 @@
   .led-ringing{background:#ffbd4a;box-shadow:0 0 10px rgba(255,189,74,.65)}
   .led-active{background:#53fc18;box-shadow:0 0 10px rgba(83,252,24,.65)}
   .led-hold{background:#58a6ff;box-shadow:0 0 10px rgba(88,166,255,.65)}
-  .phone-line-bank{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .phone-line-bank{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .phone-line-tile.line-screening{border-color:rgba(186,140,255,.48);background:rgba(186,140,255,.07)}
+  .led-screening{background:#ba8cff;box-shadow:0 0 10px rgba(186,140,255,.55)}
   .phone-line-tile{position:relative;min-width:0;text-align:left;padding:13px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.025);color:var(--text,#fff)}
   .phone-line-tile.line-ringing{border-color:rgba(255,189,74,.5);background:rgba(255,189,74,.07)}
   .phone-line-tile.line-active{border-color:rgba(83,252,24,.45);background:rgba(83,252,24,.065)}
@@ -678,7 +680,7 @@
   .phone-line-name{font-size:14px;font-weight:900;overflow-wrap:anywhere;line-height:1.35}
   .phone-line-detail{font-size:11px;color:var(--sub);margin-top:4px;overflow-wrap:anywhere}
   .phone-line-empty{grid-column:1/-1;padding:22px;text-align:center;border:1px dashed rgba(255,255,255,.14);border-radius:10px;color:var(--sub);font-size:12px}
-  @media(max-width:640px){.phone-console-top{flex-direction:column}.phone-line-bank{grid-template-columns:repeat(2,minmax(0,1fr))}.phone-console{padding:14px}}
+  @media(max-width:640px){.phone-console-top{flex-direction:column}.phone-line-bank{grid-template-columns:1fr}.phone-console{padding:14px}}
   #callsQueue,#waitingCallsQueue{display:flex;flex-direction:column;gap:10px}
   .call-waiting-section{margin-top:18px;padding:18px;border:1px solid rgba(255,190,70,.32);border-radius:16px;background:linear-gradient(145deg,rgba(36,28,13,.38),rgba(12,16,13,.98))}
   .call-waiting-section-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:14px}
@@ -883,7 +885,8 @@
         </div>
         <div class="phone-console-legend" aria-label="Line status legend">
           <span><i class="line-led led-ringing"></i>Ringing</span>
-          <span><i class="line-led led-active"></i>Active</span>
+          <span><i class="line-led led-screening"></i>Screening</span>
+          <span><i class="line-led led-active"></i>On air</span>
           <span><i class="line-led led-hold"></i>On hold</span>
         </div>
       </div>
@@ -2680,16 +2683,22 @@ function startCallsListener(){
         callerName: document.getElementById('activeCallerName')?.textContent || 'Active caller',
         callerCity: document.getElementById('activeCallerCity')?.textContent || '',
         mediaType: activeCallMediaType,
-        lineStatus: callIsOnHold ? 'hold' : 'active'
+        lineStatus: callIsOnHold ? 'hold' : callIsOnAir ? 'active' : 'screening'
       } : null;
+      // Three visible slots are a UI limit, not three independent WebRTC sessions.
       const boardLines = [
         ...(activeLine ? [activeLine] : []),
-        ...ringing.map(c => ({...c, lineStatus:'ringing'}))
+        ...ringing.slice(0, activeLine ? 2 : 3).map(c => ({...c, lineStatus:'ringing'}))
       ];
-      lineBank.innerHTML = boardLines.length ? boardLines.map((line,index) => {
+      const fixedLines = Array.from({length:3}, (_,index) => boardLines[index] || null);
+      lineBank.innerHTML = fixedLines.map((line,index) => {
+        if (!line) return `<div class="phone-line-tile" role="group" aria-label="Line ${index+1}, available">
+          <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(index+1).padStart(2,'0')}</span><span class="phone-line-state">AVAILABLE</span></div>
+          <div class="phone-line-name">No caller assigned</div>
+          <div class="phone-line-detail">Ready for the next queued call</div>
+        </div>`;
         const status = line.lineStatus;
-        const statusLabel = status === 'active' ? 'ACTIVE' : status === 'hold' ? 'ON HOLD' : 'RINGING';
-        const icon = status === 'active' ? '🟢' : status === 'hold' ? '🔵' : '🟠';
+        const statusLabel = status === 'active' ? 'ON AIR' : status === 'screening' ? 'SCREENING' : status === 'hold' ? 'ON HOLD' : 'RINGING';
         const name = line.callerName || 'Anonymous Caller';
         const city = line.callerCity || 'Location not provided';
         const media = line.mediaType === 'video' ? 'VIDEO LINE' : 'AUDIO LINE';
@@ -2697,9 +2706,9 @@ function startCallsListener(){
           <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(index+1).padStart(2,'0')}</span><span class="phone-line-state"><i class="line-led led-${status}"></i>${statusLabel}</span></div>
           <div class="phone-line-name">${escapeHtml(name)}</div>
           <div class="phone-line-detail">${escapeHtml(city)}</div>
-          <div class="phone-line-detail">${media} ${status === 'active' ? '· ON PROGRAM CONTROL' : status === 'hold' ? '· HOLD STATE' : '· AWAITING ANSWER'}</div>
+          <div class="phone-line-detail">${media} ${status === 'active' ? '· ON PROGRAM' : status === 'screening' ? '· PRIVATE SCREENING' : status === 'hold' ? '· HOLD AUDIO' : '· AWAITING ANSWER'}</div>
         </div>`;
-      }).join('') : '<div class="phone-line-empty">☎ No callers on the board</div>';
+      }).join('');
       const waitingSection = document.getElementById('callWaitingSection');
       const waitingQueue = document.getElementById('waitingCallsQueue');
       const waitingCount = document.getElementById('callWaitingCount');
