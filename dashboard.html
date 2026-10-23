@@ -715,6 +715,7 @@
         <video id="producerVideo" autoplay playsinline muted style="display:none !important;"></video>
       </div>
       <div class="active-call-controls">
+        <button class="cbtn" id="producerCameraBtn" type="button" hidden>📷 Turn Camera On</button>
         <button class="cbtn cbtn-hold" id="holdBtn">⏸ Hold</button>
         <button class="cbtn cbtn-mute" id="micMuteBtn">🎤 Mute Mic</button>
         <button class="cbtn cbtn-record" id="recordBtn">⏺ Record</button>
@@ -1419,6 +1420,10 @@ let activeCallId = null;     // current call Firestore ID
 let activeCallRef = null;    // Firestore doc ref for current call
 let producerStream = null;   // producer mic stream
 let producerAudioSender = null; // stable sender reference, including while its track is detached
+let producerCameraStream = null; // acquired only after the producer explicitly enables the camera
+let producerVideoSender = null; // pre-negotiated video lane; caller video remains separately tracked
+let callerRemoteStreamId = null;
+let activeCallMediaType = 'audio';
 let callTimerInterval = null;
 let callSeconds = 0;
 let callIsOnAir = false;
@@ -1437,6 +1442,7 @@ const activeCallerCity = document.getElementById('activeCallerCity');
 const activeCallTimer  = document.getElementById('activeCallTimer');
 const activeCallStatus = document.getElementById('activeCallStatus');
 const holdBtn          = document.getElementById('holdBtn');
+const producerCameraBtn = document.getElementById('producerCameraBtn');
 const callOnAirBtn     = document.getElementById('callOnAirBtn');
 const endBtn           = document.getElementById('endBtn');
 const callsEmpty       = document.getElementById('callsEmpty');
@@ -1541,7 +1547,14 @@ function cleanupActiveCall(){
   stopOverlayRelayPeers();
   if(activePc){ activePc.close(); activePc = null; }
   if(producerStream){ producerStream.getTracks().forEach(t=>t.stop()); producerStream = null; }
+  if(producerCameraStream){ producerCameraStream.getTracks().forEach(t=>t.stop()); producerCameraStream = null; }
   producerAudioSender = null;
+  producerVideoSender = null;
+  callerRemoteStreamId = null;
+  activeCallMediaType = 'audio';
+  producerCameraBtn.hidden = true;
+  producerCameraBtn.textContent = '📷 Turn Camera On';
+  producerCameraBtn.classList.remove('active');
   if(callerRemoteStream){ callerRemoteStream.getTracks().forEach(t=>{try{callerRemoteStream.removeTrack(t)}catch(e){}}); callerRemoteStream=null; }
   callerAudio.srcObject = null;
   callerPlaybackSources.forEach(source=>{try{source.disconnect()}catch(e){}});
@@ -1708,7 +1721,15 @@ async function answerCall(callId, callerName, callerCity){
 
   // Keep one durable remote stream for the screening preview and the OBS overlay relay.
   callerRemoteStream = new MediaStream();
+  callerRemoteStreamId = null;
   activePc.ontrack = async (event)=>{
+    // The shared video m-line is bidirectional during video calls. Keep the
+    // caller's tracks in the screening/OBS stream and ignore the producer's
+    // separately-sourced return camera track.
+    const remoteStreamId = event.streams?.[0]?.id || null;
+    if(!callerRemoteStreamId && remoteStreamId) callerRemoteStreamId = remoteStreamId;
+    if(remoteStreamId && callerRemoteStreamId && remoteStreamId !== callerRemoteStreamId) return;
+    if(event.track.kind === 'video' && !remoteStreamId) return;
     if(!callerRemoteStream.getTracks().some(t=>t.id===event.track.id)) callerRemoteStream.addTrack(event.track);
     if(event.track.kind==='audio') routeCallerTrackToDashboard(event.track);
     overlayRelayPeers.forEach(record=>syncOverlayRelayTracks(record));
@@ -1737,6 +1758,21 @@ async function answerCall(callId, callerName, callerCity){
   if(!callData?.offer){ alert('Could not read call offer from Firestore.'); cleanupActiveCall(); return; }
 
   await activePc.setRemoteDescription(new RTCSessionDescription(callData.offer));
+
+  // For video calls, negotiate a bidirectional video lane up front. The producer
+  // camera still stays off: no camera is requested and the sender has no track
+  // until the producer explicitly taps Turn Camera On. Audio-only calls have no
+  // video m-line and never expose this control.
+  activeCallMediaType = callData.mediaType === 'video' ? 'video' : 'audio';
+  producerCameraBtn.hidden = activeCallMediaType !== 'video';
+  producerCameraBtn.textContent = '📷 Turn Camera On';
+  if(activeCallMediaType === 'video'){
+    const videoTransceiver = activePc.getTransceivers().find(t=>t.receiver?.track?.kind === 'video');
+    if(videoTransceiver && videoTransceiver.currentDirection !== 'inactive'){
+      videoTransceiver.direction = 'sendrecv';
+      producerVideoSender = videoTransceiver.sender;
+    }
+  }
 
   // 6. Create answer and set local description — ICE gathering starts here (handler already wired)
   const rawAnswer = await activePc.createAnswer();
@@ -1835,6 +1871,40 @@ function stopHoldMusic(){
 }
 
 // Hold / unhold
+
+producerCameraBtn.addEventListener('click', async()=>{
+  if(!activePc || activeCallMediaType !== 'video' || !producerVideoSender) return;
+  const enabled = !!producerCameraStream?.getVideoTracks().some(t=>t.readyState==='live');
+  if(enabled){
+    try{ await producerVideoSender.replaceTrack(null); }catch(err){ console.warn('Could not disable producer camera:',err.message||err); }
+    if(producerCameraStream){ producerCameraStream.getTracks().forEach(t=>t.stop()); producerCameraStream=null; }
+    producerCameraBtn.textContent='📷 Turn Camera On';
+    producerCameraBtn.classList.remove('active');
+    setCallStatus('Producer camera off — caller video remains selected for OBS');
+    return;
+  }
+  producerCameraBtn.disabled=true;
+  try{
+    // This is the only point where the dashboard requests camera permission.
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'user',width:{ideal:640,max:960},height:{ideal:360,max:540},frameRate:{ideal:24,max:30}},
+      audio:false
+    });
+    const track=stream.getVideoTracks()[0];
+    if(!track) throw new Error('No camera track was returned by the browser.');
+    await producerVideoSender.replaceTrack(track);
+    producerCameraStream=stream;
+    producerCameraBtn.textContent='🚫 Turn Camera Off';
+    producerCameraBtn.classList.add('active');
+    setCallStatus('Producer camera on — caller video remains selected for OBS');
+  }catch(err){
+    if(producerCameraStream){producerCameraStream.getTracks().forEach(t=>t.stop());producerCameraStream=null;}
+    setCallStatus('Could not enable camera: '+(err.message||err));
+  }finally{
+    producerCameraBtn.disabled=false;
+  }
+});
+
 holdBtn.addEventListener('click', async()=>{
   if(!activeCallRef || !activePc) return;
   callIsOnHold = !callIsOnHold;
