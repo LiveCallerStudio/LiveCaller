@@ -1855,6 +1855,7 @@ function syncOverlayRelayTracks(record){
   });
 }
 function cleanupActiveCall(){
+  const releasedCallId = activeCallId;
   // A screening teardown must never prevent the primary caller session from being released.
   if(screeningCallId){
     try{stopVideoScreening(true);}
@@ -1892,16 +1893,16 @@ function cleanupActiveCall(){
   // The calls snapshot may have rendered just before activePc was cleared.
   // Repaint the line bank now so a finished call cannot remain stuck on SCREENING
   // until another Firestore event or a manual dashboard refresh.
-  refreshPhoneLineBank();
+  refreshPhoneLineBank(releasedCallId);
   runDeferredDashboardRefreshIfIdle();
 }
 
-function refreshPhoneLineBank(){
+function refreshPhoneLineBank(releasedCallId = null){
   const lineBank = document.getElementById('phoneLineBank');
   if(!lineBank) return;
 
   const ringing = latestCallsForCleanup
-    .filter(c => c.status === 'waiting')
+    .filter(c => c.status === 'waiting' && c.id !== releasedCallId)
     .slice()
     .sort((a,b) => callCreatedAtMillis(b) - callCreatedAtMillis(a));
   const activeLine = activePc ? {
