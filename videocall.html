@@ -413,6 +413,7 @@ let guestAuthPromise = null;
 // Wait for Firebase to restore its persisted session before deciding whether
 // to create an anonymous user. Otherwise auth.currentUser can briefly be null
 // during page startup and an unnecessary second anonymous account can be made.
+// Keep this guard before any anonymous sign-in call.
 async function getOrCreateGuestUser(){
   await auth.authStateReady();
   if(auth.currentUser) return auth.currentUser;
