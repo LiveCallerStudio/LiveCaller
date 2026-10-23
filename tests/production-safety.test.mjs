@@ -57,3 +57,12 @@ assert.match(dashboard, /const onAir = multiLineOnAirCallId === callId[\s\S]*?on
 assert.match(dashboard, /function refreshIsBlockedByLiveMedia\(\)[\s\S]*?multiLineController && multiLineController\.sessions\.size > 0/, 'safe refresh must account for controller-managed live calls');
 
 console.log('production-safety checks: all passed');
+
+assert.match(dashboard, /data-song-action="played"/, 'song requests must have an explicit Mark Played action');
+assert.match(dashboard, /function toReliableDate\(/, 'call history must normalize Firestore and legacy date values safely');
+assert.match(dashboard, /startedAt: callStartTime \? new Date\(callStartTime\) : null/, 'call history must persist measured call start time');
+assert.match(dashboard, /const recorded = calls\.filter\(c => c\.recordingUrl\)/, 'recordings tab must derive its archive from realtime call history');
+assert.match(dashboard, /audioBitsPerSecond:192000/, 'call recordings should request high-bitrate audio');
+assert.match(voice, /audioBitsPerSecond:192000/, 'voice messages should request high-bitrate audio');
+assert.match(voice, /echoCancellation:true, noiseSuppression:true, autoGainControl:false, sampleRate:\{ideal:48000\}/, 'voice message capture should request echo cancellation, noise suppression, and 48 kHz');
+assert.match(voice, /downloadVoiceMessageWav/, 'voice messages must support downloading a WAV copy');
