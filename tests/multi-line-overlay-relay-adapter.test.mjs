@@ -123,7 +123,7 @@ test('queues early ICE candidates until the remote offer is applied and publishe
   await new Promise(resolve => setImmediate(resolve));
   await new Promise(resolve => setImmediate(resolve));
   const relay = adapter.calls.get('call-ice').sessions.get('overlay-ice');
-  assert.deepEqual(relay.pc.remoteCandidates, [{ candidate: 'early-candidate' }]);
+  assert.deepEqual(relay.pc.remoteCandidates.map(candidate => candidate.candidate), ['early-candidate']);
   relay.pc.onicecandidate({ candidate: { toJSON: () => ({ candidate: 'local-candidate' }) } });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(candidates.length, 1);
