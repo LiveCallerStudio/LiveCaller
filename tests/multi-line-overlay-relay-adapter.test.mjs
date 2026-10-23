@@ -155,7 +155,7 @@ test('call status subscription errors close all call relays and unsubscribe watc
   await new Promise(resolve => setImmediate(resolve));
   await new Promise(resolve => setImmediate(resolve));
   const relay = adapter.calls.get('call-status-error').sessions.get('overlay-status-error');
-  assert.throws(() => errorListeners.get('liveCalls/call-status-error')(new Error('status permission denied')), /status permission denied/);
+  errorListeners.get('liveCalls/call-status-error')(new Error('status permission denied'));
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(adapter.calls.has('call-status-error'), false);
   assert.equal(relay.pc.closed, true);
@@ -172,7 +172,7 @@ test('overlay session subscription errors close all call relays and unsubscribe 
   await new Promise(resolve => setImmediate(resolve));
   await new Promise(resolve => setImmediate(resolve));
   const relay = adapter.calls.get('call-session-error').sessions.get('overlay-session-error');
-  assert.throws(() => errorListeners.get('liveCalls/call-session-error/overlaySessions')(new Error('session permission denied')), /session permission denied/);
+  errorListeners.get('liveCalls/call-session-error/overlaySessions')(new Error('session permission denied'));
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(adapter.calls.has('call-session-error'), false);
   assert.equal(relay.pc.closed, true);
@@ -191,7 +191,7 @@ test('candidate signaling errors close the affected relay and remove its listene
   const relay = adapter.calls.get('call-error').sessions.get('overlay-error');
   const candidatePath = 'liveCalls/call-error/overlaySessions/overlay-error/overlayCandidates';
   assert.equal(typeof errorListeners.get(candidatePath), 'function');
-  assert.throws(() => errorListeners.get(candidatePath)(new Error('permission denied')), /permission denied/);
+  errorListeners.get(candidatePath)(new Error('permission denied'));
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(relay.pc.closed, true);
   assert.equal(adapter.calls.get('call-error').sessions.has('overlay-error'), false);
@@ -247,6 +247,28 @@ test('answer publication failure closes the peer before reporting the error', as
   assert.equal(reportedErrors.some(error => /answer write denied/.test(error.message)), true);
   assert.equal(closedBeforeReport, true);
   await adapter.close();
+});
+
+
+test('a throwing error reporter cannot interrupt answer failure cleanup', async () => {
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    const { adapter, listeners } = setup({
+      setDocError: new Error('answer write denied'),
+      onError: () => { throw new Error('reporter crashed'); }
+    });
+    adapter.watchCall('call-throwing-reporter');
+    listeners.get('liveCalls/call-throwing-reporter/overlaySessions')(fakeSnapshot([{
+      type: 'added', doc: { id: 'overlay-throwing-reporter', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+    }]));
+    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(adapter.calls.get('call-throwing-reporter').sessions.has('overlay-throwing-reporter'), false);
+    await adapter.close();
+  } finally {
+    console.error = originalError;
+  }
 });
 
 test('candidate listener setup failure closes the peer and removes the session', async () => {
