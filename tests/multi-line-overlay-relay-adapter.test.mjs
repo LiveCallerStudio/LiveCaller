@@ -226,10 +226,16 @@ test('local ICE publication failure closes the relay instead of leaving it activ
 
 test('answer publication failure closes the peer before reporting the error', async () => {
   const reportedErrors = [];
+  let adapterRef;
+  let closedBeforeReport = false;
   const { adapter, listeners } = setup({
     setDocError: new Error('answer write denied'),
-    onError: error => { reportedErrors.push(error); throw new Error('error reporter failed'); }
+    onError: error => {
+      reportedErrors.push(error);
+      closedBeforeReport = !adapterRef?.calls.get('call-answer-write-error')?.sessions.has('overlay-answer-write-error');
+    }
   });
+  adapterRef = adapter;
   adapter.watchCall('call-answer-write-error');
   listeners.get('liveCalls/call-answer-write-error/overlaySessions')(fakeSnapshot([{
     type: 'added', doc: { id: 'overlay-answer-write-error', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
@@ -239,6 +245,7 @@ test('answer publication failure closes the peer before reporting the error', as
   const call = adapter.calls.get('call-answer-write-error');
   assert.equal(call.sessions.has('overlay-answer-write-error'), false);
   assert.equal(reportedErrors.some(error => /answer write denied/.test(error.message)), true);
+  assert.equal(closedBeforeReport, true);
   await adapter.close();
 });
 
