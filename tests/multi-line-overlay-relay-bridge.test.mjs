@@ -75,9 +75,13 @@ test('does not route audio through a lane configured inactive even if its curren
   const { bridge, controller, track } = setup();
   controller.audioRouter.programCallId = 'selected';
   const peer = fakePeer();
-  const transceiver = peer.getTransceivers()[0];
-  transceiver.direction = 'inactive';
-  transceiver.currentDirection = 'sendonly';
+  const transceiver = {
+    direction: 'inactive',
+    currentDirection: 'sendonly',
+    receiver: { track: { kind: 'audio' } },
+    sender: peer.sender
+  };
+  peer.getTransceivers = () => [transceiver];
   await bridge.sync([{ callId: 'selected', pc: peer }]);
   assert.equal(peer.sender.track, null);
   assert.notEqual(peer.sender.track, track);
