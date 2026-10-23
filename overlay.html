@@ -66,7 +66,7 @@
   <audio id="liveAudio" autoplay playsinline></audio>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
-import { getFirestore, doc, collection, onSnapshot, addDoc, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
+import { getFirestore, doc, collection, onSnapshot, addDoc, setDoc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc',
@@ -94,6 +94,8 @@ let overlayRemoteStream = null;
 let overlayAudioStream = null;
 let overlayVideoStream = null;
 let overlayAudioSources = new Set();
+let overlayReconnectTimer = null;
+let overlayReconnectAttempts = 0;
 const iceConfig = { iceServers: [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
@@ -101,7 +103,9 @@ const iceConfig = { iceServers: [
   { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
   { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
 ] };
-function stopOverlayCallAudio(){
+function stopOverlayCallAudio(resetRetry=true){
+  if(overlayReconnectTimer){ clearTimeout(overlayReconnectTimer); overlayReconnectTimer=null; }
+  if(resetRetry) overlayReconnectAttempts=0;
   overlayCallUnsubs.forEach(unsub=>{try{unsub()}catch(e){}}); overlayCallUnsubs=[];
   if(overlayCallPc){try{overlayCallPc.close()}catch(e){} overlayCallPc=null;}
   overlayCallSessionRef=null; activeCallId=''; overlayRemoteStream=null; overlayAudioStream=null; overlayVideoStream=null;
@@ -109,11 +113,31 @@ function stopOverlayCallAudio(){
   liveAudio.pause(); liveAudio.srcObject=null; liveAudio.removeAttribute('src'); liveAudio.muted=false; liveAudio.volume=1; currentAudioUrl='';
   guestVideo.pause(); guestVideo.srcObject=null; guestVideo.muted=true; guestVideo.classList.remove('show');
 }
+function scheduleOverlayReconnect(callId, collectionName, isVideo){
+  if(overlayReconnectTimer || overlayReconnectAttempts >= 2 || !activeCallId) return;
+  overlayReconnectAttempts++;
+  fallback.textContent='CALL CONNECTION INTERRUPTED • RETRY '+overlayReconnectAttempts+'/2';
+  overlayReconnectTimer=setTimeout(()=>{
+    overlayReconnectTimer=null;
+    if(activeCallId===callId){
+      connectOverlayCallAudio(callId, collectionName, isVideo)
+        .catch(err=>showError('OBS reconnect failed: '+(err.code||err.message||'connection failed')));
+    }
+  }, 2500);
+}
+
 async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVideo=false){
   if(!callId) return;
+  // Never let stale broadcast state revive a call whose parent status has ended.
+  const parentSnap = await getDoc(doc(db, collectionName, callId));
+  if(!parentSnap.exists() || parentSnap.data()?.status !== 'live'){
+    stopOverlayCallAudio();
+    render({active:false});
+    return;
+  }
   // Reuse a healthy connection, but allow a failed connection to be retried.
   if(callId===activeCallId && overlayCallPc && ['connected','connecting'].includes(overlayCallPc.connectionState)) return;
-  stopOverlayCallAudio();
+  stopOverlayCallAudio(false);
   activeCallId=callId;
   const sessionId = (crypto.randomUUID ? crypto.randomUUID() : 'overlay-'+Date.now()+'-'+Math.random().toString(36).slice(2));
   const sessionRef = doc(db,collectionName,callId,'overlaySessions',sessionId);
@@ -168,19 +192,35 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
   pc.onconnectionstatechange=()=>{
     if(overlayCallPc!==pc) return;
     if(pc.connectionState==='connected'){
+      if(overlayReconnectTimer){ clearTimeout(overlayReconnectTimer); overlayReconnectTimer=null; }
+      overlayReconnectAttempts=0;
       const hasAudio=!!(overlayAudioStream && overlayAudioStream.getAudioTracks().some(t=>t.readyState==='live'));
       fallback.textContent=hasAudio
         ? (isVideo?'VIDEO CALL • AUDIO CONNECTED':'AUDIO CALL • AUDIO CONNECTED')
         : (isVideo?'VIDEO CALL SIGNAL CONNECTED • WAITING FOR AUDIO TRACK':'AUDIO SIGNAL CONNECTED • WAITING FOR AUDIO TRACK');
       fallback.classList.remove('error');
     } else if(pc.connectionState==='failed' || pc.connectionState==='disconnected') {
-      showError('WebRTC '+pc.connectionState+' — check guest connection and TURN/ICE');
+      fallback.textContent='CALL CONNECTION INTERRUPTED • ATTEMPTING TO RECONNECT';
+      scheduleOverlayReconnect(callId, collectionName, isVideo);
     }
   };
   pc.oniceconnectionstatechange=()=>{
-    if(overlayCallPc===pc && ['failed','disconnected'].includes(pc.iceConnectionState)) showError('ICE '+pc.iceConnectionState+' — media path unavailable');
+    if(overlayCallPc===pc && ['failed','disconnected'].includes(pc.iceConnectionState)){
+      fallback.textContent='ICE '+pc.iceConnectionState.toUpperCase()+' • ATTEMPTING TO RECONNECT';
+      scheduleOverlayReconnect(callId, collectionName, isVideo);
+    }
   };
   pc.onicecandidate = (event)=>{ if(event.candidate) addDoc(collection(sessionRef,'overlayCandidates'),event.candidate.toJSON()).catch(err=>showError(err.code||'ICE write failed')); };
+  // End the OBS relay immediately when the actual call ends, even if hotlineLive
+  // failed to update. Only a live parent call may keep caller media on air.
+  overlayCallUnsubs.push(onSnapshot(doc(db, collectionName, callId), snap=>{
+    if(overlayCallPc!==pc) return;
+    if(snap.data()?.status !== 'live'){
+      stopOverlayCallAudio();
+      render({active:false});
+    }
+  }, err=>showError('Call status listener: '+(err.code||err.message||'read failed'))));
+
   // Subscribe before publishing the offer so fast answers/candidates are not missed.
   overlayCallUnsubs.push(onSnapshot(sessionRef, async snap=>{
     const data=snap.data(); if(!data || !data.answer || remoteSet || overlayCallPc!==pc) return;
@@ -321,14 +361,17 @@ try {
   function watchWaitingCalls(collectionName, kind) {
     let firstSnapshot = true;
     const previousStatuses = new Map();
+    const matchesKind = data => kind === 'video'
+      ? data.mediaType === 'video'
+      : data.mediaType !== 'video';
     onSnapshot(collection(db, collectionName), snapshot => {
-      const waiting = snapshot.docs.filter(d => d.data().status === 'waiting');
+      const waiting = snapshot.docs.filter(d => d.data().status === 'waiting' && matchesKind(d.data()));
       updateTypeCounter(kind, waiting.length);
       if (!firstSnapshot) {
         snapshot.docChanges().forEach(change => {
           const data = change.doc.data();
           const oldStatus = previousStatuses.get(change.doc.id);
-          if (data.status === 'waiting' && (change.type === 'added' || oldStatus !== 'waiting')) {
+          if (matchesKind(data) && data.status === 'waiting' && (change.type === 'added' || oldStatus !== 'waiting')) {
             notifyIncoming(kind, clean(data.callerName || (kind === 'video' ? 'Video guest' : 'Caller'), 60));
           }
         });
@@ -337,8 +380,9 @@ try {
       firstSnapshot = false;
     }, err => showError((kind === 'video' ? 'Video' : 'Audio call') + ' counter: ' + (err.code || err.message || 'read failed')));
   }
+  // Audio and video calls both use liveCalls. Do not watch the retired videoCalls collection.
   watchWaitingCalls('liveCalls', 'audio');
-  watchWaitingCalls('videoCalls', 'video');
+  watchWaitingCalls('liveCalls', 'video');
   onSnapshot(doc(db,'hotlineLive','nowPlaying'), snap => {
     fallback.textContent='LIVE CALLER STUDIO • CONNECTED';
     fallback.classList.remove('error');
