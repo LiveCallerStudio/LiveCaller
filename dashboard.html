@@ -889,8 +889,6 @@
   <!-- SONG REQUESTS TAB -->
   <div class="tab-content" id="tab-songrequests" style="display:none;">
     <div class="analytics-section">
-      <h2 class="section-title">Song Request Queue</h2>
-      <p style="color:var(--sub);font-size:13px;margin:0 0 16px;">Requests submitted from the public Song Request page appear here live. Mark songs as played when you're done.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
         <input class="search" id="songRequestSearch" aria-label="Search song requests" placeholder="Search artist, song, name, city…" style="flex:1;min-width:190px;width:auto;">
         <select id="songRequestFilter" aria-label="Filter song requests">
@@ -2578,6 +2576,7 @@ function startCallsListener(){
       }
       callsEmpty.style.display = 'none';
       incomingCallsTitle.style.display = ringing.length > 0 ? 'block' : 'none';
+      incomingCallsTitle.textContent = activePc ? 'Call Waiting Queue' : 'Incoming Calls';
 
       callsQueue.innerHTML = ringing.map(c=>`
         <div class="call-card ${activePc ? 'call-waiting-card' : ''}" data-id="${escapeHtml(c.id)}">
