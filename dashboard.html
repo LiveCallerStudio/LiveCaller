@@ -1618,6 +1618,8 @@ function watchOverlayRelaySessions(callId){
           syncOverlayRelayTracks(record);
           const answer=await pc.createAnswer();
           await pc.setLocalDescription(answer);
+          // The relay forwards caller audio to OBS; request high-quality Opus on this sender too.
+          await requestAudioBitrate(pc, 192000);
           await setDoc(sessionRef,{answer:{type:answer.type,sdp:answer.sdp},updatedAt:Date.now()},{merge:true});
         }catch(err){
           console.error('Could not answer OBS overlay audio/video offer:',err);
@@ -1630,7 +1632,7 @@ function watchOverlayRelaySessions(callId){
   },err=>console.warn('Overlay session listener:',err.code||err.message));
 }
 
-function tuneOpusSdp(sdp, bitrate = 128000){
+function tuneOpusSdp(sdp, bitrate = 192000){
   if(!sdp) return sdp;
   const lines=sdp.split(/\r?\n/);
   const start=lines.findIndex(line=>line.startsWith('m=audio '));
@@ -1651,7 +1653,7 @@ function tuneOpusSdp(sdp, bitrate = 128000){
   lines.splice(start,end-start,...section);
   return lines.join('\r\n');
 }
-async function requestAudioBitrate(peer, bitrate = 128000){
+async function requestAudioBitrate(peer, bitrate = 192000){
   for(const sender of peer.getSenders()){
     if(sender.track?.kind!=='audio') continue;
     try{
