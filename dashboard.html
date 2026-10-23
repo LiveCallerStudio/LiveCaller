@@ -1997,9 +1997,13 @@ callOnAirBtn.addEventListener('click', async()=>{
     callOnAirBtn.classList.add('live');
     setCallStatus('ON AIR — Live Call Broadcasting', 'on-air');
     onAirBadge.classList.add('show');
-    // Tell overlay to show live call lower-third (visual only — no audio URL)
+    // Mark the call live first. The OBS overlay watches hotlineLive and may
+    // immediately create a WebRTC session; Firestore rules require the parent
+    // liveCalls document to already have status === 'live' at that moment.
+    await setDoc(activeCallRef, { status: 'live' }, { merge: true });
     const callSnap = await getDoc(activeCallRef);
     const currentCall = callSnap.data() || {};
+    // Publish overlay state only after the parent call's live status is committed.
     await setDoc(liveStateRef, {
       active: true,
       callId: activeCallId,
@@ -2009,7 +2013,6 @@ callOnAirBtn.addEventListener('click', async()=>{
       audioUrl: null,
       updatedAt: Date.now()
     });
-    await setDoc(activeCallRef, { status: 'live' }, { merge: true });
   } else {
     callOnAirBtn.textContent = '🔴 Send On Air';
     callOnAirBtn.classList.remove('live');
