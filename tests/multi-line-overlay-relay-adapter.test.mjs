@@ -1,0 +1,94 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { MultiLineOverlayRelayAdapter } from '../lib/multi-line-overlay-relay-adapter.js';
+
+function fakeSnapshot(changes = [], data = {}, exists = true) {
+  return { docChanges: () => changes, data: () => data, exists: () => exists };
+}
+function setup() {
+  const listeners = new Map();
+  const writes = [];
+  const candidates = [];
+  const audioTrack = { kind: 'audio', readyState: 'live', id: 'program' };
+  const controller = { audioRouter: { programCallId: null, getProgramStream: () => ({ getAudioTracks: () => [audioTrack] }) } };
+  class Peer {
+    constructor() {
+      this.signalingState = 'stable'; this.connectionState = 'new'; this.transceivers = [
+        { receiver: { track: { kind: 'audio' } }, sender: { track: null, async replaceTrack(track) { this.track = track; } } },
+        { receiver: { track: { kind: 'video' } }, sender: { track: null, async replaceTrack(track) { this.track = track; } } }
+      ];
+      this.closed = false;
+    }
+    getTransceivers() { return this.transceivers; }
+    getSenders() { return this.transceivers.map(t => t.sender); }
+    async setRemoteDescription(value) { this.remoteDescription = value; }
+    async addIceCandidate(value) { (this.remoteCandidates ||= []).push(value); }
+    async createAnswer() { return { type: 'answer', sdp: 'v=0\\r\\nanswer' }; }
+    async setLocalDescription(value) { this.localDescription = value; }
+    close() { this.closed = true; this.connectionState = 'closed'; }
+  }
+  const adapter = new MultiLineOverlayRelayAdapter({
+    db: {}, controller, iceConfig: [], RTCPeerConnection: Peer,
+    RTCIceCandidate: class { constructor(value) { Object.assign(this, value); } },
+    RTCSessionDescription: class { constructor(value) { Object.assign(this, value); } },
+    doc: (_db, ...parts) => parts.join('/'),
+    collection: (_dbOrRef, ...parts) => parts.join('/'),
+    setDoc: async (...args) => writes.push(args),
+    addDoc: async (...args) => candidates.push(args),
+    onSnapshot: (path, next) => { listeners.set(path, next); return () => listeners.delete(path); },
+    onError: error => { throw error; }
+  });
+  return { adapter, listeners, writes, candidates, controller, audioTrack };
+}
+
+test('watches a call, answers overlay offers, and silences relay while no call is selected', async () => {
+  const { adapter, listeners, writes } = setup();
+  adapter.watchCall('call-a');
+  const path = 'liveCalls/call-a/overlaySessions';
+  listeners.get(path)(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-1', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0][1].answer.type, 'answer');
+  const relay = adapter.calls.get('call-a').sessions.get('overlay-1');
+  assert.equal(relay.pc.transceivers[0].direction, 'sendonly');
+  assert.equal(relay.pc.transceivers[1].direction, 'inactive');
+  assert.equal(relay.pc.transceivers[0].sender.track, null);
+  await adapter.close();
+  assert.equal(relay.pc.closed, true);
+});
+
+test('selected program audio is routed only to the matching call overlay', async () => {
+  const { adapter, listeners, controller, audioTrack } = setup();
+  adapter.watchCall('call-a');
+  adapter.watchCall('call-b');
+  for (const callId of ['call-a', 'call-b']) {
+    listeners.get(`liveCalls/${callId}/overlaySessions`)(fakeSnapshot([{
+      type: 'added', doc: { id: 'overlay', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+    }]));
+  }
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  controller.audioRouter.programCallId = 'call-b';
+  await adapter.sync();
+  assert.equal(adapter.calls.get('call-a').sessions.get('overlay').pc.transceivers[0].sender.track, null);
+  assert.equal(adapter.calls.get('call-b').sessions.get('overlay').pc.transceivers[0].sender.track, audioTrack);
+  await adapter.close();
+});
+
+test('ending a call closes its relay and unsubscribes its listeners', async () => {
+  const { adapter, listeners } = setup();
+  adapter.watchCall('call-a');
+  listeners.get('liveCalls/call-a/overlaySessions')(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  const relay = adapter.calls.get('call-a').sessions.get('overlay');
+  listeners.get('liveCalls/call-a')?.(fakeSnapshot([], { status: 'ended' }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(adapter.calls.has('call-a'), false);
+  assert.equal(relay.pc.closed, true);
+});
