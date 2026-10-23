@@ -667,6 +667,10 @@
   .phone-console-mic{border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:9px 12px;background:rgba(255,255,255,.06);color:var(--text);font-size:11px;font-weight:900;cursor:pointer}
   .phone-console-mic[aria-pressed="true"]{border-color:var(--red);background:rgba(255,59,59,.15);color:#ff8b84}
   .phone-console-mic:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+  .phone-console-hold-source{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;justify-content:flex-end}
+  .phone-console-hold-source label{font-size:10px;color:var(--sub);font-weight:800}
+  .phone-console-hold-source input[type=file]{max-width:210px;color:var(--sub);font-size:10px}
+  .phone-console-hold-status{font-size:10px;color:var(--sub);max-width:220px}
   .line-led{display:inline-block;width:8px;height:8px;border-radius:50%;background:#69727b;box-shadow:0 0 0 3px rgba(255,255,255,.04)}
   .led-ringing{background:#ffbd4a;box-shadow:0 0 10px rgba(255,189,74,.65)}
   .led-active{background:#53fc18;box-shadow:0 0 10px rgba(83,252,24,.65)}
@@ -896,6 +900,11 @@
           </div>
           <div class="phone-console-tools">
             <button type="button" class="phone-console-mic" id="multiLineMicMuteBtn" aria-pressed="false" title="Mute or unmute the studio microphone sent to callers">🎤 Studio Mic: LIVE</button>
+          </div>
+          <div class="phone-console-hold-source">
+            <label for="multiLineHoldAudioFile">HOLD AUDIO LOOP</label>
+            <input type="file" id="multiLineHoldAudioFile" accept="audio/*" aria-describedby="multiLineHoldAudioStatus">
+            <span class="phone-console-hold-status" id="multiLineHoldAudioStatus">Built-in hold tone · upload a loop to customize</span>
           </div>
         </div>
       </div>
@@ -1746,6 +1755,9 @@ let multiLineController = null;
 let multiLineAdapter = null;
 let multiLineOnAirCallId = null;
 let multiLineMicMuted = false;
+let multiLineHoldAudioBuffer = null;
+const multiLineHoldSources = new Map();
+const multiLineHoldTransitions = new Map();
 const multiLineOverlayUnsubs = new Map();
 const multiLineOverlayPeers = new Map();
 
@@ -1754,6 +1766,12 @@ function ensureMultiLineController(){
   multiLineController = new MultiLineMediaController({
     iceConfig,
     onHoldState: ({callId, held}) => {
+      // Immediately disable the producer microphone before async hold-track replacement.
+      if(held){
+        const mic=multiLineController?.sessions.get(callId)?.localStream?.getAudioTracks?.()[0];
+        if(mic) mic.enabled=false;
+      }
+      setMultiLineHoldAudio(callId,held).catch(error=>console.warn('Could not switch multi-line hold audio:',error?.message||error));
       // Holding silences both the program route and the producer's monitor.
       // Resuming only restores monitoring; it does NOT put the caller on air.
       try {
@@ -1783,6 +1801,7 @@ function ensureMultiLineController(){
       }catch(error){ console.debug('Caller monitor will activate when media is ready:',error?.message||error); }
     },
     onCallClosed: ({callId}) => {
+      stopMultiLineHoldSource(callId);
       cleanupMultiLineOverlayRelay(callId);
       if(multiLineOnAirCallId === callId){
         multiLineOnAirCallId = null;
@@ -1835,7 +1854,8 @@ function setMultiLineMicMuted(muted){
   multiLineMicMuted=!!muted;
   if(multiLineController){
     for(const entry of multiLineController.sessions.values()){
-      for(const track of entry.localStream?.getAudioTracks?.()||[]) track.enabled=!multiLineMicMuted;
+      const mic=entry.localStream?.getAudioTracks?.()[0];
+      if(mic) mic.enabled=!multiLineMicMuted && !multiLineHoldSources.has(entry.callId);
     }
   }
   const button=document.getElementById('multiLineMicMuteBtn');
@@ -1846,6 +1866,86 @@ function setMultiLineMicMuted(muted){
   }
   return multiLineMicMuted;
 }
+
+function stopMultiLineHoldSource(callId){
+  const source=multiLineHoldSources.get(callId);
+  if(!source) return;
+  multiLineHoldSources.delete(callId);
+  if(source.timer) clearTimeout(source.timer);
+  try{source.bufferSource?.stop();}catch{}
+  try{source.track?.stop();}catch{}
+  try{source.context?.close().catch(()=>{});}catch{}
+}
+
+function createMultiLineHoldSource(callId){
+  const Context=window.AudioContext||window.webkitAudioContext;
+  if(!Context) throw new Error('This browser does not support hold audio.');
+  const context=new Context();
+  const destination=context.createMediaStreamDestination();
+  const record={context,destination,track:destination.stream.getAudioTracks()[0],bufferSource:null,timer:null};
+  if(!record.track){context.close().catch(()=>{});throw new Error('Could not create a hold-audio track.');}
+  if(multiLineHoldAudioBuffer){
+    const source=context.createBufferSource();
+    source.buffer=multiLineHoldAudioBuffer;
+    source.loop=true;
+    const gain=context.createGain();
+    gain.gain.value=0.72;
+    source.connect(gain);gain.connect(destination);source.start();
+    record.bufferSource=source;
+  }else{
+    // Safe fallback when no station loop has been uploaded: a quiet, repeating
+    // synthesized sequence. It is sent only to the held caller, never to OBS.
+    const notes=[261.63,329.63,392.00,523.25,392.00,329.63,293.66,349.23];
+    let index=0;
+    const tick=()=>{
+      if(!multiLineHoldSources.has(callId)) return;
+      const osc=context.createOscillator();const env=context.createGain();
+      osc.type='sine';osc.frequency.value=notes[index++%notes.length];
+      env.gain.setValueAtTime(0.0001,context.currentTime);
+      env.gain.linearRampToValueAtTime(0.045,context.currentTime+0.04);
+      env.gain.exponentialRampToValueAtTime(0.0001,context.currentTime+0.48);
+      osc.connect(env);env.connect(destination);osc.start();osc.stop(context.currentTime+0.5);
+      record.timer=setTimeout(tick,620);
+    };
+    record.tick=tick;
+  }
+  multiLineHoldSources.set(callId,record);
+  if(record.tick) record.tick();
+  return record;
+}
+
+async function setMultiLineHoldAudio(callId,held){
+  const entry=multiLineController?.sessions.get(callId);
+  if(!entry) return;
+  const existing=multiLineHoldTransitions.get(callId);
+  if(existing) await existing;
+  const current=multiLineHoldSources.get(callId);
+  const mic=entry.localStream?.getAudioTracks?.()[0]||null;
+  if(held && current && entry.session.senders.get('audio')?.track===current.track) return;
+  if(!held && !current){
+    if(mic) mic.enabled=!multiLineMicMuted;
+    if(mic && entry.session.senders.get('audio')?.track!==mic) await entry.session.replaceTrack('audio',mic);
+    return;
+  }
+  const task=(async()=>{
+    if(held){
+      // Mute the microphone synchronously before replacing the sender track.
+      if(mic) mic.enabled=false;
+      const source=current||createMultiLineHoldSource(callId);
+      if(contextIsSuspended(source.context)) await source.context.resume().catch(()=>{});
+      try{await entry.session.replaceTrack('audio',source.track);}
+      catch(error){stopMultiLineHoldSource(callId);throw error;}
+    }else{
+      if(mic) mic.enabled=!multiLineMicMuted;
+      if(mic) await entry.session.replaceTrack('audio',mic);
+      stopMultiLineHoldSource(callId);
+    }
+  })();
+  multiLineHoldTransitions.set(callId,task);
+  try{await task;}finally{if(multiLineHoldTransitions.get(callId)===task)multiLineHoldTransitions.delete(callId);}
+}
+
+function contextIsSuspended(context){return context?.state==='suspended';}
 
 async function answerMultiLineCall(callId, callerName, callerCity, lineId){
   ensureMultiLineController();
@@ -1886,6 +1986,8 @@ async function takeMultiLineOnAir(callId){
   ensureMultiLineController();
   const line = multiLineController.getSnapshot().lines.find(item=>item?.callId===callId);
   if(!line) throw new Error('That caller no longer owns a line.');
+  // Restore the selected caller's normal producer mic before opening the program route.
+  await setMultiLineHoldAudio(callId,false);
   await multiLineAdapter.takeOnAir(callId);
   multiLineOnAirCallId = callId;
   for(const activeId of multiLineController.sessions.keys()) syncMultiLineOverlayTracks(activeId);
@@ -1907,6 +2009,8 @@ async function holdMultiLineCall(callId){
   ensureMultiLineController();
   const wasOnAir = multiLineOnAirCallId === callId;
   await multiLineAdapter.holdCall(callId);
+  // Ensure the hold source is actually attached before reporting success to the UI.
+  await setMultiLineHoldAudio(callId,true);
   if(wasOnAir){
     multiLineOnAirCallId = null;
     syncMultiLineOverlayTracks(callId);
@@ -3336,6 +3440,26 @@ document.addEventListener('click', async(e)=>{
 
 // ── Calls tab action delegation ──
 document.getElementById('multiLineMicMuteBtn')?.addEventListener('click',()=>setMultiLineMicMuted(!multiLineMicMuted));
+document.getElementById('multiLineHoldAudioFile')?.addEventListener('change',async event=>{
+  const file=event.target.files?.[0];
+  const status=document.getElementById('multiLineHoldAudioStatus');
+  if(!file) return;
+  if(!file.type.startsWith('audio/')){if(status)status.textContent='Choose a valid audio file.';event.target.value='';return;}
+  if(file.size>25*1024*1024){if(status)status.textContent='Audio loop must be 25 MB or smaller.';event.target.value='';return;}
+  if(status)status.textContent='Loading hold loop…';
+  let context;
+  try{
+    const Context=window.AudioContext||window.webkitAudioContext;
+    if(!Context) throw new Error('Web Audio is unavailable in this browser.');
+    context=new Context();
+    multiLineHoldAudioBuffer=await context.decodeAudioData(await file.arrayBuffer());
+    if(status)status.textContent='Loaded: '+file.name+' · loops for held callers';
+  }catch(error){
+    multiLineHoldAudioBuffer=null;
+    if(status)status.textContent='Could not load audio. Built-in hold tone remains available.';
+    console.warn('Could not decode multi-line hold audio:',error?.message||error);
+  }finally{try{await context?.close();}catch{}}
+});
 
 document.addEventListener('click', async(e)=>{
   const btn = e.target.closest('[data-action="video-screen"],[data-action="answer"],[data-action="reject"],[data-action="answer-line"],[data-action="multi-air"],[data-action="multi-hold"],[data-action="multi-resume"],[data-action="multi-end"]');

@@ -63,6 +63,13 @@ assert.match(dashboard, /localStream\.getAudioTracks\(\)\.forEach\(track=>\{trac
 assert.match(dashboard, /const ringingByLine = new Map\(\)[\s\S]*?class="phone-line-tile line-ringing"/, 'waiting callers must light available virtual line tiles before answer');
 assert.match(dashboard, /data-action="answer-line" data-line-id="\$\{lineId\}"/, 'ringing line tiles must offer explicit line selection');
 
+assert.match(dashboard, /id="multiLineHoldAudioFile" accept="audio\/\*"/, 'multi-line phone console must allow a local prerecorded hold loop');
+assert.match(dashboard, /async function setMultiLineHoldAudio\(callId,held\)[\s\S]*?entry\.session\.replaceTrack\('audio',source\.track\)/, 'held callers must receive the hold-audio track instead of the producer microphone');
+assert.match(dashboard, /if\(mic\) mic\.enabled=false;[\s\S]*?entry\.session\.replaceTrack\('audio',source\.track\)/, 'producer microphone must be muted before hold-track replacement');
+assert.match(dashboard, /await setMultiLineHoldAudio\(callId,false\);\s*await multiLineAdapter\.takeOnAir\(callId\)/, 'hold audio must be removed before the selected caller is routed on air');
+assert.match(dashboard, /const onAir = multiLineOnAirCallId === callId;[\s\S]*?const audio=onAir \? \(stream\.getAudioTracks\(\)/, 'OBS relay must continue to use only the selected caller remote stream, never local hold audio');
+assert.match(dashboard, /if\(source\.timer\) clearTimeout\(source\.timer\)[\s\S]*?source\.context\?\.close/, 'per-line hold audio resources must be cleaned up');
+
 console.log('production-safety checks: all passed');
 
 assert.match(dashboard, /data-song-action="played"/, 'song requests must have an explicit Mark Played action');
