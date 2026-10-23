@@ -114,4 +114,27 @@ assert.deepEqual(failedSwitchEvents, [
   ['hold', 'stale-next', true]
 ], 'a failed switch must not restore the previous program caller or leave either caller unheld');
 
+
+// A failure while disabling hold audio is also a failed on-air attempt.
+// The route adapter must never be called after that failure.
+const holdFailureEvents = [];
+const holdFailureManager = new MultiLineCallManager({
+  routeToProgram: id => holdFailureEvents.push(['route', id]),
+  setHoldAudio: (id, enabled) => {
+    holdFailureEvents.push(['hold', id, enabled]);
+    if (id === 'hold-failure' && enabled === false) throw new Error('Hold audio adapter unavailable');
+  }
+});
+holdFailureManager.registerCall({ callId: 'hold-failure' });
+holdFailureManager.markConnected(1);
+assert.throws(() => holdFailureManager.takeOnAir(1), /Hold audio adapter unavailable/);
+assert.equal(holdFailureManager.getSnapshot().programCallId, null);
+assert.equal(holdFailureManager.getCall(1).state, CALL_STATE.HELD);
+assert.deepEqual(holdFailureEvents, [
+  ['route', null],
+  ['hold', 'hold-failure', false],
+  ['route', null],
+  ['hold', 'hold-failure', true]
+], 'hold-audio activation failure must prevent program routing and attempt rollback');
+
 console.log('three-line call manager: all tests passed');
