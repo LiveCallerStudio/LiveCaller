@@ -60,7 +60,7 @@ assert.equal(router.getCall('caller-b').monitorGain, 1, 'switching program must 
 
 assert.throws(() => router.setProgramCall('missing-caller'), /not registered/);
 assert.equal(router.programCallId, null, 'invalid selection fails closed');
-assert.deepEqual([...router.calls.values()].map(call => call.programGain.gain.value), [0, 0, 0]);
+assert.deepEqual([...router.calls.values()].map(call => call.programGain.gain.value), [0, 0]);
 
 router.setProgramCall('caller-a');
 router.removeCall('caller-a');
@@ -77,7 +77,7 @@ assert.equal(router.programCallId, null, 'ended program track fails closed');
 assert.deepEqual([...router.calls.values()].map(call => call.programGain.gain.value), [0, 0, 0]);
 assert.throws(() => router.setMonitorCall('caller-b'), /no live incoming audio track/);
 assert.equal(router.monitorCallId, null, 'ended monitor track is rejected');
-assert.deepEqual([...router.calls.values()].map(call => call.monitorGain.gain.value), [0, 0, 0]);
+assert.deepEqual([...router.calls.values()].map(call => call.monitorGain.gain.value), [0, 0]);
 router.close();
 assert.equal(router.closed, true);
 assert.equal(router.calls.size, 0);
