@@ -66,3 +66,8 @@ assert.match(dashboard, /audioBitsPerSecond:192000/, 'call recordings should req
 assert.match(voice, /audioBitsPerSecond:192000/, 'voice messages should request high-bitrate audio');
 assert.match(voice, /echoCancellation:true, noiseSuppression:true, autoGainControl:false, sampleRate:\{ideal:48000\}/, 'voice message capture should request echo cancellation, noise suppression, and 48 kHz');
 assert.match(voice, /downloadVoiceMessageWav/, 'voice messages must support downloading a WAV copy');
+
+assert.match(dashboard, /data-action="download-recording-wav"/, 'call archive must offer a WAV export alongside the original recording');
+assert.match(dashboard, /async function downloadCallRecordingWav\([\s\S]*?const rate=48000/, 'call archive WAV export must resample to 48 kHz PCM');
+assert.match(dashboard, /audio\/wav/, 'call archive must generate a WAV file');
+assert.match(voice, /const channels=Math\.min\(2,Math\.max\(1,decoded\.numberOfChannels\)\), rate=48000;[\s\S]*?OfflineContextClass\(channels,frames,rate\)/, 'voice message WAV export must resample decoded audio to exactly 48 kHz');
