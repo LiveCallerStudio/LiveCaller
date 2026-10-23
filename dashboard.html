@@ -1736,11 +1736,9 @@ function ensureMultiLineController(){
       } catch(error) {
         console.warn('Could not update multi-line monitor route:', error?.message || error);
       }
-      if(held && multiLineOnAirCallId === callId){
-        multiLineOnAirCallId = null;
-        setDoc(liveStateRef, {active:false, updatedAt:Date.now()}, {merge:true})
-          .catch(error=>console.warn('Could not clear on-air state after hold:',error?.message||error));
-      }
+      // The explicit Hold action owns the overlay state update. Do not clear it
+      // here: Take On Air may be switching from another line, and this callback
+      // also runs while the controller safely mutes the previous caller.
       refreshPhoneLineBank();
     },
     onTrack: ({callId}) => syncMultiLineOverlayTracks(callId),
@@ -1847,8 +1845,12 @@ async function takeMultiLineOnAir(callId){
 
 async function holdMultiLineCall(callId){
   ensureMultiLineController();
+  const wasOnAir = multiLineOnAirCallId === callId;
   await multiLineAdapter.holdCall(callId);
-  if(multiLineOnAirCallId === callId) multiLineOnAirCallId = null;
+  if(wasOnAir){
+    multiLineOnAirCallId = null;
+    await setDoc(liveStateRef,{active:false,updatedAt:Date.now()},{merge:true});
+  }
   refreshPhoneLineBank();
 }
 
@@ -1905,7 +1907,7 @@ function watchMultiLineOverlayRelay(callId){
             status:'answered',
             updatedAt:Date.now()
           },{merge:true});
-          record.unsub=onSnapshot(collection(db,'liveCalls',callId,'overlaySessions',sessionId,'callerCandidates'),cs=>{
+          record.unsub=onSnapshot(collection(db,'liveCalls',callId,'overlaySessions',sessionId,'overlayCandidates'),cs=>{
             cs.docChanges().forEach(item=>{
               if(item.type==='added') pc.addIceCandidate(new RTCIceCandidate(item.doc.data())).catch(error=>console.warn('OBS relay candidate:',error?.message||error));
             });
