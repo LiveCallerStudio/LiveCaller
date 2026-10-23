@@ -656,6 +656,29 @@
   .broadcast-queue-head h3{font-size:clamp(18px,2.5vw,24px);margin:7px 0 4px;font-weight:900;letter-spacing:-.025em}
   .broadcast-queue-head p{margin:0;color:#aab8ae;font-size:13px;line-height:1.5}
   .broadcast-queue-live{display:flex;align-items:center;gap:9px;white-space:nowrap;border:1px solid #38503b;border-radius:999px;padding:10px 13px;color:#b9ff9b;font-size:10px;font-weight:900;letter-spacing:.1em;background:rgba(83,252,24,.055)}
+  .phone-console{margin:0 0 18px;padding:18px;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:16px;background:linear-gradient(145deg,rgba(20,27,31,.98),rgba(9,12,15,.98));box-shadow:0 12px 32px rgba(0,0,0,.18)}
+  .phone-console-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px}
+  .phone-console-kicker{font-size:10px;letter-spacing:.16em;font-weight:900;color:var(--green);text-transform:uppercase}
+  .phone-console h2{font-size:20px;font-weight:900;margin:5px 0}
+  .phone-console p{font-size:12px;color:var(--sub);margin:0;line-height:1.5}
+  .phone-console-legend{display:flex;flex-wrap:wrap;gap:10px 14px;font-size:10px;color:var(--sub)}
+  .phone-console-legend span{display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .line-led{display:inline-block;width:8px;height:8px;border-radius:50%;background:#69727b;box-shadow:0 0 0 3px rgba(255,255,255,.04)}
+  .led-ringing{background:#ffbd4a;box-shadow:0 0 10px rgba(255,189,74,.65)}
+  .led-active{background:#53fc18;box-shadow:0 0 10px rgba(83,252,24,.65)}
+  .led-hold{background:#58a6ff;box-shadow:0 0 10px rgba(88,166,255,.65)}
+  .phone-line-bank{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .phone-line-tile{position:relative;min-width:0;text-align:left;padding:13px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.025);color:var(--text,#fff)}
+  .phone-line-tile.line-ringing{border-color:rgba(255,189,74,.5);background:rgba(255,189,74,.07)}
+  .phone-line-tile.line-active{border-color:rgba(83,252,24,.45);background:rgba(83,252,24,.065)}
+  .phone-line-tile.line-hold{border-color:rgba(88,166,255,.48);background:rgba(88,166,255,.07)}
+  .phone-line-tile-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:11px}
+  .phone-line-number{font-size:10px;font-weight:900;letter-spacing:.12em;color:var(--sub)}
+  .phone-line-state{display:flex;align-items:center;gap:6px;font-size:9px;font-weight:900;letter-spacing:.08em}
+  .phone-line-name{font-size:14px;font-weight:900;overflow-wrap:anywhere;line-height:1.35}
+  .phone-line-detail{font-size:11px;color:var(--sub);margin-top:4px;overflow-wrap:anywhere}
+  .phone-line-empty{grid-column:1/-1;padding:22px;text-align:center;border:1px dashed rgba(255,255,255,.14);border-radius:10px;color:var(--sub);font-size:12px}
+  @media(max-width:640px){.phone-console-top{flex-direction:column}.phone-line-bank{grid-template-columns:repeat(2,minmax(0,1fr))}.phone-console{padding:14px}}
   #callsQueue,#waitingCallsQueue{display:flex;flex-direction:column;gap:10px}
   .call-waiting-section{margin-top:18px;padding:18px;border:1px solid rgba(255,190,70,.32);border-radius:16px;background:linear-gradient(145deg,rgba(36,28,13,.38),rgba(12,16,13,.98))}
   .call-waiting-section-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:14px}
@@ -849,6 +872,25 @@
 
   <!-- CALLS TAB -->
   <div class="tab-content" id="tab-calls">
+
+    <!-- Virtual multi-line studio phone console -->
+    <section class="phone-console" aria-label="Multi-line phone controller">
+      <div class="phone-console-top">
+        <div>
+          <div class="phone-console-kicker">STUDIO PHONE HYBRID</div>
+          <h2>Multi-Line Controller</h2>
+          <p>Monitor every line at a glance. Selectable call handling depends on the connection state.</p>
+        </div>
+        <div class="phone-console-legend" aria-label="Line status legend">
+          <span><i class="line-led led-ringing"></i>Ringing</span>
+          <span><i class="line-led led-active"></i>Active</span>
+          <span><i class="line-led led-hold"></i>On hold</span>
+        </div>
+      </div>
+      <div class="phone-line-bank" id="phoneLineBank" aria-live="polite">
+        <div class="phone-line-empty">☎ No callers on the board</div>
+      </div>
+    </section>
 
     <!-- Active call panel — shown when a call is connected -->
     <div class="active-call-panel" id="activeCallPanel" style="display:none;">
@@ -2596,6 +2638,32 @@ function startCallsListener(){
       }
 
       const isBusy = !!activePc;
+      const lineBank = document.getElementById('phoneLineBank');
+      const activeLine = isBusy ? {
+        id: activeCallId || 'active',
+        callerName: document.getElementById('activeCallerName')?.textContent || 'Active caller',
+        callerCity: document.getElementById('activeCallerCity')?.textContent || '',
+        mediaType: activeCallMediaType,
+        lineStatus: callIsOnHold ? 'hold' : 'active'
+      } : null;
+      const boardLines = [
+        ...(activeLine ? [activeLine] : []),
+        ...ringing.map(c => ({...c, lineStatus:'ringing'}))
+      ];
+      lineBank.innerHTML = boardLines.length ? boardLines.map((line,index) => {
+        const status = line.lineStatus;
+        const statusLabel = status === 'active' ? 'ACTIVE' : status === 'hold' ? 'ON HOLD' : 'RINGING';
+        const icon = status === 'active' ? '🟢' : status === 'hold' ? '🔵' : '🟠';
+        const name = line.callerName || 'Anonymous Caller';
+        const city = line.callerCity || 'Location not provided';
+        const media = line.mediaType === 'video' ? 'VIDEO LINE' : 'AUDIO LINE';
+        return `<div class="phone-line-tile line-${status}" role="group" aria-label="Line ${index+1}, ${statusLabel}">
+          <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(index+1).padStart(2,'0')}</span><span class="phone-line-state"><i class="line-led led-${status}"></i>${statusLabel}</span></div>
+          <div class="phone-line-name">${escapeHtml(name)}</div>
+          <div class="phone-line-detail">${escapeHtml(city)}</div>
+          <div class="phone-line-detail">${media} ${status === 'active' ? '· ON PROGRAM CONTROL' : status === 'hold' ? '· HOLD STATE' : '· AWAITING ANSWER'}</div>
+        </div>`;
+      }).join('') : '<div class="phone-line-empty">☎ No callers on the board</div>';
       const waitingSection = document.getElementById('callWaitingSection');
       const waitingQueue = document.getElementById('waitingCallsQueue');
       const waitingCount = document.getElementById('callWaitingCount');
