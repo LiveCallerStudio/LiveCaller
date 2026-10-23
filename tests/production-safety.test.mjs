@@ -50,5 +50,8 @@ assert.match(dashboard, /if\(callIsOnAir\)\{\s*silenceOverlayRelayMedia\(\);\s*a
 assert.match(dashboard, /const resumedStatus = callIsOnAir \? 'live' : 'answered';[\s\S]*?await setDoc\(activeCallRef, \{ status: resumedStatus \}/, 'resuming an on-air caller must persist live status before republishing overlay state');
 assert.match(dashboard, /if\(!callIsOnAir && callIsOnHold\)[\s\S]*?Resume the caller before sending them on air/, 'a held caller must be resumed before being put back on air');
 assert.match(dashboard, /status: callIsOnHold \? 'held' : 'answered'/, 'taking a held caller off air must preserve the held call state');
+assert.match(dashboard, /allowOnAir: true/, 'experimental three-line mode must expose the integrated program-routing action');
+assert.match(dashboard, /if \(action === 'air'\)[\s\S]*?status: 'live'[\s\S]*?await setDoc\(liveStateRef, \{[\s\S]*?active: true/, 'multi-line on-air state must be published only after the call is live');
+assert.match(dashboard, /experimentalMultiLineController\?\.getSnapshot\?\.\(\)\.sessions\?\.length/, 'safe refresh must account for experimental multi-line sessions');
 
 console.log('production-safety checks: all passed');
