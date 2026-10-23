@@ -656,7 +656,17 @@
   .broadcast-queue-head h3{font-size:clamp(18px,2.5vw,24px);margin:7px 0 4px;font-weight:900;letter-spacing:-.025em}
   .broadcast-queue-head p{margin:0;color:#aab8ae;font-size:13px;line-height:1.5}
   .broadcast-queue-live{display:flex;align-items:center;gap:9px;white-space:nowrap;border:1px solid #38503b;border-radius:999px;padding:10px 13px;color:#b9ff9b;font-size:10px;font-weight:900;letter-spacing:.1em;background:rgba(83,252,24,.055)}
-  #callsQueue{display:flex;flex-direction:column;gap:10px}
+  #callsQueue,#waitingCallsQueue{display:flex;flex-direction:column;gap:10px}
+  .call-waiting-section{margin-top:18px;padding:18px;border:1px solid rgba(255,190,70,.32);border-radius:16px;background:linear-gradient(145deg,rgba(36,28,13,.38),rgba(12,16,13,.98))}
+  .call-waiting-section-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:14px}
+  .call-waiting-section-kicker{font-size:10px;font-weight:900;letter-spacing:.14em;color:#ffcf70}
+  .call-waiting-section-head h3{font-size:19px;margin:5px 0;font-weight:900}
+  .call-waiting-section-head p{margin:0;color:var(--sub);font-size:12px;line-height:1.5}
+  .call-waiting-count{white-space:nowrap;padding:8px 10px;border-radius:8px;background:rgba(255,190,70,.1);border:1px solid rgba(255,190,70,.3);color:#ffcf70;font-size:10px;font-weight:900;letter-spacing:.08em}
+  .active-waiting-current{display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px;border:1px solid rgba(83,252,24,.28);border-radius:10px;background:rgba(83,252,24,.055);font-size:12px}
+  .active-waiting-current strong{color:var(--green)}
+  .active-waiting-current[hidden]{display:none!important}
+  @media(max-width:640px){.call-waiting-section-head{align-items:flex-start;flex-direction:column}}
   .call-queue-label{display:inline-flex;align-items:center;width:max-content;max-width:100%;padding:6px 10px;margin-bottom:10px;border:1px solid rgba(83,252,24,.28);border-radius:7px;background:rgba(83,252,24,.07);color:var(--green);font-size:10px;font-weight:900;letter-spacing:.12em}
   .call-waiting-card .call-queue-label{border-color:rgba(255,190,70,.35);background:rgba(255,190,70,.08);color:#ffcf70}
   #callsQueue .card{border-left:3px solid var(--green);background:linear-gradient(100deg,rgba(24,35,27,.98),rgba(13,18,15,.98))}
@@ -884,6 +894,20 @@
       <div>No incoming calls right now.</div>
     </div>
     <div class="queue" id="callsQueue"></div>
+
+    <!-- Separate waiting list keeps active and waiting callers visually distinct. -->
+    <section id="callWaitingSection" class="call-waiting-section" style="display:none;" aria-live="polite">
+      <div class="call-waiting-section-head">
+        <div>
+          <div class="call-waiting-section-kicker">☎ LINE STATUS</div>
+          <h3>Call Waiting</h3>
+          <p id="callWaitingSummary">These callers are waiting while you speak with the active caller above.</p>
+        </div>
+        <span id="callWaitingCount" class="call-waiting-count">0 WAITING</span>
+      </div>
+      <div class="active-waiting-current" id="activeWaitingCurrent"></div>
+      <div class="queue" id="waitingCallsQueue"></div>
+    </section>
 
     <!-- Hidden audio element — producer hears caller here, OBS captures via Browser Source -->
     <audio id="callerAudio" autoplay style="display:none;"></audio>
@@ -2571,20 +2595,29 @@ function startCallsListener(){
         stopPhoneRing();
       }
 
+      const isBusy = !!activePc;
+      const waitingSection = document.getElementById('callWaitingSection');
+      const waitingQueue = document.getElementById('waitingCallsQueue');
+      const waitingCount = document.getElementById('callWaitingCount');
+      const activeWaitingCurrent = document.getElementById('activeWaitingCurrent');
+
       if(ringing.length === 0){
-        callsEmpty.style.display = 'flex';
+        callsEmpty.style.display = isBusy ? 'none' : 'flex';
         callsEmpty.innerHTML = '<div class="ic">📞</div><div>No incoming calls right now.</div>';
         callsQueue.innerHTML = '';
-        incomingCallsTitle.style.display = 'none';
+        waitingQueue.innerHTML = '';
+        waitingSection.style.display = 'none';
+        incomingCallsTitle.style.display = isBusy ? 'block' : 'none';
+        incomingCallsTitle.textContent = 'Incoming Calls';
         return;
       }
-      callsEmpty.style.display = 'none';
-      incomingCallsTitle.style.display = 'block';
-      incomingCallsTitle.textContent = activePc ? 'Call Waiting Queue' : 'Incoming Calls';
 
-      callsQueue.innerHTML = ringing.map(c=>`
-        <div class="call-card ${activePc ? 'call-waiting-card' : ''}" data-id="${escapeHtml(c.id)}">
-          <div class="call-queue-label" role="status">${activePc ? '☎ CALL WAITING' : '☎ INCOMING CALL'}</div>
+      callsEmpty.style.display = isBusy ? 'none' : 'none';
+      incomingCallsTitle.style.display = 'block';
+      incomingCallsTitle.textContent = 'Incoming Calls';
+      const renderCall = c => `
+        <div class="call-card ${isBusy ? 'call-waiting-card' : ''}" data-id="${escapeHtml(c.id)}">
+          <div class="call-queue-label" role="status">${isBusy ? '☎ WAITING FOR A LINE' : '☎ INCOMING CALL'}</div>
           <div class="call-ring-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
@@ -2598,10 +2631,23 @@ function startCallsListener(){
           <div class="call-card-actions">
             ${c.mediaType === 'video' ? `<button class="ibtn ibtn-answer" data-action="video-screen" data-id="${escapeHtml(c.id)}">👁 Screen Guest</button>` : ''}
             <button class="ibtn ibtn-answer" data-action="answer" data-id="${escapeHtml(c.id)}"
-              data-name="${escapeHtml(c.callerName||'')}" data-city="${escapeHtml(c.callerCity||'')}" ${activePc ? 'disabled title="End the current call before answering this waiting caller"' : ''}>${activePc ? '⏳ Waiting' : '✆ Answer'}</button>
+              data-name="${escapeHtml(c.callerName||'')}" data-city="${escapeHtml(c.callerCity||'')}" ${isBusy ? 'disabled title="This caller is waiting while the active call is in progress"' : ''}>${isBusy ? '⏳ Waiting' : '✆ Answer'}</button>
             <button class="ibtn ibtn-reject" data-action="reject" data-id="${escapeHtml(c.id)}">✕ Reject</button>
           </div>
-        </div>`).join('');
+        </div>`;
+
+      if(isBusy){
+        callsQueue.innerHTML = '';
+        waitingQueue.innerHTML = ringing.map(renderCall).join('');
+        waitingSection.style.display = 'block';
+        waitingCount.textContent = `${ringing.length} WAITING`;
+        const currentName = (document.getElementById('activeCallerName')?.textContent || 'Active caller').trim();
+        activeWaitingCurrent.innerHTML = `<span>🟢</span><div><strong>ACTIVE NOW</strong><br>${escapeHtml(currentName)} <span style="color:var(--sub)">· connected to studio</span></div>`;
+      }else{
+        callsQueue.innerHTML = ringing.map(renderCall).join('');
+        waitingQueue.innerHTML = '';
+        waitingSection.style.display = 'none';
+      }
     },
     (err)=>{
       stopPhoneRing();
