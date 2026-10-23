@@ -2267,7 +2267,7 @@ function stopCallsListener(){
 function sweepStaleWaitingCalls(calls = latestCallsForCleanup){
   const now = Date.now();
   calls.forEach(c=>{
-    if(c.status !== 'waiting' || c.id === activeCallId) return;
+    if(c.status !== 'waiting' || c.id === activeCallId || c.screeningSessionId) return;
     const created = c.createdAt?.toMillis ? c.createdAt.toMillis()
       : (typeof c.createdAt === 'number' ? c.createdAt
       : (typeof c.createdAt?.seconds === 'number' ? c.createdAt.seconds * 1000 : 0));
