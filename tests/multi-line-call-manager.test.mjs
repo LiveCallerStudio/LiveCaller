@@ -45,6 +45,15 @@ assert.deepEqual(events, [['route', null], ['hold', 'b', true]]);
 assert.equal(manager.getSnapshot().programCallId, null);
 assert.equal(manager.getCall(2).state, CALL_STATE.HELD);
 
+events.length = 0;
+manager.resume(2);
+assert.equal(manager.getCall(2).state, CALL_STATE.CONNECTED);
+assert.deepEqual(events, [['hold', 'b', false]], 'resuming a held caller must not automatically route it to program');
+events.length = 0;
+manager.hold(2);
+assert.equal(manager.getCall(2).state, CALL_STATE.HELD);
+assert.deepEqual(events, [['hold', 'b', true]]);
+
 manager.takeOnAir(3);
 assert.equal(manager.getCall(3).state, CALL_STATE.ON_AIR);
 assert.equal(manager.getCall(2).state, CALL_STATE.HELD);

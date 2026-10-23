@@ -93,6 +93,12 @@ assert.equal(audioRouter.getCall('call-c').programGain, 1);
 assert.equal(audioRouter.getCall('call-b').monitorGain, 1);
 assert.ok(holdEvents.some(event => event.callId === 'call-a' && event.held), 'previous on-air call gets hold-state callback');
 
+controller.resumeCall('call-a');
+assert.equal(controller.lineManager.getCall(1).state, 'connected');
+assert.equal(audioRouter.programCallId, 'call-c', 'resuming a held call must not steal the current program route');
+controller.holdCall('call-a');
+assert.equal(controller.lineManager.getCall(1).state, 'held');
+
 const before = controller.getSnapshot();
 assert.equal(before.lines.filter(line => line.callId).length, 3);
 controller.endCall('call-b');

@@ -1146,13 +1146,56 @@ async function startExperimentalMultiLine() {
         root,
         adapter: experimentalMultiLineAdapter,
         controller: experimentalMultiLineController,
-        allowOnAir: false,
+        allowOnAir: true,
         onActionComplete: async ({ action, callId }) => {
           try {
-            if (action === 'answer') experimentalMultiLineOverlayRelayAdapter?.watchCall(callId);
-            if (action === 'end') await experimentalMultiLineOverlayRelayAdapter?.unwatchCall(callId);
+            if (action === 'answer') {
+              experimentalMultiLineOverlayRelayAdapter?.watchCall(callId);
+            }
+
+            if (action === 'air') {
+              // The adapter persists status=live before this global state is published.
+              // overlay.html then creates a WebRTC offer under this call's overlaySessions;
+              // the selected program-bus track is supplied by the relay bridge.
+              const callSnap = await getDoc(doc(db, 'liveCalls', callId));
+              const callData = callSnap.data() || {};
+              if (callData.status !== 'live') {
+                throw new Error('Call status was not persisted as live; OBS was not activated');
+              }
+              await setDoc(liveStateRef, {
+                active: true,
+                callId,
+                name: callData.callerName || 'Anonymous Caller',
+                city: callData.callerCity || '',
+                messageType: 'livecall',
+                audioUrl: null,
+                updatedAt: Date.now()
+              });
+            }
+
+            if (action === 'hold' || action === 'end') {
+              const liveSnap = await getDoc(liveStateRef);
+              if (liveSnap.exists?.() && liveSnap.data()?.callId === callId) {
+                await setDoc(liveStateRef, { active: false, updatedAt: Date.now() }, { merge: true });
+              }
+            }
+
+            if (action === 'end') {
+              await experimentalMultiLineOverlayRelayAdapter?.unwatchCall(callId);
+            }
             await experimentalMultiLineOverlayRelayAdapter?.sync();
+            if (action === 'end') runDeferredDashboardRefreshIfIdle();
           } catch (error) {
+            // If publishing the selected caller to the overlay fails, do not leave
+            // the program bus active without its matching OBS scene/relay state.
+            if (action === 'air') {
+              try { await experimentalMultiLineAdapter?.holdCall(callId); }
+              catch (rollbackError) {
+                console.error('Could not fail closed after OBS activation failed:', rollbackError);
+              }
+              await setDoc(liveStateRef, { active: false, updatedAt: Date.now() }, { merge: true }).catch(() => {});
+            }
+            try { await experimentalMultiLineOverlayRelayAdapter?.sync(); } catch {}
             status.textContent = 'OBS relay warning: ' + (error?.message || 'relay setup failed');
             console.error('Experimental OBS relay action:', error);
           }
@@ -1166,7 +1209,7 @@ async function startExperimentalMultiLine() {
           console.error('Experimental multi-line console:', error);
         }
       });
-      status.textContent = 'Ready · isolated audio relay signaling enabled · Take On Air remains disabled pending device/OBS validation';
+      status.textContent = 'Ready · three isolated audio lines · OBS program routing enabled for controlled testing';
     } catch (error) {
       status.textContent = 'Could not start experimental console: ' + (error?.message || 'unknown error');
       console.error('Experimental multi-line startup failed:', error);
@@ -1812,7 +1855,8 @@ function performDashboardRefresh(){
   window.location.replace(next.toString());
 }
 function refreshIsBlockedByLiveMedia(){
-  return !!(activePc || screeningPc || activeCallId || screeningCallId);
+  const experimentalSessions = experimentalMultiLineController?.getSnapshot?.().sessions?.length || 0;
+  return !!(activePc || screeningPc || activeCallId || screeningCallId || experimentalSessions > 0);
 }
 function runDeferredDashboardRefreshIfIdle(){
   if(!refreshAfterCall || refreshIsBlockedByLiveMedia()) return;
@@ -2400,6 +2444,25 @@ producerCameraBtn.addEventListener('click', async()=>{
   }
 });
 
+// Remove caller media from every legacy OBS relay immediately when a call is held.
+// The overlay's Firestore listener will also close its peer, but local track detachment
+// prevents caller audio/video from leaking while that state update propagates.
+function silenceOverlayRelayMedia(){
+  overlayRelayPeers.forEach(record=>{
+    const pc=record?.pc;
+    if(!pc || pc.signalingState==='closed') return;
+    pc.getTransceivers().forEach(transceiver=>{
+      const sender=transceiver.sender;
+      if(!sender || typeof sender.replaceTrack!=='function') return;
+      try{
+        sender.replaceTrack(null).catch(error=>console.warn('Could not silence OBS relay track:',error.message||error));
+      }catch(error){
+        console.warn('Could not silence OBS relay track:',error.message||error);
+      }
+    });
+  });
+}
+
 holdBtn.addEventListener('click', async()=>{
   if(!activeCallRef || !activePc) return;
   callIsOnHold = !callIsOnHold;
@@ -2407,7 +2470,7 @@ holdBtn.addEventListener('click', async()=>{
   if(callIsOnHold){
     // Mute producer mic
     if(producerStream) producerStream.getAudioTracks().forEach(t => t.enabled = false);
-    // Replace sender track with hold music
+    // Replace sender track with hold music for the caller.
     const holdStream = buildHoldMusicStream();
     const holdTrack = holdStream.getAudioTracks()[0];
     const sender = producerAudioSender;
@@ -2415,9 +2478,17 @@ holdBtn.addEventListener('click', async()=>{
     holdBtn.textContent = '▶ Resume';
     holdBtn.classList.add('on-hold');
     setCallStatus('On Hold — caller hears hold music', 'on-hold');
+
+    // If this caller was on air, fail closed locally first, then tell the overlay
+    // to hide/close its relay. Keep callIsOnAir so Resume can restore the program.
+    if(callIsOnAir){
+      silenceOverlayRelayMedia();
+      await setDoc(liveStateRef, { active:false, updatedAt:Date.now() }, { merge:true })
+        .catch(error=>console.warn('Could not take OBS overlay off air while holding:',error.code||error.message||error));
+    }
     await setDoc(activeCallRef, { status: 'held' }, { merge: true });
   } else {
-    // Restore producer mic track
+    // Restore producer mic track.
     stopHoldMusic();
     if(producerStream){
       producerStream.getAudioTracks().forEach(t => t.enabled = !micMuted);
@@ -2426,8 +2497,27 @@ holdBtn.addEventListener('click', async()=>{
     }
     holdBtn.textContent = '⏸ Hold';
     holdBtn.classList.remove('on-hold');
-    setCallStatus('Screening', '');
-    await setDoc(activeCallRef, { status: 'answered' }, { merge: true });
+
+    // Preserve the previous on-air intent. The overlay must not be reactivated
+    // until Firestore confirms the parent call is live again.
+    const resumedStatus = callIsOnAir ? 'live' : 'answered';
+    await setDoc(activeCallRef, { status: resumedStatus }, { merge: true });
+    if(callIsOnAir){
+      const callSnap = await getDoc(activeCallRef);
+      const currentCall = callSnap.data() || {};
+      await setDoc(liveStateRef, {
+        active:true,
+        callId:activeCallId,
+        name:currentCall.callerName || activeCallerName.textContent,
+        city:currentCall.callerCity || activeCallerCity.textContent,
+        messageType:currentCall.mediaType === 'video' ? 'livevideo' : 'livecall',
+        audioUrl:null,
+        updatedAt:Date.now()
+      });
+      setCallStatus('ON AIR — Live Call Broadcasting', 'on-air');
+    }else{
+      setCallStatus('Screening', '');
+    }
   }
 });
 
@@ -2547,10 +2637,16 @@ async function saveCallHistory(recordingUrl = null){
   }catch(e){ console.warn('Could not save call history:', e); }
 }
 
-// Send call on air — audio stays in dashboard (OBS captures via Browser Source)
-// Overlay just shows the visual lower-third, no audio routed through it
+// Send call on air — audio stays in dashboard (OBS captures via Browser Source).
+// The OBS overlay is also the caller media relay, so holding/taking a call off air
+// must silence that relay rather than merely changing the lower-third text.
 callOnAirBtn.addEventListener('click', async()=>{
   if(!activeCallRef) return;
+  if(!callIsOnAir && callIsOnHold){
+    setCallStatus('Resume the caller before sending them on air.', 'on-hold');
+    alert('Resume the caller before sending them on air.');
+    return;
+  }
   callIsOnAir = !callIsOnAir;
 
   if(callIsOnAir){
@@ -2564,7 +2660,6 @@ callOnAirBtn.addEventListener('click', async()=>{
     await setDoc(activeCallRef, { status: 'live' }, { merge: true });
     const callSnap = await getDoc(activeCallRef);
     const currentCall = callSnap.data() || {};
-    // The producer camera is disabled for the entire call; publish the caller only.
     // Publish overlay state only after the parent call's live status is committed.
     await setDoc(liveStateRef, {
       active: true,
@@ -2576,12 +2671,15 @@ callOnAirBtn.addEventListener('click', async()=>{
       updatedAt: Date.now()
     });
   } else {
+    // Silence any connected OBS media senders before the asynchronous Firestore
+    // update, so a caller cannot remain audible during an off-air transition.
+    silenceOverlayRelayMedia();
     callOnAirBtn.textContent = '🔴 Send On Air';
     callOnAirBtn.classList.remove('live');
-    setCallStatus('Screening — call taken off air');
+    setCallStatus(callIsOnHold ? 'On Hold — caller hears hold music' : 'Screening — call taken off air', callIsOnHold ? 'on-hold' : '');
     onAirBadge.classList.remove('show');
-    await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
-    await setDoc(activeCallRef, { status: 'answered' }, { merge: true });
+    await setDoc(liveStateRef, { active: false, updatedAt: Date.now() }, { merge:true });
+    await setDoc(activeCallRef, { status: callIsOnHold ? 'held' : 'answered' }, { merge: true });
   }
 });
 
