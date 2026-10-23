@@ -1528,7 +1528,9 @@ function syncOverlayRelayTracks(record){
   videoLanes.forEach((t,index)=>{
     try{
       t.direction='sendonly';
-      t.sender.replaceTrack(index===0?callerVideo:null).catch(err=>console.warn('OBS caller-video update:',err.message||err));
+      t.sender.replaceTrack(index===0?callerVideo:null).then(()=>{
+        if(index===0 && callerVideo) requestVideoQuality(record.pc).catch(()=>{});
+      }).catch(err=>console.warn('OBS caller-video update:',err.message||err));
     }catch(err){console.warn('OBS caller-video lane:',err.message||err);}
   });
 }
