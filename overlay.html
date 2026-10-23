@@ -61,7 +61,6 @@
     <div class="pending-counter" id="videoCallCounter" hidden><span class="count" id="videoCallCount">0</span><span>Video Calls Waiting</span></div>
   </div>
   <video id="guestVideo" autoplay playsinline muted></video>
-  <video id="producerGuestVideo" autoplay playsinline muted></video>
   <audio id="liveAudio" autoplay playsinline></audio>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
@@ -83,7 +82,6 @@ const pill = document.getElementById('pill');
 const fallback = document.getElementById('fallback');
 const liveAudio = document.getElementById('liveAudio');
 const guestVideo = document.getElementById('guestVideo');
-const producerGuestVideo = document.getElementById('producerGuestVideo');
 let db = null;
 let currentAudioUrl = '';
 let activeCallId = '';
@@ -93,12 +91,9 @@ let overlayCallUnsubs = [];
 let overlayRemoteStream = null;
 let overlayAudioStream = null;
 let overlayVideoStream = null;
-let producerOverlayVideoStream = null;
 let overlayAudioContext = null;
 let overlayAudioDestination = null;
 let overlayAudioSources = new Set();
-let receivedCallerVideo = false;
-let receivedProducerVideo = false;
 const iceConfig = { iceServers: [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
@@ -109,13 +104,12 @@ const iceConfig = { iceServers: [
 function stopOverlayCallAudio(){
   overlayCallUnsubs.forEach(unsub=>{try{unsub()}catch(e){}}); overlayCallUnsubs=[];
   if(overlayCallPc){try{overlayCallPc.close()}catch(e){} overlayCallPc=null;}
-  overlayCallSessionRef=null; activeCallId=''; overlayRemoteStream=null; overlayAudioStream=null; overlayVideoStream=null; producerOverlayVideoStream=null;
+  overlayCallSessionRef=null; activeCallId=''; overlayRemoteStream=null; overlayAudioStream=null; overlayVideoStream=null;
   overlayAudioSources.forEach(source=>{try{source.disconnect()}catch(e){}}); overlayAudioSources.clear();
   if(overlayAudioContext){overlayAudioContext.close().catch(()=>{});overlayAudioContext=null;}
-  overlayAudioDestination=null; receivedCallerVideo=false; receivedProducerVideo=false;
+  overlayAudioDestination=null;
   liveAudio.pause(); liveAudio.srcObject=null; liveAudio.removeAttribute('src'); liveAudio.muted=false; liveAudio.volume=1; currentAudioUrl='';
   guestVideo.pause(); guestVideo.srcObject=null; guestVideo.muted=true; guestVideo.classList.remove('show');
-  producerGuestVideo.pause(); producerGuestVideo.srcObject=null; producerGuestVideo.muted=true; producerGuestVideo.classList.remove('show');
 }
 async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVideo=false){
   if(!callId) return;
@@ -128,14 +122,10 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
   overlayCallSessionRef=sessionRef;
   const pc = new RTCPeerConnection(iceConfig); overlayCallPc=pc;
   overlayRemoteStream = new MediaStream();
-  // Broadcast only the caller's audio. The producer's microphone stays on
-  // the primary call connection so the caller can hear the producer normally.
-  // For video calls, receive caller video first and producer video second.
+  // OBS receives caller audio only, and caller video only for video calls.
+  // The producer's microphone and camera are never requested by this relay.
   pc.addTransceiver('audio',{direction:'recvonly'});
-  if(isVideo){
-    pc.addTransceiver('video',{direction:'recvonly'});
-    pc.addTransceiver('video',{direction:'recvonly'});
-  }
+  if(isVideo) pc.addTransceiver('video',{direction:'recvonly'});
   let remoteSet=false; const pending=[];
   // Keep OBS audio and video outputs separate. Only the caller/guest's remote
   // audio track reaches liveAudio; the video element is muted to prevent duplicate
@@ -164,25 +154,14 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
         }
         fallback.textContent=isVideo?'VIDEO CALL • CALLER AUDIO RECEIVED':'AUDIO CALL • CALLER AUDIO RECEIVED';
       } else if(event.track.kind==='video'){
-        if(!receivedCallerVideo){
-          receivedCallerVideo=true;
-          if(!overlayVideoStream) overlayVideoStream=new MediaStream();
-          overlayVideoStream.addTrack(event.track);
-          guestVideo.srcObject=overlayVideoStream;
-          guestVideo.muted=true;
-          guestVideo.classList.add('show');
-          await guestVideo.play().catch(()=>{fallback.textContent='CALLER VIDEO RECEIVED • CHECK OBS BROWSER SOURCE';});
-          fallback.textContent='VIDEO CALL • CALLER CAMERA RECEIVED';
-        }else{
-          receivedProducerVideo=true;
-          if(!producerOverlayVideoStream) producerOverlayVideoStream=new MediaStream();
-          producerOverlayVideoStream.addTrack(event.track);
-          producerGuestVideo.srcObject=producerOverlayVideoStream;
-          producerGuestVideo.muted=true;
-          producerGuestVideo.classList.add('show');
-          await producerGuestVideo.play().catch(()=>{fallback.textContent='PRODUCER VIDEO RECEIVED • CHECK OBS BROWSER SOURCE';});
-          fallback.textContent='VIDEO CALL • CALLER + PRODUCER CAMERAS RECEIVED';
-        }
+        // There is one negotiated video lane, assigned to the caller camera.
+        if(!overlayVideoStream) overlayVideoStream=new MediaStream();
+        if(!overlayVideoStream.getTracks().some(t=>t.id===event.track.id)) overlayVideoStream.addTrack(event.track);
+        guestVideo.srcObject=overlayVideoStream;
+        guestVideo.muted=true;
+        guestVideo.classList.add('show');
+        await guestVideo.play().catch(()=>{fallback.textContent='CALLER VIDEO RECEIVED • CHECK OBS BROWSER SOURCE';});
+        fallback.textContent='VIDEO CALL • CALLER CAMERA RECEIVED';
       }
       fallback.classList.remove('error');
     } catch(err) { showError('Media track: '+(err.message||'playback failed')); }
@@ -249,9 +228,6 @@ function render(data){
     if(guestVideo.srcObject) guestVideo.srcObject=null;
     guestVideo.muted=true;
     guestVideo.classList.remove('show');
-    if(producerGuestVideo.srcObject) producerGuestVideo.srcObject=null;
-    producerGuestVideo.muted=true;
-    producerGuestVideo.classList.remove('show');
     headline.textContent='Sending scene on air';
     subtitle.textContent='Waiting for approval';
     eyebrow.textContent='LIVE CALLER STUDIO';
