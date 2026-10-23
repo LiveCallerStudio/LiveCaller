@@ -2814,6 +2814,7 @@ songRequestsList?.addEventListener('click', async e => {
       await updateDoc(doc(db, 'songRequests', id), { status: 'played', playedAt: serverTimestamp() });
     } else if(action === 'pending'){
       await updateDoc(doc(db, 'songRequests', id), { status: 'pending', playedAt: null });
+    }
   } catch(err) {
     alert('Could not update song request: ' + (err.message || 'check Firestore rules.'));
   } finally {
