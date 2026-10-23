@@ -3157,6 +3157,50 @@ function startCallsListener(){
 // independent videoCalls queue is retired so video callers use the same
 // Answer → private screening → Send On Air workflow as audio callers.
 
+
+let lameJsPromise = null;
+function loadLameJs(){
+  if(window.lamejs)return Promise.resolve(window.lamejs);
+  if(!lameJsPromise)lameJsPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js';script.async=true;
+    script.onload=()=>window.lamejs?resolve(window.lamejs):reject(new Error('MP3 encoder did not initialize.'));
+    script.onerror=()=>reject(new Error('Could not load MP3 encoder; check internet.'));
+    document.head.appendChild(script);
+  });
+  return lameJsPromise;
+}
+async function encodeAudioBufferToMp3(decoded,filename){
+  const lamejs=await loadLameJs(),Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  if(!Offline)throw new Error('MP3 conversion is unsupported in this browser.');
+  const rate=44100,channels=Math.min(2,Math.max(1,decoded.numberOfChannels));
+  const offline=new Offline(channels,Math.max(1,Math.ceil(decoded.duration*rate)),rate);
+  const source=offline.createBufferSource();source.buffer=decoded;source.connect(offline.destination);source.start(0);
+  const audio=await offline.startRendering(),f=audio.getChannelData(0),left=new Int16Array(f.length);
+  for(let i=0;i<f.length;i++){const v=Math.max(-1,Math.min(1,f[i]));left[i]=v<0?v*32768:v*32767;}
+  let right=null;
+  if(channels===2){const rf=audio.getChannelData(1);right=new Int16Array(rf.length);for(let i=0;i<rf.length;i++){const v=Math.max(-1,Math.min(1,rf[i]));right[i]=v<0?v*32768:v*32767;}}
+  const encoder=new lamejs.Mp3Encoder(channels,rate,320),chunks=[];
+  for(let i=0;i<left.length;i+=1152){const l=left.subarray(i,Math.min(i+1152,left.length));const out=channels===2?encoder.encodeBuffer(l,right.subarray(i,Math.min(i+1152,right.length))):encoder.encodeBuffer(l);if(out.length)chunks.push(out);}
+  const tail=encoder.flush();if(tail.length)chunks.push(tail);
+  const blob=new Blob(chunks,{type:'audio/mpeg'});if(!blob.size)throw new Error('MP3 output was empty.');
+  const objectUrl=URL.createObjectURL(blob),a=document.createElement('a');a.href=objectUrl;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(objectUrl),15000);
+}
+async function downloadCallRecordingMp3(url,callerName,button){
+  if(!url)throw new Error('Recording URL is missing.');
+  const originalText=button?.textContent;if(button){button.disabled=true;button.textContent='Preparing MP3…';}
+  let ctx;
+  try{
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),45000);let response;
+    try{response=await fetch(url,{mode:'cors',signal:controller.signal});}finally{clearTimeout(timeout);}
+    if(!response.ok)throw new Error('Recording download failed (HTTP '+response.status+').');
+    const C=window.AudioContext||window.webkitAudioContext;if(!C)throw new Error('Audio conversion unsupported.');
+    ctx=new C();const decoded=await ctx.decodeAudioData(await response.arrayBuffer());
+    const safeName=String(callerName||'caller').replace(/[^a-z0-9_-]+/gi,'-').replace(/^-+|-+$/g,'')||'caller';
+    await encodeAudioBufferToMp3(decoded,'live-caller-'+safeName+'-320kbps.mp3');
+  }finally{if(ctx)await ctx.close().catch(()=>{});if(button){button.disabled=false;button.textContent=originalText||'⬇ MP3 320 kbps';}}
+}
+
 // Convert an archived Opus/WebM recording to an editable 48 kHz PCM WAV on demand.
 // The original upload remains untouched; conversion does not restore information lost to Opus.
 async function downloadCallRecordingWav(url, callerName, button){
@@ -3209,6 +3253,12 @@ async function downloadCallRecordingWav(url, callerName, button){
 
 // ── Call History & Recordings delete actions ──
 document.addEventListener('click', async(e)=>{
+  const mp3Btn=e.target.closest('[data-action="download-recording-mp3"]');
+  if(mp3Btn){
+    try{await downloadCallRecordingMp3(mp3Btn.dataset.url,mp3Btn.dataset.name,mp3Btn);}
+    catch(err){console.warn('Could not export call recording MP3:',err);alert('Could not create MP3. Check your connection and try again. '+(err?.message||''));}
+    return;
+  }
   const wavBtn=e.target.closest('[data-action="download-recording-wav"]');
   if(wavBtn){
     try{await downloadCallRecordingWav(wavBtn.dataset.url,wavBtn.dataset.name,wavBtn);}
@@ -3353,6 +3403,7 @@ function startCallHistoryListener(){
                 <div class="rec-btns">
                   <a class="rbtn rbtn-save" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save Original</a>
                   <button class="rbtn rbtn-save" data-action="download-recording-wav" data-id="${c.id}" data-url="${escapeHtml(c.recordingUrl)}" data-name="${escapeHtml(c.callerName || 'caller')}">⬇ WAV 48 kHz</button>
+                  <button class="rbtn rbtn-save" data-action="download-recording-mp3" data-id="${c.id}" data-url="${escapeHtml(c.recordingUrl)}" data-name="${escapeHtml(c.callerName || 'caller')}">⬇ MP3 320 kbps</button>
                   <button class="rbtn rbtn-del" data-action="delete-recording" data-id="${c.id}">🗑 Delete</button>
                 </div>
               </div>
