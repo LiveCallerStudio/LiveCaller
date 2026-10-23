@@ -26,6 +26,8 @@ jobs:
         run: node --experimental-default-type=module tests/line-state.test.mjs
       - name: Test three-line call manager routing safety
         run: node --experimental-default-type=module tests/multi-line-call-manager.test.mjs
+      - name: Test producer WebRTC session isolation
+        run: node --experimental-default-type=module tests/producer-call-session.test.mjs
       - name: Test public home page line-state behavior
         run: node --experimental-default-type=module tests/home-v2.behavior.test.mjs
       - name: Test caller cleanup regressions
