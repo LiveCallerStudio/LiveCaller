@@ -390,9 +390,10 @@
 import { LINE, resolveLineStates } from "./lib/line-state.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
-  getFirestore, collection, doc, addDoc, updateDoc,
+  getFirestore, collection, doc, addDoc, updateDoc, getDoc,
   onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey:            "AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc",
@@ -405,6 +406,57 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
+const auth = getAuth(app);
+let guestUid = null;
+let screeningPc = null;
+let screeningSessionId = null;
+let screeningCandidatesUnsub = null;
+async function closeScreeningPeer(){
+  if(screeningCandidatesUnsub){screeningCandidatesUnsub();screeningCandidatesUnsub=null;}
+  if(screeningPc){try{screeningPc.close();}catch(e){}screeningPc=null;}
+  screeningSessionId=null;
+}
+async function answerScreeningSession(id){
+  if(!id||!callDocRef||!localStream||id===screeningSessionId||!guestUid)return;
+  await closeScreeningPeer();
+  const sessionRef=doc(db,'liveCalls',callDocRef.id,'screeningSessions',id);
+  const sessionSnap=await getDoc(sessionRef);
+  const sessionData=sessionSnap.data();
+  if(!sessionData||!sessionData.offer||sessionData.client!=='dashboard-screen')return;
+  // The producer may have answered or stopped screening while this read was in flight.
+  const parentSnap=await getDoc(callDocRef);
+  const parentData=parentSnap.data();
+  if(!parentData||parentData.status!=='waiting'||parentData.screeningSessionId!==id)return;
+  const peer=new RTCPeerConnection(STUN);
+  screeningPc=peer;screeningSessionId=id;
+  peer.onicecandidate=e=>{if(e.candidate)addDoc(collection(sessionRef,'guestCandidates'),e.candidate.toJSON()).catch(err=>{console.warn('Private screening ICE write failed:',err&&err.code);setStatus('waiting','Private preview signaling blocked by Firestore rules.');});};
+  peer.onconnectionstatechange=()=>{
+    if(screeningPc!==peer)return;
+    console.info('Private screening peer:',peer.connectionState,'ICE:',peer.iceConnectionState);
+    if(peer.connectionState==='connected')setStatus('waiting','Producer is privately screening your camera. You are NOT on air.');
+    else if(peer.connectionState==='failed')setStatus('waiting','Private preview failed. Check network/TURN and Firestore rules.');
+  };
+  peer.onicecandidateerror=e=>console.warn('Private screening ICE error:',{code:e.errorCode,text:e.errorText,url:e.url});
+  try{
+    await peer.setRemoteDescription(new RTCSessionDescription(sessionData.offer));
+    for(const transceiver of peer.getTransceivers()){
+      const kind=transceiver.receiver&&transceiver.receiver.track&&transceiver.receiver.track.kind;
+      const track=kind==='audio'?localStream.getAudioTracks()[0]:kind==='video'?localStream.getVideoTracks()[0]:null;
+      if(track){transceiver.direction='sendonly';await transceiver.sender.replaceTrack(track);}else transceiver.direction='inactive';
+    }
+    const answer=await peer.createAnswer();await peer.setLocalDescription(answer);
+    await updateDoc(sessionRef,{answer:{type:answer.type,sdp:answer.sdp},answeredBy:guestUid,answeredAt:Date.now()});
+    screeningCandidatesUnsub=onSnapshot(collection(sessionRef,'producerCandidates'),snap=>{
+      snap.docChanges().forEach(change=>{
+        if(change.type==='added'&&screeningPc===peer&&peer.signalingState!=='closed')peer.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(err=>console.warn('Screening ICE candidate rejected:',err&&err.name));
+      });
+    },err=>{if(screeningPc===peer)setStatus('waiting','Private preview ICE signaling failed: '+(err.code||'permission denied'));});
+  }catch(err){
+    if(screeningPc===peer)await closeScreeningPeer();
+    console.warn('Private screening connection failed:',err);
+    setStatus('waiting','Could not connect private preview: '+(err.message||'check network and rules'));
+  }
+}
 
 // ICE config — STUN for direct connections + TURN relay for cross-network/NAT traversal
 // Open Relay Project (openrelay.metered.ca) is free with no account required
@@ -625,13 +677,17 @@ async function startCall(){
   callBtn.textContent = 'Connecting…';
 
   try{
+    if(callMode==='video'){
+      const credential = auth.currentUser ? {user:auth.currentUser} : await signInAnonymously(auth);
+      guestUid = credential.user.uid;
+    }
     localStream = await navigator.mediaDevices.getUserMedia({
       audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:false, sampleRate:48000, channelCount:1 },
       video: callMode === 'video' ? { facingMode:'user', width:{ideal:640,max:960}, height:{ideal:360,max:540}, frameRate:{ideal:24,max:30} } : false
     });
     if(callMode==='video'){localVideo.srcObject=localStream;videoStage.classList.add('show');}
   }catch(err){
-    showError('Microphone access is required to call in. Please allow microphone access and try again.');
+    showError('Could not start the call. Allow camera/microphone access; video screening also requires Firebase Anonymous Authentication to be enabled.');
     callBtn.disabled = false;
     callBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Call In Live';
     return;
@@ -703,6 +759,7 @@ async function startCall(){
     mediaType: callMode,
     offer: { type: offer.type, sdp: offer.sdp },
     status: 'waiting',
+    ...(callMode==='video' ? {guestUid} : {}),
     createdAt: serverTimestamp()
   });
 
@@ -721,6 +778,14 @@ async function startCall(){
   onSnapshot(callDocRef, async (snap) => {
     const data = snap.data();
     if(!data) return;
+
+    if(data.status === 'waiting' && data.screeningSessionId){
+      answerScreeningSession(data.screeningSessionId).catch(err=>console.warn('Private screening session could not start:',err));
+    } else if(data.status === 'waiting' && !data.screeningSessionId && screeningSessionId){
+      closeScreeningPeer();
+      setStatus('waiting','In queue — waiting for producer approval.');
+    }
+    if(data.status === 'answered' || data.status === 'live' || data.status === 'rejected' || data.status === 'ended')closeScreeningPeer();
 
     // Set remote description as soon as answer arrives, then drain buffered candidates
     if(data.answer && !pc.currentRemoteDescription){
@@ -797,6 +862,7 @@ function finishCallerSession(message='Call ended. Returning home…', delay=700)
 }
 
 function cleanup(updateFirestore = true){
+  closeScreeningPeer();
   if(localStream) localStream.getTracks().forEach(t => t.stop());
   localVideo.srcObject = null; if(remoteVideo) remoteVideo.srcObject = null; videoStage.classList.remove('show');
   if(pc){ pc.close(); pc = null; }
