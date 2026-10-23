@@ -2013,7 +2013,13 @@ async function answerCall(callId, callerName, callerCity){
   try{
     const initialSnap = await getDoc(activeCallRef);
     callData = initialSnap.data();
-    if(!callData || !callData.offer){alert('Could not read the incoming call offer.');return;}
+    if(!callData || !callData.offer){
+      alert('Could not read the incoming call offer.');
+      // Release the reserved call ID/ref so a stale or deleted offer cannot
+      // leave the studio in a half-selected state.
+      cleanupActiveCall();
+      return;
+    }
     const isVideoCall = callData.mediaType === 'video';
     // Producer camera is intentionally not requested: caller video is the
     // guest-priority picture for screening and the OBS overlay. Producer sends audio only.
@@ -2028,6 +2034,7 @@ async function answerCall(callId, callerName, callerCity){
     return;
   }
 
+  try{
   // Create peer connection and add producer audio only. Caller video is received
   // for screening and the overlay; the producer camera is never part of this call.
   activePc = new RTCPeerConnection(iceConfig);
@@ -2170,6 +2177,13 @@ async function answerCall(callId, callerName, callerCity){
   document.querySelector('[data-tab="calls"]').classList.add('active');
   document.querySelectorAll('.tab-content').forEach(c=> c.style.display = 'none');
   document.getElementById('tab-calls').style.display = 'block';
+  }catch(err){
+    console.error('Could not establish caller session:',err);
+    cleanupActiveCall();
+    stopHoldMusic();
+    setCallStatus('Call setup failed. The line was released; try answering again.');
+    alert('Could not connect this caller: '+(err?.message||err));
+  }
 }
 
 // ── Hold music via WebRTC track replacement ──
