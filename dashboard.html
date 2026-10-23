@@ -958,7 +958,7 @@ let videoOpen = true;
 function renderVideoToggle(){
   videoToggleBtn.classList.toggle('open', videoOpen);
   videoToggleBtn.classList.toggle('closed', !videoOpen);
-  videoToggleText.textContent = videoOpen ? 'Video Guests Open' : 'Video Guests Closed';
+  videoToggleText.textContent = videoOpen ? 'Video Calls Open' : 'Video Calls Closed';
 }
 
 function startVideoToggleListener(){
@@ -970,14 +970,14 @@ function startVideoToggleListener(){
 }
 
 videoToggleBtn.addEventListener('click', async()=>{
-  if(videoOpen && !confirm('Close video guests? Nobody new will be able to join until you reopen it.')) return;
+  if(videoOpen && !confirm('Close video calls? Nobody new will be able to join until you reopen the video line.')) return;
   videoToggleBtn.disabled = true;
   try{
     await setDoc(linesSettingsRef, { videoOpen: !videoOpen, updatedAt: Date.now() }, { merge:true });
   }catch(err){
     if(err.code === 'permission-denied'){
       alert(
-        "Can't update video guests status — Firestore is blocking it.\n\n" +
+        "Can't update video line status — Firestore is blocking it.\n\n" +
         "Add the hotlineSettings rule from SETUP.md in Firebase Console → " +
         "Firestore Database → Rules, then click Publish."
       );
