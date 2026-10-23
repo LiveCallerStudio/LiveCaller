@@ -675,11 +675,16 @@ async function startCall(){
 
   // Play remote audio (producer's voice)
   pc.ontrack = (event) => {
-    if(event.streams && event.streams[0]){
-      remoteAudio.srcObject = event.streams[0];
+    // Producer camera is added to the already-negotiated video lane on demand.
+    // Browsers may deliver that track without an associated MediaStream.
+    if(event.track.kind === 'audio'){
+      const stream = event.streams?.[0] || new MediaStream([event.track]);
+      remoteAudio.srcObject = stream;
       remoteAudio.play().catch(()=>{});
-      if(callMode==='video' && remoteVideo){remoteVideo.srcObject=event.streams[0];remoteVideo.play().catch(()=>{});}
-      
+    }else if(event.track.kind === 'video' && callMode === 'video' && remoteVideo){
+      const stream = event.streams?.[0] || new MediaStream([event.track]);
+      remoteVideo.srcObject = stream;
+      remoteVideo.play().catch(()=>{});
     }
   };
 
