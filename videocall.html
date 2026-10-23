@@ -713,7 +713,7 @@ async function startCall(){
       clearTimeout(peerDisconnectTimer);
       showError('Connection interrupted — attempting to recover. Please keep this page open.');
       peerDisconnectTimer = setTimeout(() => {
-        if (pc && ['disconnected','failed'].includes(pc.connectionState)) {
+        if (pc && (pc.connectionState === 'disconnected' || pc.connectionState === 'failed')) {
           finishCallerSession('Connection could not be restored. Returning home…', 500);
         }
       }, 15000);
