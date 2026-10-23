@@ -630,6 +630,86 @@
     *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
   }
 
+ 
+  /* Unified phone system redesign */
+  .tab-nav{display:flex;gap:6px;align-items:center;overflow-x:auto;scrollbar-width:thin}
+  .tab-btn{border-radius:12px 12px 0 0!important;font-weight:800;letter-spacing:.015em}
+  #tab-calls{padding-top:8px}
+  .phone-desk-hero{
+    display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,.85fr);gap:28px;
+    padding:clamp(22px,3.2vw,38px);margin:0 0 18px;position:relative;overflow:hidden;
+    border:1px solid rgba(83,252,24,.25);border-radius:24px;
+    background:radial-gradient(ellipse at 5% 0%,rgba(83,252,24,.14),transparent 55%),
+      linear-gradient(135deg,rgba(20,29,22,.98),rgba(9,13,10,.99));
+    box-shadow:0 20px 60px rgba(0,0,0,.22),inset 0 1px rgba(255,255,255,.025)
+  }
+  .phone-desk-hero:after{content:"☎";position:absolute;right:27%;bottom:-100px;font-size:280px;line-height:1;color:rgba(83,252,24,.035);pointer-events:none}
+  .phone-desk-copy,.phone-desk-actions{position:relative;z-index:1}
+  .eyebrow,.desk-status-label{font-size:10px;font-weight:900;letter-spacing:.19em;text-transform:uppercase;color:#a5b5a9}
+  .eyebrow{display:flex;align-items:center;gap:9px;color:var(--green)}
+  .live-pip{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 14px rgba(83,252,24,.8);animation:blink 1.5s infinite}
+  .phone-desk-copy h2{font-size:clamp(30px,4vw,52px);line-height:1.02;letter-spacing:-.055em;margin:17px 0 13px;font-weight:900}
+  .phone-desk-copy h2 span{color:var(--green)}
+  .phone-desk-copy p{max-width:660px;color:#b1beb5;font-size:14px;line-height:1.75;margin:0}
+  .desk-capabilities{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+  .desk-capabilities span{font-size:11px;color:#dce7de;padding:8px 10px;border:1px solid #344638;border-radius:999px;background:rgba(255,255,255,.025)}
+  .phone-desk-actions{align-self:center;padding:18px;border:1px solid #2c3b30;border-radius:18px;background:rgba(4,8,5,.45);backdrop-filter:blur(12px)}
+  .desk-status-label{margin:0 0 13px 2px}
+  .desk-line-control{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 2px;border-top:1px solid #28352b}
+  .desk-line-control>div{display:flex;flex-direction:column;gap:5px}
+  .desk-line-control strong{font-size:13px}
+  .desk-line-control small{font-size:11px;line-height:1.4;color:var(--sub)}
+  .desk-control-anchor{font-size:10px;color:var(--green);text-align:right;max-width:100px}
+  .phone-desk-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:26px}
+  .desk-metric{display:flex;align-items:center;gap:13px;padding:16px 18px;border:1px solid #27362b;border-radius:16px;background:linear-gradient(145deg,rgba(18,25,20,.95),rgba(11,15,12,.98))}
+  .metric-icon{display:grid;place-items:center;flex:0 0 38px;height:38px;border:1px solid rgba(83,252,24,.25);border-radius:12px;color:var(--green);font-size:20px;background:rgba(83,252,24,.06)}
+  .desk-metric div{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .desk-metric strong{font-size:13px}
+  .desk-metric small{font-size:11px;color:var(--sub);line-height:1.35}
+  #incomingCallsTitle{display:flex;align-items:center;gap:10px;font-size:11px;margin:20px 0 12px}
+  #incomingCallsTitle:not([style*="display: none"]):before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 12px rgba(83,252,24,.6)}
+  .call-card{padding:20px!important;gap:18px!important;border-radius:18px!important;align-items:center;transition:transform .18s,border-color .18s,box-shadow .18s}
+  .call-card:hover{transform:translateY(-2px);border-color:rgba(83,252,24,.85)!important;box-shadow:0 16px 38px rgba(0,0,0,.28),0 0 20px rgba(83,252,24,.05)}
+  .call-ring-icon{width:52px;height:52px;min-width:52px;background:rgba(83,252,24,.07)}
+  .call-card-name{font-size:17px;letter-spacing:-.02em}
+  .call-card-city{margin-top:5px}
+  .call-card-time{display:inline-flex;margin-top:9px;padding:6px 9px;border-radius:7px;background:#0a100b;border:1px solid #28362b;color:#c0ccc3}
+  .call-card-actions{gap:9px}
+  .call-card-actions .ibtn{min-height:42px;padding:11px 15px;border-radius:10px}
+  .ibtn-answer{box-shadow:0 5px 18px rgba(83,252,24,.12)}
+  .active-call-panel{padding:clamp(18px,3vw,30px)!important;border-radius:22px!important;margin-bottom:20px}
+  .active-call-header{gap:18px}
+  .active-call-badge{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:7px 11px;background:rgba(255,77,94,.1);border:1px solid rgba(255,77,94,.28)}
+  .active-call-name{font-size:clamp(24px,3vw,36px);letter-spacing:-.04em}
+  .active-call-controls{gap:10px}
+  .active-call-controls .cbtn{min-height:44px;border-radius:11px;padding:12px 15px}
+  #videoScreeningPanel{padding:clamp(16px,2.5vw,26px);border-radius:20px;background:linear-gradient(145deg,#121a14,#0a0e0b);box-shadow:0 20px 50px rgba(0,0,0,.24)}
+  #screeningPreview{max-height: min(58vh,560px);border-radius:14px}
+  .screening-actions button{border-radius:10px;min-height:40px}
+  #callsEmpty{border:1px dashed #354639!important;min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+  #callsEmpty .ic{font-size:32px}
+  @media(max-width:900px){
+    .phone-desk-hero{grid-template-columns:1fr;gap:22px}
+    .phone-desk-hero:after{right:-5%;font-size:200px}
+    .phone-desk-actions{max-width:none}
+  }
+  @media(max-width:600px){
+    .phone-desk-hero{padding:21px;border-radius:18px}
+    .phone-desk-copy h2{font-size:34px}
+    .phone-desk-metrics{grid-template-columns:1fr;gap:8px}
+    .desk-metric{padding:12px 14px}
+    .desk-line-control{align-items:flex-start}
+    .desk-line-control .lines-toggle{max-width:170px;white-space:normal;text-align:left}
+    .call-card{align-items:flex-start!important;padding:16px!important;gap:12px!important}
+    .call-card-body{min-width:calc(100% - 68px)}
+    .call-card-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}
+    .call-card-actions .ibtn{justify-content:center;padding:10px 8px;font-size:11px}
+    .call-card-actions .ibtn-answer{grid-column:span 2}
+    .active-call-controls{display:grid;grid-template-columns:1fr 1fr}
+    .active-call-controls .cbtn{min-width:0!important}
+    .phone-desk-copy p{font-size:13px}
+  }
+
 </style>
 </head>
 <body>
@@ -686,16 +766,16 @@
 <div class="alert-banner" id="alertBanner">🎤 Incoming Voice Message</div>
 
 <!-- Tab Navigation -->
-<nav class="tab-nav">
-  <button class="tab-btn active" data-tab="queue">📥 Queue <span class="tab-notification" id="queueTabNotice" aria-label="0 pending requests" hidden>0</span></button>
-  <button class="tab-btn" data-tab="calls">📞 Phone System <span class="tab-notification" id="callsTabNotice" aria-label="0 incoming calls" hidden>0</span></button>
-  <button class="tab-btn" data-tab="history">📋 History</button>
-  <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
+<nav class="tab-nav" aria-label="Studio sections">
+  <button class="tab-btn active" data-tab="calls">☎ Phone System <span class="tab-notification" id="callsTabNotice" aria-label="0 incoming calls" hidden>0</span></button>
+  <button class="tab-btn" data-tab="queue">♫ Voice Messages <span class="tab-notification" id="queueTabNotice" aria-label="0 pending requests" hidden>0</span></button>
+  <button class="tab-btn" data-tab="history">◷ Call History</button>
+  <button class="tab-btn" data-tab="analytics">▥ Analytics</button>
 </nav>
 
 <main>
   <!-- QUEUE TAB -->
-  <div class="tab-content" id="tab-queue">
+  <div class="tab-content" id="tab-queue" style="display:none;">
     <div id="emptyState" class="empty" style="display:none;">
       <div class="ic">📭</div>
       <div>No messages waiting. The queue's clear.</div>
@@ -704,7 +784,7 @@
   </div>
 
   <!-- CALLS TAB -->
-  <div class="tab-content" id="tab-calls" style="display:none;">
+  <div class="tab-content" id="tab-calls">
 
     <!-- Active call panel — shown when a call is connected -->
     <div class="active-call-panel" id="activeCallPanel" style="display:none;">
@@ -732,17 +812,31 @@
       <div class="record-status" id="recordStatus"></div>
     </div>
 
-    <!-- Shared audio + video call controls and queue -->
-    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--panel);">
-      <div style="min-width:200px;flex:1;">
-        <div style="font-size:12px;font-weight:900;letter-spacing:1.2px;color:var(--green);text-transform:uppercase;">One Phone System · Audio + Video</div>
-        <div style="font-size:12px;color:var(--sub);line-height:1.5;margin-top:5px;">All callers use this shared queue. Screen video guests privately before sending anyone on air.</div>
+    <!-- Unified phone desk: audio and video share one incoming queue and one active-call workflow. -->
+    <section class="phone-desk-hero" aria-labelledby="phoneDeskTitle">
+      <div class="phone-desk-copy">
+        <div class="eyebrow"><span class="live-pip"></span> LIVE CALL-IN DESK</div>
+        <h2 id="phoneDeskTitle">One line. <span>Every caller.</span></h2>
+        <p>Audio and video arrive in the same queue. Answer audio immediately, privately screen video guests, then send approved callers on air when you’re ready.</p>
+        <div class="desk-capabilities"><span>● Audio calls</span><span>● Video calls</span><span>● Private screening</span><span>● OBS handoff</span></div>
       </div>
-      <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video calls can join">
-        <span class="lines-dot"></span>
-        <span id="videoToggleText">Video Calls Open</span>
-      </button>
-    </div>
+      <div class="phone-desk-actions">
+        <div class="desk-status-label">LINE CONTROLS</div>
+        <div class="desk-line-control">
+          <div><strong>Voice line</strong><small id="deskVoiceStatus">Checking status…</small></div>
+          <span class="desk-control-anchor">Managed above</span>
+        </div>
+        <div class="desk-line-control">
+          <div><strong>Video guests</strong><small>Allow or pause new video callers</small></div>
+          <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video calls can join"><span class="lines-dot"></span><span id="videoToggleText">Video Calls Open</span></button>
+        </div>
+      </div>
+    </section>
+    <section class="phone-desk-metrics" aria-label="Phone system overview">
+      <div class="desk-metric"><span class="metric-icon">↗</span><div><strong id="deskIncomingMetric">Live queue</strong><small>Incoming audio + video</small></div></div>
+      <div class="desk-metric"><span class="metric-icon">◉</span><div><strong>Private first</strong><small>Video is screened off-air</small></div></div>
+      <div class="desk-metric"><span class="metric-icon">▣</span><div><strong>OBS ready</strong><small>Send to broadcast when approved</small></div></div>
+    </section>
     <div class="calls-section-title" id="incomingCallsTitle" style="display:none;">
       Incoming Calls
     </div>
@@ -931,6 +1025,8 @@ const linesToggleText = document.getElementById('linesToggleText');
 let linesOpen = true;
 
 function renderLinesToggle(){
+  const deskVoiceStatus = document.getElementById('deskVoiceStatus');
+  if(deskVoiceStatus) deskVoiceStatus.textContent = linesOpen ? 'Open · accepting callers' : 'Closed · calls paused';
   linesToggleBtn.classList.toggle('open', linesOpen);
   linesToggleBtn.classList.toggle('closed', !linesOpen);
   linesToggleText.textContent = linesOpen ? 'Call-Ins Open' : 'Call-Ins Closed';
@@ -2344,6 +2440,8 @@ function startCallsListener(){
       const count = ringing.length;
       updateTabNotice('callsTabNotice', count, 'incoming call');
       callCountNum.textContent = count;
+      const deskIncomingMetric = document.getElementById('deskIncomingMetric');
+      if(deskIncomingMetric) deskIncomingMetric.textContent = count ? `${count} waiting ${count===1?'caller':'callers'}` : 'Queue is clear';
       count > 0 ? callCounter.classList.add('show') : callCounter.classList.remove('show');
 
       if(count > 0 && !activePc){
