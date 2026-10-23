@@ -2527,6 +2527,7 @@ function startCallsListener(){
       // Incoming FaceTime-style audio AND video calls are both stored in liveCalls.
       const ringing = calls.filter(c => c.status === 'waiting');
       const count = ringing.length;
+      updateTabNotice('callsTabNotice', count, 'incoming caller');
       callCountNum.textContent = count;
       const deskIncomingCount = document.getElementById('deskIncomingCount');
       if(deskIncomingCount) deskIncomingCount.textContent = `${count} ${count===1?'CALLER':'CALLERS'} WAITING`;
