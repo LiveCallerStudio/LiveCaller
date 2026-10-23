@@ -657,6 +657,8 @@
   .broadcast-queue-head p{margin:0;color:#aab8ae;font-size:13px;line-height:1.5}
   .broadcast-queue-live{display:flex;align-items:center;gap:9px;white-space:nowrap;border:1px solid #38503b;border-radius:999px;padding:10px 13px;color:#b9ff9b;font-size:10px;font-weight:900;letter-spacing:.1em;background:rgba(83,252,24,.055)}
   #callsQueue{display:flex;flex-direction:column;gap:10px}
+  .call-queue-label{display:inline-flex;align-items:center;width:max-content;max-width:100%;padding:6px 10px;margin-bottom:10px;border:1px solid rgba(83,252,24,.28);border-radius:7px;background:rgba(83,252,24,.07);color:var(--green);font-size:10px;font-weight:900;letter-spacing:.12em}
+  .call-waiting-card .call-queue-label{border-color:rgba(255,190,70,.35);background:rgba(255,190,70,.08);color:#ffcf70}
   #callsQueue .card{border-left:3px solid var(--green);background:linear-gradient(100deg,rgba(24,35,27,.98),rgba(13,18,15,.98))}
   #callsQueue .card-top{align-items:center}
   #callsQueue .card-actions .ibtn{min-height:42px}
@@ -808,6 +810,7 @@
   <button class="tab-btn" data-tab="queue">♫ Voice Messages <span class="tab-notification" id="queueTabNotice" aria-label="0 pending voice messages">0</span></button>
   <button class="tab-btn" data-tab="songrequests">🎵 Song Requests <span class="tab-notification" id="songRequestsTabNotice" aria-label="0 pending song requests">0</span></button>
   <button class="tab-btn" data-tab="history">◷ Call History <span class="tab-notification" id="historyTabNotice" aria-label="0 missed calls">0</span></button>
+  <button class="tab-btn" data-tab="recordings">🎙️ Recordings</button>
   <button class="tab-btn" data-tab="analytics">▥ Analytics</button>
 </nav>
 
@@ -906,6 +909,16 @@
     </div>
   </div>
 
+  <!-- RECORDINGS TAB -->
+  <div class="tab-content" id="tab-recordings" style="display:none;">
+    <div class="section-title" style="margin-bottom:14px;">Recorded Calls</div>
+    <div class="empty" id="recordingsEmpty" style="display:none;">
+      <div class="ic">🎙️</div>
+      <div>No recordings yet. Start recording calls using the Record button.</div>
+    </div>
+    <div id="recordingsList"></div>
+  </div>
+
   <!-- ANALYTICS TAB -->
   <div class="tab-content" id="tab-analytics" style="display:none;">
     <div class="analytics-grid">
@@ -976,15 +989,6 @@
     </div>
     <div class="queue history-list" id="histList"></div>
 
-    <!-- Recordings Section -->
-    <div id="recordingsSection" style="margin-top:32px;">
-      <div class="section-title" style="margin-bottom:14px;">🎙️ Recorded Calls</div>
-      <div class="empty" id="recordingsEmpty" style="display:none;">
-        <div class="ic">🎙️</div>
-        <div>No recordings yet. Start recording calls using the Record button.</div>
-      </div>
-      <div id="recordingsList"></div>
-    </div>
   </div>
 </main>
 
@@ -2567,20 +2571,20 @@ function startCallsListener(){
         stopPhoneRing();
       }
 
-      if(ringing.length === 0 && !activePc){
-        callsEmpty.style.display = 'block';
-        callsEmpty.innerHTML = '<div>No incoming calls.</div>';
+      if(ringing.length === 0){
+        callsEmpty.style.display = 'flex';
+        callsEmpty.innerHTML = '<div class="ic">📞</div><div>No incoming calls right now.</div>';
         callsQueue.innerHTML = '';
         incomingCallsTitle.style.display = 'none';
         return;
       }
       callsEmpty.style.display = 'none';
-      incomingCallsTitle.style.display = ringing.length > 0 ? 'block' : 'none';
+      incomingCallsTitle.style.display = 'block';
       incomingCallsTitle.textContent = activePc ? 'Call Waiting Queue' : 'Incoming Calls';
 
       callsQueue.innerHTML = ringing.map(c=>`
         <div class="call-card ${activePc ? 'call-waiting-card' : ''}" data-id="${escapeHtml(c.id)}">
-          ${activePc ? '<div class="call-waiting-label" role="status">☎ CALL WAITING</div>' : ''}
+          <div class="call-queue-label" role="status">${activePc ? '☎ CALL WAITING' : '☎ INCOMING CALL'}</div>
           <div class="call-ring-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
@@ -2674,7 +2678,13 @@ function startCallHistoryListener(){
         return t && t >= today;
       }).length;
       histRec.textContent = calls.filter(c=> c.recordingUrl).length;
-      const durations = calls.filter(c=> c.duration > 0).map(c=> c.duration);
+      // Average only completed, answered calls with a measured duration.
+      const durations = calls.filter(c=>{
+        const status = String(c.status || '').toLowerCase();
+        const duration = Number(c.duration);
+        const notConnected = /missed|no answer|no-answer|rejected|declined|busy|cancelled|canceled/.test(status);
+        return Number.isFinite(duration) && duration > 0 && !notConnected;
+      }).map(c=>Number(c.duration));
       histAvgDur.textContent = durations.length
         ? formatDur(Math.round(durations.reduce((a,b)=>a+b,0)/durations.length))
         : '—';
