@@ -609,7 +609,8 @@
       </div>
 
       <audio id="playback" controls></audio>
-      <button class="action-btn btn-rerecord" id="downloadWavBtn" type="button">⬇ DOWNLOAD WAV</button>
+      <button class="action-btn btn-rerecord" id="downloadWavBtn" type="button">⬇ DOWNLOAD WAV · 48 kHz</button>
+      <button class="action-btn btn-rerecord" id="downloadMp3Btn" type="button">⬇ DOWNLOAD MP3 · 320 kbps</button>
 
       <p class="disclaimer">By submitting, you agree your message may be broadcast on-air or on stream.</p>
 
@@ -973,6 +974,50 @@ closeBtn.addEventListener('click',()=>{
     resetRecordingUI();
   }, 250);
 });
+
+
+let lameJsPromise = null;
+function loadLameJs(){
+  if(window.lamejs) return Promise.resolve(window.lamejs);
+  if(!lameJsPromise) lameJsPromise = new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js';
+    script.async=true;
+    script.onload=()=>window.lamejs?resolve(window.lamejs):reject(new Error('MP3 encoder did not initialize.'));
+    script.onerror=()=>reject(new Error('Could not load MP3 encoder; check internet.'));
+    document.head.appendChild(script);
+  });
+  return lameJsPromise;
+}
+async function encodeAudioBufferToMp3(decoded,filename){
+  const lamejs=await loadLameJs();
+  const Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  if(!Offline)throw new Error('MP3 conversion is unsupported in this browser.');
+  const rate=44100,channels=Math.min(2,Math.max(1,decoded.numberOfChannels));
+  const offline=new Offline(channels,Math.max(1,Math.ceil(decoded.duration*rate)),rate);
+  const source=offline.createBufferSource();source.buffer=decoded;source.connect(offline.destination);source.start(0);
+  const audio=await offline.startRendering(), leftFloat=audio.getChannelData(0);
+  const left=new Int16Array(leftFloat.length);
+  for(let i=0;i<left.length;i++){const v=Math.max(-1,Math.min(1,leftFloat[i]));left[i]=v<0?v*32768:v*32767;}
+  let right=null;
+  if(channels===2){const f=audio.getChannelData(1);right=new Int16Array(f.length);for(let i=0;i<f.length;i++){const v=Math.max(-1,Math.min(1,f[i]));right[i]=v<0?v*32768:v*32767;}}
+  const encoder=new lamejs.Mp3Encoder(channels,rate,320), chunks=[];
+  for(let i=0;i<left.length;i+=1152){const l=left.subarray(i,Math.min(i+1152,left.length));const out=channels===2?encoder.encodeBuffer(l,right.subarray(i,Math.min(i+1152,right.length))):encoder.encodeBuffer(l);if(out.length)chunks.push(out);}
+  const tail=encoder.flush();if(tail.length)chunks.push(tail);
+  const blob=new Blob(chunks,{type:'audio/mpeg'});if(!blob.size)throw new Error('MP3 output was empty.');
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);
+}
+async function downloadVoiceMessageMp3(){
+  if(!audioBlob||!audioBlob.size){showError('Record a message first.');return;}
+  const button=document.getElementById('downloadMp3Btn');
+  if(button){button.disabled=true;button.textContent='Preparing MP3…';}
+  try{
+    const C=window.AudioContext||window.webkitAudioContext;if(!C)throw new Error('Audio conversion unsupported.');
+    const ctx=new C();try{const decoded=await ctx.decodeAudioData(await audioBlob.arrayBuffer());await encodeAudioBufferToMp3(decoded,'live-caller-voice-message-320kbps.mp3');}finally{await ctx.close().catch(()=>{});}
+  }catch(error){showError('Could not create MP3. Check your internet connection and try again; the original recording is unchanged.');console.warn('MP3 export failed:',error);}
+  finally{if(button){button.disabled=false;button.textContent='⬇ DOWNLOAD MP3 · 320 kbps';}}
+}
+document.getElementById('downloadMp3Btn')?.addEventListener('click',downloadVoiceMessageMp3);
 
 async function downloadVoiceMessageWav(){
   if(!audioBlob || !audioBlob.size){ showError('Record a message first.'); return; }

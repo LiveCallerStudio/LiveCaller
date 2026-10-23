@@ -71,3 +71,10 @@ assert.match(dashboard, /data-action="download-recording-wav"/, 'call archive mu
 assert.match(dashboard, /async function downloadCallRecordingWav\([\s\S]*?const rate=48000/, 'call archive WAV export must resample to 48 kHz PCM');
 assert.match(dashboard, /audio\/wav/, 'call archive must generate a WAV file');
 assert.match(voice, /const channels=Math\.min\(2,Math\.max\(1,decoded\.numberOfChannels\)\), rate=48000;[\s\S]*?OfflineContextClass\(channels,frames,rate\)/, 'voice message WAV export must resample decoded audio to exactly 48 kHz');
+
+assert.ok(dashboard.includes('data-action="download-recording-mp3"'), 'call archive must offer MP3 export');
+assert.ok(dashboard.includes('new lamejs.Mp3Encoder(channels,rate,320)'), 'call archive MP3 must request 320 kbps');
+assert.ok(dashboard.includes('async function downloadCallRecordingMp3'), 'call archive MP3 export handler must exist');
+assert.ok(voice.includes('id="downloadMp3Btn"'), 'voice message review must offer MP3 download');
+assert.ok(voice.includes('new lamejs.Mp3Encoder(channels,rate,320)'), 'voice-message MP3 must request 320 kbps');
+assert.ok(voice.includes("live-caller-voice-message-320kbps.mp3"), 'voice-message MP3 must be a separate export file');
