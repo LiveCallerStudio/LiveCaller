@@ -783,11 +783,11 @@
       </div>
       <div class="header-live-controls" aria-label="Live line controls">
         <div class="desk-line-control">
-          <strong>Audio in</strong>
+          <strong>Audio</strong>
           <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Close audio callers"><span class="lines-dot"></span><span id="linesToggleText">Close</span></button>
         </div>
         <div class="desk-line-control">
-          <strong>Video in</strong>
+          <strong>Video</strong>
           <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Close video callers"><span class="lines-dot"></span><span id="videoToggleText">Close</span></button>
         </div>
       </div>
@@ -817,9 +817,14 @@
     <div class="voice-message-tools">
       <label for="filterSelect">Messages</label>
       <select id="filterSelect" aria-label="Filter voice messages">
-        <option value="pending">Pending only</option>
-        <option value="all">All messages</option>
-        <option value="approved">Approved only</option>
+        <option value="all">All (message history)</option>
+        <option value="pending">Incoming / Pending</option>
+        <option value="approved">Approved</option>
+        <option value="type:general">General</option>
+        <option value="type:shoutout">Shout-Out</option>
+        <option value="type:dedication">Dedication</option>
+        <option value="type:song">Song Request</option>
+        <option value="type:birthday">Birthday</option>
       </select>
     </div>
     <div id="emptyState" class="empty" style="display:none;">
@@ -942,6 +947,13 @@
 
   <!-- CALL HISTORY TAB -->
   <div class="tab-content" id="tab-history" style="display:none;">
+    <div class="voice-message-tools">
+      <label for="callHistoryFilter">Call History</label>
+      <select id="callHistoryFilter" aria-label="Filter call history">
+        <option value="calls">Calls</option>
+        <option value="missed">Missed</option>
+      </select>
+    </div>
     <div class="analytics-grid" style="margin-bottom:20px;">
       <div class="stat-card">
         <div class="stat-value" id="histTotal">—</div>
@@ -1270,6 +1282,7 @@ function render(){
   let list = allMessages.filter(m=>{
     if(filter === 'pending' && m.status !== 'pending') return false;
     if(filter === 'approved' && m.status !== 'approved') return false;
+    if(filter.startsWith('type:') && normalizeMessageType(m.messageType) !== filter.slice(5)) return false;
     if(term){
       const hay = `${m.name||''} ${m.city||''} ${m.songArtist||''} ${m.songTrack||''} ${m.shoutoutName||''} ${m.birthdayName||''} ${m.dedicationTo||''} ${m.messageType||''}`.toLowerCase();
       if(!hay.includes(term)) return false;
@@ -1328,12 +1341,21 @@ function render(){
   }).join('');
 }
 
+function normalizeMessageType(type){
+  const value = String(type || 'general').toLowerCase().replace(/[ _-]/g, '');
+  if(value === 'songrequest' || value === 'request' || value === 'song') return 'song';
+  if(value === 'shoutout') return 'shoutout';
+  if(value === 'dedication') return 'dedication';
+  if(value === 'birthday') return 'birthday';
+  return 'general';
+}
+
 function typeLabel(type){
   const map = {
-    general:'🎙️ General', song:'🎵 Song', shoutout:'📢 Shout-Out',
-    birthday:'🎂 Birthday', dedication:'💌 Dedication'
+    general:'🎙️ General', song:'🎵 Song Request', songrequest:'🎵 Song Request',
+    shoutout:'📢 Shout-Out', birthday:'🎂 Birthday', dedication:'💌 Dedication'
   };
-  return map[type] || '🎙️ General';
+  return map[String(type || 'general').toLowerCase()] || '🎙️ General';
 }
 
 function typeDetail(m){
@@ -2626,6 +2648,8 @@ document.addEventListener('click', async(e)=>{
 });
 
 function startCallHistoryListener(){
+  const callHistoryFilter = document.getElementById('callHistoryFilter');
+  let allCallHistory = [];
   const histList   = document.getElementById('histList');
   const histEmpty  = document.getElementById('histEmpty');
   const histTotal  = document.getElementById('histTotal');
@@ -2636,7 +2660,8 @@ function startCallHistoryListener(){
   onSnapshot(
     query(collection(db, 'callHistory'), orderBy('createdAt', 'desc')),
     (snap)=>{
-      const calls = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      allCallHistory = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      const calls = allCallHistory;
       const today = new Date(); today.setHours(0,0,0,0);
 
       histTotal.textContent = calls.length;
@@ -2655,14 +2680,20 @@ function startCallHistoryListener(){
         ? formatDur(Math.round(durations.reduce((a,b)=>a+b,0)/durations.length))
         : '—';
 
-      if(calls.length === 0){
+      const missedCall = c => {
+        const status = String(c.status || '').toLowerCase();
+        return status.includes('missed') || status.includes('no answer') || status.includes('no-answer');
+      };
+      const visibleCalls = calls.filter(c => callHistoryFilter?.value !== 'missed' || missedCall(c));
+      if(visibleCalls.length === 0){
         histEmpty.style.display = 'block';
+        histEmpty.innerHTML = '<div class="ic">📋</div><div>' + (callHistoryFilter?.value === 'missed' ? 'No missed calls in your history.' : 'No call history yet. Calls appear here after they end.') + '</div>';
         histList.innerHTML = '';
-        return;
+      } else {
+        histEmpty.style.display = 'none';
       }
-      histEmpty.style.display = 'none';
 
-      histList.innerHTML = calls.map(c=>`
+      histList.innerHTML = visibleCalls.map(c=>`
         <div class="hist-card" data-histid="${c.id}">
           <div class="hist-icon">${c.recordingUrl ? '🔴' : '📞'}</div>
           <div class="hist-body">
@@ -2682,7 +2713,7 @@ function startCallHistoryListener(){
           </div>
         </div>`).join('');
 
-      // ── Recordings section ──
+      // ── Recordings section remains the full recording archive regardless of history filter ──
       const recorded = calls.filter(c => c.recordingUrl);
       const recSection = document.getElementById('recordingsSection');
       const recList    = document.getElementById('recordingsList');
@@ -2713,6 +2744,30 @@ function startCallHistoryListener(){
       }
     }
   );
+  callHistoryFilter?.addEventListener('change', ()=>{
+    // Re-render the existing snapshot-backed records without restarting the listener.
+    const status = callHistoryFilter.value;
+    const list = document.getElementById('histList');
+    const empty = document.getElementById('histEmpty');
+    const visible = allCallHistory.filter(c=>{
+      if(status !== 'missed') return true;
+      const value = String(c.status || '').toLowerCase();
+      return value.includes('missed') || value.includes('no answer') || value.includes('no-answer');
+    });
+    if(!visible.length){
+      empty.style.display = 'block';
+      empty.innerHTML = '<div class="ic">📋</div><div>'+(status === 'missed' ? 'No missed calls in your history.' : 'No call history yet. Calls appear here after they end.')+'</div>';
+      list.innerHTML = '';
+      return;
+    }
+    empty.style.display = 'none';
+    list.innerHTML = visible.map(c=>`
+      <div class="hist-card" data-histid="${escapeHtml(c.id)}">
+        <div class="hist-icon">${c.recordingUrl ? '🔴' : '📞'}</div>
+        <div class="hist-body"><div class="hist-name">${escapeHtml(c.callerName || 'Unknown')}</div><div class="hist-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${escapeHtml(c.status || '')}</div></div>
+        <div class="hist-right"><div class="hist-dur">${formatDur(c.duration || 0)}</div><div class="hist-actions" style="margin-top:4px;">${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" target="_blank" rel="noopener">▶ Play</a><a class="hist-play" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}</div><div class="hist-time-row"><div class="hist-time">${escapeHtml(c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString() : (c.createdAt ? new Date(c.createdAt).toLocaleString() : 'Date unavailable'))}</div><button class="hist-delete" data-action="delete-history" data-id="${escapeHtml(c.id)}" title="Delete" aria-label="Delete call history record">🗑</button></div></div>
+      </div>`).join('');
+  });
 }
 
 function formatDur(s){
