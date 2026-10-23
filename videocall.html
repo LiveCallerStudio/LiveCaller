@@ -876,6 +876,7 @@ function finishCallerSession(message='Call ended. Returning home…', delay=700)
   stopTimer();
   setStatus('ended', message);
   cleanup(false);
+  callDocRef = null;
   returnToPhoneHome(delay);
 }
 
