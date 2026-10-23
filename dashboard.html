@@ -2188,7 +2188,7 @@ function stopVideoScreening(clearGuest = true){
 async function screenVideoGuest(callId){
   if(!callId)throw new Error('Missing video guest ID.');
   if(activePc)throw new Error('End the active call before screening another guest.');
-  stopVideoScreening(false);
+  stopVideoScreening(true);
   screeningCallId=callId;
   screeningPanel.classList.add('show');
   screeningGuestName.textContent='Connecting to guest…';
