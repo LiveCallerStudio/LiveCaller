@@ -386,7 +386,14 @@
   .call-card-name{font-size:16px; font-weight:800; margin-bottom:2px;}
   .call-card-city{font-size:12px; color:var(--sub);}
   .call-card-time{font-size:11px; color:#555; margin-top:3px;}
-  .call-card-actions{display:flex; gap:8px;}
+  .call-card-actions{display:flex; gap:8px; flex-wrap:wrap;}
+  .video-screening-panel{display:none;margin:12px 0 18px;padding:16px;background:#101010;border:1px solid var(--green);border-radius:14px}
+  .video-screening-panel.show{display:block}
+  #screeningPreview{display:block;width:100%;max-height:420px;aspect-ratio:16/9;object-fit:contain;background:#000;border:1px solid #333;border-radius:10px}
+  .screening-status{font-size:12px;color:var(--sub);line-height:1.45;margin:8px 0}
+  .screening-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .screening-actions button{padding:9px 12px;border-radius:8px;border:1px solid #333;background:#1b1b1b;color:#fff;font-weight:800;cursor:pointer}
+  .screening-actions .screening-stop{border-color:var(--red);color:var(--red)}
   .ibtn-answer{background:var(--green); color:#0a0a0a; border:none; font-weight:900;}
   .ibtn-reject{border-color:var(--red); color:var(--red);}
 
@@ -730,6 +737,17 @@
     <div class="calls-section-title" id="incomingCallsTitle" style="display:none;">
       Incoming Calls
     </div>
+    <section class="video-screening-panel" id="videoScreeningPanel" aria-live="polite">
+      <div style="font-size:12px;font-weight:900;letter-spacing:1.4px;color:var(--green);text-transform:uppercase;">Private Guest Screening — Not On Air</div>
+      <div id="screeningGuestName" style="font-size:18px;font-weight:900;margin-top:6px;">Waiting for guest…</div>
+      <video id="screeningPreview" autoplay playsinline muted></video>
+      <div class="screening-status" id="screeningStatus">This private preview is separate from the OBS broadcast.</div>
+      <div class="screening-actions">
+        <button type="button" id="screeningAudioBtn">Enable Preview Audio</button>
+        <button type="button" id="screeningRetryBtn">Reconnect Preview</button>
+        <button type="button" class="screening-stop" id="screeningStopBtn">Stop Screening</button>
+      </div>
+    </section>
     <div class="empty" id="callsEmpty">
       <div class="ic">📞</div>
       <div>No incoming calls right now.</div>
@@ -1435,6 +1453,10 @@ let overlaySessionsUnsub = null;
 let callerRemoteStream = null;
 let overlayRelayPeers = new Map();
 let localEndInProgress = false;
+let screeningPc = null;
+let screeningCallId = null;
+let screeningUnsubs = [];
+let screeningRemoteStream = null;
 
 // DOM refs for call UI
 const activeCallPanel  = document.getElementById('activeCallPanel');
@@ -1542,6 +1564,7 @@ function syncOverlayRelayTracks(record){
   });
 }
 function cleanupActiveCall(){
+  if(screeningCallId)stopVideoScreening(true);
   clearInterval(callTimerInterval);
   if(callCandidateUnsub){ callCandidateUnsub(); callCandidateUnsub = null; }
   if(activeCallStatusUnsub){ activeCallStatusUnsub(); activeCallStatusUnsub = null; }
@@ -2141,6 +2164,98 @@ endBtn.addEventListener('click', async()=>{
   await endActiveCallerCall();
 });
 
+
+ // ── Private video guest preview before accepting the call ──
+const screeningPanel = document.getElementById('videoScreeningPanel');
+const screeningPreview = document.getElementById('screeningPreview');
+const screeningStatus = document.getElementById('screeningStatus');
+const screeningGuestName = document.getElementById('screeningGuestName');
+const screeningAudioBtn = document.getElementById('screeningAudioBtn');
+
+function stopVideoScreening(clearGuest = true){
+  screeningUnsubs.forEach(unsub=>{try{unsub();}catch(e){}});
+  screeningUnsubs=[];
+  if(screeningPc){try{screeningPc.close();}catch(e){}screeningPc=null;}
+  if(screeningPreview){screeningPreview.pause();screeningPreview.srcObject=null;screeningPreview.muted=true;}
+  if(screeningAudioBtn)screeningAudioBtn.textContent='Enable Preview Audio';
+  screeningRemoteStream=null;
+  const oldId=screeningCallId;
+  screeningCallId=null;
+  if(screeningPanel)screeningPanel.classList.remove('show');
+  if(screeningStatus)screeningStatus.textContent='Private preview stopped.';
+  if(clearGuest && oldId)updateDoc(doc(db,'liveCalls',oldId),{screeningSessionId:null}).catch(err=>console.warn('Could not clear screening session:',err&&err.code));
+}
+async function screenVideoGuest(callId){
+  if(!callId)throw new Error('Missing video guest ID.');
+  if(activePc)throw new Error('End the active call before screening another guest.');
+  stopVideoScreening(false);
+  screeningCallId=callId;
+  screeningPanel.classList.add('show');
+  screeningGuestName.textContent='Connecting to guest…';
+  screeningStatus.textContent='Opening a private preview. This is not on air.';
+  screeningPreview.muted=true;
+  const callRef=doc(db,'liveCalls',callId);
+  const callSnap=await getDoc(callRef);
+  if(!callSnap.exists())throw new Error('Video guest call no longer exists.');
+  const callData=callSnap.data()||{};
+  if(callData.mediaType!=='video'||callData.status!=='waiting')throw new Error('This guest is no longer waiting for a video call.');
+  screeningGuestName.textContent=callData.callerName||'Video Guest';
+  const sessionId='screen-'+Date.now()+'-'+Math.random().toString(36).slice(2,9);
+  const sessionRef=doc(db,'liveCalls',callId,'screeningSessions',sessionId);
+  const pc=new RTCPeerConnection(iceConfig);
+  screeningPc=pc;
+  screeningRemoteStream=new MediaStream();
+  let remoteSet=false;const pending=[];
+  pc.addTransceiver('audio',{direction:'recvonly'});
+  pc.addTransceiver('video',{direction:'recvonly'});
+  pc.ontrack=event=>{
+    if(screeningPc!==pc)return;
+    const tracks=event.streams&&event.streams[0]?event.streams[0].getTracks():[event.track];
+    tracks.forEach(track=>{if(track&&!screeningRemoteStream.getTracks().some(t=>t.id===track.id))screeningRemoteStream.addTrack(track);});
+    screeningPreview.srcObject=screeningRemoteStream;
+    screeningPreview.play().catch(()=>{});
+    screeningStatus.textContent='Private preview connected. Guest is not on air.';
+  };
+  pc.onconnectionstatechange=()=>{
+    if(screeningPc!==pc)return;
+    if(pc.connectionState==='connected')screeningStatus.textContent='Private preview connected. Guest is not on air.';
+    else if(pc.connectionState==='failed')screeningStatus.textContent='Preview failed. Check ICE/TURN and Firestore screening rules.';
+    else if(pc.connectionState==='disconnected')screeningStatus.textContent='Preview interrupted; attempting to reconnect…';
+  };
+  pc.onicecandidate=e=>{if(e.candidate)addDoc(collection(sessionRef,'producerCandidates'),e.candidate.toJSON()).catch(err=>console.warn('Screening producer ICE write failed:',err&&err.code));};
+  pc.onicecandidateerror=e=>console.warn('Screening ICE candidate error:',{code:e.errorCode,text:e.errorText,url:e.url});
+  try{
+    const offer=await pc.createOffer();
+    await setDoc(sessionRef,{offer:{type:offer.type,sdp:offer.sdp},client:'dashboard-screen',producerUid:auth.currentUser.uid,createdAt:Date.now(),mediaType:'video'});
+    await pc.setLocalDescription(offer);
+    screeningUnsubs.push(onSnapshot(sessionRef,snap=>{
+      const data=snap.data();
+      if(!data||!data.answer||remoteSet||screeningPc!==pc)return;
+      pc.setRemoteDescription(new RTCSessionDescription(data.answer)).then(async()=>{
+        remoteSet=true;for(const candidate of pending)await pc.addIceCandidate(candidate).catch(()=>{});pending.length=0;
+      }).catch(err=>{screeningStatus.textContent='Could not apply guest answer: '+(err.message||'invalid answer');});
+    },err=>{screeningStatus.textContent='Screening signaling error: '+(err.code||err.message);}));
+    screeningUnsubs.push(onSnapshot(collection(sessionRef,'guestCandidates'),snap=>{
+      snap.docChanges().forEach(change=>{
+        if(change.type!=='added'||screeningPc!==pc)return;
+        const candidate=new RTCIceCandidate(change.doc.data());
+        if(remoteSet)pc.addIceCandidate(candidate).catch(err=>console.warn('Guest screening ICE rejected:',err&&err.name));else pending.push(candidate);
+      });
+    },err=>{screeningStatus.textContent='Guest ICE signaling error: '+(err.code||err.message);}));
+    await updateDoc(callRef,{screeningSessionId:sessionId});
+  }catch(err){stopVideoScreening(false);throw err;}
+}
+screeningAudioBtn?.addEventListener('click',async()=>{
+  if(!screeningPreview)return;
+  screeningPreview.muted=!screeningPreview.muted;
+  screeningAudioBtn.textContent=screeningPreview.muted?'Enable Preview Audio':'Mute Preview Audio';
+  if(!screeningPreview.muted)await screeningPreview.play().catch(()=>{});
+});
+document.getElementById('screeningRetryBtn')?.addEventListener('click',()=>{
+  if(screeningCallId)screenVideoGuest(screeningCallId).catch(err=>{screeningStatus.textContent='Reconnect failed: '+(err.message||'check connection');});
+});
+document.getElementById('screeningStopBtn')?.addEventListener('click',()=>stopVideoScreening(true));
+
 // Calls Firestore listener — shows incoming calls queue
 function startCallsListener(){
   // Read the full collection first. An orderBy(createdAt) query can silently
@@ -2196,6 +2311,7 @@ function startCallsListener(){
             <div class="call-card-time">${c.mediaType === 'video' ? '🎥 FaceTime Video' : '📞 FaceTime Audio'} · ${timeAgo(c.createdAt)}</div>
           </div>
           <div class="call-card-actions">
+            ${c.mediaType === 'video' ? `<button class="ibtn ibtn-answer" data-action="video-screen" data-id="${escapeHtml(c.id)}">👁 Screen Guest</button>` : ''}
             <button class="ibtn ibtn-answer" data-action="answer" data-id="${escapeHtml(c.id)}"
               data-name="${escapeHtml(c.callerName||'')}" data-city="${escapeHtml(c.callerCity||'')}">✆ Answer</button>
             <button class="ibtn ibtn-reject" data-action="reject" data-id="${escapeHtml(c.id)}">✕ Reject</button>
@@ -2234,17 +2350,18 @@ document.addEventListener('click', async(e)=>{
 
 // ── Calls tab action delegation ──
 document.addEventListener('click', async(e)=>{
-  const btn = e.target.closest('[data-action="answer"],[data-action="reject"]');
-  if(!btn) return;
-  const id   = btn.dataset.id;
-  const name = btn.dataset.name;
-  const city = btn.dataset.city;
-  if(btn.dataset.action === 'answer'){
-    await answerCall(id, name, city);
+  const btn = e.target.closest('[data-action="video-screen"],[data-action="answer"],[data-action="reject"]');
+  if(!btn)return;
+  const id=btn.dataset.id,name=btn.dataset.name,city=btn.dataset.city;
+  if(btn.dataset.action==='video-screen'){
+    btn.disabled=true;
+    try{await screenVideoGuest(id);}catch(err){console.error('Private video screening failed:',err);alert('Could not screen guest: '+(err.message||'check Firestore rules and connection'));}
+    finally{btn.disabled=false;}
+    return;
   }
-  if(btn.dataset.action === 'reject'){
-    await setDoc(doc(db, 'liveCalls', id), { status: 'rejected' }, { merge: true });
-  }
+  if(screeningCallId===id)stopVideoScreening(true);
+  if(btn.dataset.action==='answer')await answerCall(id,name,city);
+  if(btn.dataset.action==='reject')await setDoc(doc(db,'liveCalls',id),{status:'rejected',screeningSessionId:null},{merge:true});
 });
 
 function startCallHistoryListener(){
