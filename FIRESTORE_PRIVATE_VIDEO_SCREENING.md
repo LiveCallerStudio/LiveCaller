@@ -8,12 +8,17 @@ In Firebase Console → Authentication → Sign-in method, enable **Anonymous**.
 
 ## 2. Update the existing `liveCalls` create rule
 
-The video caller now includes `guestUid` in its new `liveCalls` document. Update the existing create-field allowlist to include it and require:
+Video calls now include `guestUid` in their new `liveCalls` document; audio calls do not add this field. Update the existing create-field allowlist to allow the optional field and enforce it only for video calls:
 
 ```javascript
-request.auth != null
-&& request.resource.data.guestUid == request.auth.uid
+&& (
+  request.resource.data.mediaType != 'video'
+  || (request.auth != null
+      && request.resource.data.guestUid == request.auth.uid)
+)
 ```
+
+Keep the existing create policy for audio callers unchanged. For video calls, validate that `guestUid` is a string and matches the authenticated anonymous user.
 
 Keep existing validation for caller name, call type, status, timestamps, and offer. Do not allow callers to set producer-controlled status to `live`, `answered`, or `held`.
 
