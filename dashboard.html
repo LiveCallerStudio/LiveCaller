@@ -688,8 +688,7 @@
 <!-- Tab Navigation -->
 <nav class="tab-nav">
   <button class="tab-btn active" data-tab="queue">📥 Queue <span class="tab-notification" id="queueTabNotice" aria-label="0 pending requests" hidden>0</span></button>
-  <button class="tab-btn" data-tab="calls">📞 Calls <span class="tab-notification" id="callsTabNotice" aria-label="0 incoming calls" hidden>0</span></button>
-  <button class="tab-btn" data-tab="video">🎥 Video Line</button>
+  <button class="tab-btn" data-tab="calls">📞 Phone System <span class="tab-notification" id="callsTabNotice" aria-label="0 incoming calls" hidden>0</span></button>
   <button class="tab-btn" data-tab="history">📋 History</button>
   <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
 </nav>
@@ -733,7 +732,17 @@
       <div class="record-status" id="recordStatus"></div>
     </div>
 
-    <!-- Incoming calls queue -->
+    <!-- Shared audio + video call controls and queue -->
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--panel);">
+      <div style="min-width:200px;flex:1;">
+        <div style="font-size:12px;font-weight:900;letter-spacing:1.2px;color:var(--green);text-transform:uppercase;">One Phone System · Audio + Video</div>
+        <div style="font-size:12px;color:var(--sub);line-height:1.5;margin-top:5px;">All callers use this shared queue. Screen video guests privately before sending anyone on air.</div>
+      </div>
+      <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video calls can join">
+        <span class="lines-dot"></span>
+        <span id="videoToggleText">Video Calls Open</span>
+      </button>
+    </div>
     <div class="calls-section-title" id="incomingCallsTitle" style="display:none;">
       Incoming Calls
     </div>
@@ -756,21 +765,6 @@
 
     <!-- Hidden audio element — producer hears caller here, OBS captures via Browser Source -->
     <audio id="callerAudio" autoplay style="display:none;"></audio>
-  </div>
-
-  <!-- VIDEO LINE TAB: audio and video use one screened phone queue. -->
-  <div class="tab-content" id="tab-video" style="display:none;">
-    <div style="padding:16px;border:1px solid #2b2b2b;border-radius:12px;background:#111;color:#aaa;line-height:1.6;margin-bottom:18px;">
-      <strong style="color:var(--green);">One phone system · Audio + Video</strong><br>
-      Video callers appear in the <strong>Calls</strong> tab with audio callers. Answer there to screen privately, then use <strong>Send On Air</strong> when ready. The OBS overlay receives the caller’s camera only; the producer’s camera is never sent to the overlay.
-    </div>
-    <div style="margin-bottom:18px;">
-      <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video calls can join">
-        <span class="lines-dot"></span>
-        <span id="videoToggleText">Video Calls Open</span>
-      </button>
-    </div>
-    <button class="cbtn cbtn-air" type="button" onclick="document.querySelector('[data-tab=&quot;calls&quot;]')?.click()">Open Shared Call Screening</button>
   </div>
 
   <!-- ANALYTICS TAB -->
