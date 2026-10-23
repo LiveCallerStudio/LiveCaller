@@ -72,6 +72,13 @@
   .brand small{display:block; color:var(--sub); font-size:11px; letter-spacing:1px;}
 
   .header-right{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
+  .header-live-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .header-live-controls .desk-line-control{display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);}
+  .header-live-controls .desk-line-control>div{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  .header-live-controls .desk-line-control strong{font-size:11px;white-space:nowrap;}
+  .header-live-controls .desk-line-control small{font-size:10px;max-width:112px;}
+  .header-live-controls .lines-toggle{padding:6px 9px;font-size:10px;}
+  @media(max-width:760px){.header-live-controls{width:100%;order:-1}.header-live-controls .desk-line-control{flex:1;justify-content:space-between}.header-live-controls .desk-line-control small{max-width:none}.header-right{align-items:stretch}}
 
   .lines-toggle{
     display:flex;align-items:center;gap:8px;
@@ -321,7 +328,9 @@
   .hist-dur{font-size:13px;color:var(--green);font-weight:700;font-variant-numeric:tabular-nums;}
   .hist-time{font-size:11px;color:var(--sub);overflow-wrap:anywhere;line-height:1.45;}
   .hist-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;justify-content:flex-end;max-width:100%;min-width:0;}
-  @media(max-width:640px){.hist-card{grid-template-columns:28px minmax(0,1fr);gap:10px;padding:12px}.hist-right{grid-column:2;align-items:flex-start;text-align:left;width:100%;border-top:1px solid var(--line);padding-top:9px}.hist-actions{justify-content:flex-start}.hist-time{font-size:12px}}
+  .hist-time-row{display:flex;align-items:center;justify-content:flex-end;gap:10px;width:100%;min-width:0;margin-top:4px;}
+  .hist-time-row .hist-time{flex:1;min-width:0;text-align:right;}
+  @media(max-width:640px){.hist-card{grid-template-columns:28px minmax(0,1fr);gap:10px;padding:12px}.hist-right{grid-column:2;align-items:flex-start;text-align:left;width:100%;border-top:1px solid var(--line);padding-top:9px}.hist-actions{justify-content:flex-start}.hist-time{font-size:12px}.hist-time-row{justify-content:space-between}.hist-time-row .hist-time{text-align:left}}
   .hist-play{
     box-sizing:border-box; min-height:32px; padding:6px 12px; border-radius:6px; border:1px solid var(--green); background:transparent;
     color:var(--green); font-size:11px; font-weight:700; cursor:pointer; text-decoration:none;
@@ -565,10 +574,13 @@
   .tab-notification{
     display:inline-flex;align-items:center;justify-content:center;
     min-width:20px;height:20px;padding:0 6px;margin-left:5px;
-    border-radius:999px;background:var(--red);color:#fff;
+    border-radius:999px;background:#242424;border:1px solid #414141;color:#aaa;
     font-size:11px;font-weight:900;line-height:1;letter-spacing:0;
-    text-shadow:none;box-shadow:0 0 14px rgba(255,77,94,.28);
-    vertical-align:middle;animation:tab-notice-pulse 1.8s ease-in-out infinite;
+    text-shadow:none;box-shadow:none;vertical-align:middle;
+  }
+  .tab-notification.has-count{
+    background:var(--red);border-color:var(--red);color:#fff;
+    box-shadow:0 0 14px rgba(255,77,94,.28);animation:tab-notice-pulse 1.8s ease-in-out infinite;
   }
   .tab-notification[hidden]{display:none!important}
   @keyframes tab-notice-pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
@@ -764,6 +776,16 @@
       <option value="all">All messages</option>
       <option value="approved">Approved only</option>
     </select>
+    <div class="header-live-controls" aria-label="Live line controls">
+      <div class="desk-line-control">
+        <div><strong>Voice line</strong><small id="deskVoiceStatus">Checking status…</small></div>
+        <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Open or close the voice line"><span class="lines-dot"></span><span id="linesToggleText">Open</span></button>
+      </div>
+      <div class="desk-line-control">
+        <div><strong>Video guests</strong><small>Allow or pause new video callers</small></div>
+        <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video calls can join"><span class="lines-dot"></span><span id="videoToggleText">Open</span></button>
+      </div>
+    </div>
     <a class="home-btn" href="home.html">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
       Home
@@ -828,24 +850,11 @@
         <div class="eyebrow"><span class="live-pip"></span> LIVE CALL-IN DESK</div>
 
       </div>
-      <div class="phone-desk-actions">
-        <div class="desk-status-label">LINE CONTROLS</div>
-        <div class="desk-line-control">
-          <div><strong>Voice line</strong><small id="deskVoiceStatus">Checking status…</small></div>
-          <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Open or close the voice line"><span class="lines-dot"></span><span id="linesToggleText">Open</span></button>
-        </div>
-        <div class="desk-line-control">
-          <div><strong>Video guests</strong><small>Allow or pause new video callers</small></div>
-          <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video calls can join"><span class="lines-dot"></span><span id="videoToggleText">Open</span></button>
-        </div>
-      </div>
-    </section>
-    <section class="phone-desk-metrics" aria-label="Incoming audio and video callers">
-      <div class="desk-metric"><span class="metric-icon">☎</span><div><strong id="deskIncomingCount">0 CALLERS WAITING</strong><small>Incoming audio and video</small></div></div>
+
     </section>
     <section class="broadcast-phone-queue" aria-labelledby="phoneQueueTitle">
       <div class="broadcast-queue-head">
-        <div><div class="desk-status-label">STUDIO PHONE BOARD</div><h3 id="phoneQueueTitle">Incoming Call Queue</h3><p>Audio and video callers waiting to be answered</p></div>
+        <div><div class="desk-status-label">STUDIO PHONE BOARD</div><h3 id="phoneQueueTitle">Incoming Call Queue</h3><p>Incoming audio and video calls</p></div>
       </div>
     </section>
     <div class="calls-section-title" id="incomingCallsTitle" style="display:none;">Incoming Calls</div>
@@ -1456,13 +1465,12 @@ function updateTabNotice(id, count, itemLabel){
   const n = Number.isFinite(count) ? Math.max(0, count) : 0;
   badge.textContent = n > 99 ? '99+' : String(n);
   badge.hidden = false;
+  badge.classList.toggle('has-count', n > 0);
   badge.setAttribute('aria-label', n + ' ' + itemLabel + (n === 1 ? '' : 's'));
 }
 
 function updateTotalMessageNotice(){
-  const pendingVoice = allMessages.filter(m => m.status === 'pending').length;
-  const pendingSongs = allSongRequests.filter(r => !r.status || r.status === 'pending').length;
-  updateTabNotice('callsTabNotice', pendingVoice + pendingSongs, 'total pending message');
+  // The Phone System badge is reserved for incoming callers, not messages.
 }
 
 // ── Tab switching ──
@@ -2529,10 +2537,6 @@ function startCallsListener(){
       const count = ringing.length;
       updateTabNotice('callsTabNotice', count, 'incoming caller');
       callCountNum.textContent = count;
-      const deskIncomingCount = document.getElementById('deskIncomingCount');
-      if(deskIncomingCount) deskIncomingCount.textContent = `${count} ${count===1?'CALLER':'CALLERS'} WAITING`;
-      const phoneQueueCount = document.getElementById('phoneQueueCount');
-      if(phoneQueueCount) phoneQueueCount.textContent = `${count} ${count===1?'CALLER':'CALLERS'} WAITING`;
       count > 0 ? callCounter.classList.add('show') : callCounter.classList.remove('show');
 
       if(count > 0 && !activePc){
@@ -2666,11 +2670,13 @@ function startCallHistoryListener(){
           </div>
           <div class="hist-right">
             <div class="hist-dur">${formatDur(c.duration || 0)}</div>
-            <div class="hist-time">${escapeHtml(c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString() : (c.createdAt ? new Date(c.createdAt).toLocaleString() : "Date unavailable"))}</div>
             <div class="hist-actions" style="margin-top:4px;">
               ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" target="_blank" rel="noopener">▶ Play</a>` : ''}
               ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}
-              <button class="hist-delete" data-action="delete-history" data-id="${c.id}" title="Delete">🗑</button>
+            </div>
+            <div class="hist-time-row">
+              <div class="hist-time">${escapeHtml(c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString() : (c.createdAt ? new Date(c.createdAt).toLocaleString() : "Date unavailable"))}</div>
+              <button class="hist-delete" data-action="delete-history" data-id="${c.id}" title="Delete" aria-label="Delete call history record">🗑</button>
             </div>
           </div>
         </div>`).join('');
