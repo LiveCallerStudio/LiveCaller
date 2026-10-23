@@ -94,7 +94,6 @@ let overlayVideoStream = null;
 let overlayAudioContext = null;
 let overlayAudioDestination = null;
 let overlayAudioSources = new Set();
-let receivedCallerVideo = false;
 const iceConfig = { iceServers: [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
@@ -108,7 +107,7 @@ function stopOverlayCallAudio(){
   overlayCallSessionRef=null; activeCallId=''; overlayRemoteStream=null; overlayAudioStream=null; overlayVideoStream=null;
   overlayAudioSources.forEach(source=>{try{source.disconnect()}catch(e){}}); overlayAudioSources.clear();
   if(overlayAudioContext){overlayAudioContext.close().catch(()=>{});overlayAudioContext=null;}
-  overlayAudioDestination=null; receivedCallerVideo=false;
+  overlayAudioDestination=null;
   liveAudio.pause(); liveAudio.srcObject=null; liveAudio.removeAttribute('src'); liveAudio.muted=false; liveAudio.volume=1; currentAudioUrl='';
   guestVideo.pause(); guestVideo.srcObject=null; guestVideo.muted=true; guestVideo.classList.remove('show');
 }
@@ -156,7 +155,6 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
         fallback.textContent=isVideo?'VIDEO CALL • CALLER AUDIO RECEIVED':'AUDIO CALL • CALLER AUDIO RECEIVED';
       } else if(event.track.kind==='video'){
         // There is one negotiated video lane, assigned to the caller camera.
-        receivedCallerVideo=true;
         if(!overlayVideoStream) overlayVideoStream=new MediaStream();
         if(!overlayVideoStream.getTracks().some(t=>t.id===event.track.id)) overlayVideoStream.addTrack(event.track);
         guestVideo.srcObject=overlayVideoStream;
