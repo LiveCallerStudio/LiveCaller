@@ -28,6 +28,19 @@ assert.match(cleanup, /activeCallId\s*=\s*null\s*;\s*activeCallRef\s*=\s*null\s*
 assert.match(cleanup, /callIsOnAir\s*=\s*false\s*;\s*callIsOnHold\s*=\s*false\s*;/,
   'cleanup must reset on-air and hold state');
 
+assert.match(cleanup, /refreshPhoneLineBank\(releasedCallId\);/,
+  'call cleanup must repaint the phone-line board without requiring a page refresh');
+assert.ok(cleanup.indexOf('activeCallId = null') < cleanup.indexOf('refreshPhoneLineBank(releasedCallId)'),
+  'the line board must refresh after active call state has been cleared');
+
+const lineRefresh = extractFunction('refreshPhoneLineBank');
+assert.match(lineRefresh, /latestCallsForCleanup[\s\S]*filter\(c => c\.status === 'waiting' && c\.id !== releasedCallId\)/,
+  'line-board refresh must retain queued callers after the active call ends');
+assert.match(lineRefresh, /const activeLine = activePc \?/,
+  'the line-board refresh must not show SCREENING when no active peer connection exists');
+assert.match(lineRefresh, /lineBank\.innerHTML/,
+  'the line-board refresh must repaint the displayed tiles');
+
 const screening = extractFunction('stopVideoScreening');
 assert.match(screening, /screeningUnsubs\.forEach/,
   'screening teardown must unsubscribe screening listeners');
