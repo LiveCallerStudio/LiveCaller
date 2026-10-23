@@ -757,7 +757,7 @@
   <div class="header-right">
     <div class="call-counter" id="callCounter">📞 <span id="callCountNum">0</span> Incoming</div>
     <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
-    <div class="counter"><span class="dot"></span><span id="queueCount">0 waiting</span></div>
+    
     <input class="search" id="searchInput" placeholder="Search name, city, song…">
     <select id="filterSelect">
       <option value="pending">Pending only</option>
@@ -776,10 +776,10 @@
 
 <!-- Tab Navigation -->
 <nav class="tab-nav" aria-label="Studio sections">
-  <button class="tab-btn active" data-tab="calls">☎ Phone System <span class="tab-notification" id="callsTabNotice" aria-label="0 total pending messages" hidden>0</span></button>
-  <button class="tab-btn" data-tab="queue">♫ Voice Messages <span class="tab-notification" id="queueTabNotice" aria-label="0 pending requests" hidden>0</span></button>
-  <button class="tab-btn" data-tab="songrequests">🎵 Song Requests <span class="tab-notification" id="songRequestsTabNotice" aria-label="0 pending song requests" hidden>0</span></button>
-  <button class="tab-btn" data-tab="history">◷ Call History <span class="tab-notification" id="historyTabNotice" aria-label="0 missed calls" hidden>0</span></button>
+  <button class="tab-btn active" data-tab="calls">☎ Phone System <span class="tab-notification" id="callsTabNotice" aria-label="0 incoming callers">0</span></button>
+  <button class="tab-btn" data-tab="queue">♫ Voice Messages <span class="tab-notification" id="queueTabNotice" aria-label="0 pending voice messages">0</span></button>
+  <button class="tab-btn" data-tab="songrequests">🎵 Song Requests <span class="tab-notification" id="songRequestsTabNotice" aria-label="0 pending song requests">0</span></button>
+  <button class="tab-btn" data-tab="history">◷ Call History <span class="tab-notification" id="historyTabNotice" aria-label="0 missed calls">0</span></button>
   <button class="tab-btn" data-tab="analytics">▥ Analytics</button>
 </nav>
 
@@ -1278,7 +1278,7 @@ function render(){
   const pendingCount = allMessages.filter(m=>m.status==='pending').length;
   updateTabNotice('queueTabNotice', pendingCount, 'pending request');
   updateTotalMessageNotice();
-  queueCount.textContent = `${pendingCount} waiting`;
+  if(queueCount) queueCount.textContent = `${pendingCount} waiting`;
 
   if(list.length === 0){
     emptyState.style.display = 'block';
@@ -1455,7 +1455,7 @@ function updateTabNotice(id, count, itemLabel){
   if(!badge) return;
   const n = Number.isFinite(count) ? Math.max(0, count) : 0;
   badge.textContent = n > 99 ? '99+' : String(n);
-  badge.hidden = n === 0;
+  badge.hidden = false;
   badge.setAttribute('aria-label', n + ' ' + itemLabel + (n === 1 ? '' : 's'));
 }
 
@@ -2527,6 +2527,7 @@ function startCallsListener(){
       // Incoming FaceTime-style audio AND video calls are both stored in liveCalls.
       const ringing = calls.filter(c => c.status === 'waiting');
       const count = ringing.length;
+      updateTabNotice('callsTabNotice', count, 'incoming caller');
       callCountNum.textContent = count;
       const deskIncomingCount = document.getElementById('deskIncomingCount');
       if(deskIncomingCount) deskIncomingCount.textContent = `${count} ${count===1?'CALLER':'CALLERS'} WAITING`;
