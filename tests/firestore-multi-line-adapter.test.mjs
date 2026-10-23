@@ -119,6 +119,10 @@ emit('liveCalls/b', { exists: () => true, data: () => ({ status: 'ended' }) });
 assert.ok(fakeController.ended.includes('b'));
 assert.equal(adapter.calls.has('b'), false);
 assert.equal(adapter.calls.has('a'), true, 'ending one call must not remove other subscriptions');
+const endedCountBeforeDuplicate = fakeController.ended.length;
+const duplicateEnd = await adapter.endCall('b');
+assert.equal(duplicateEnd.alreadyEnded, true, 'producer hang-up must be safe after caller already ended');
+assert.equal(fakeController.ended.length, endedCountBeforeDuplicate, 'duplicate end must not close a call twice');
 
 await adapter.endCall('a');
 assert.equal(docs.get('liveCalls/a').status, 'ended');
