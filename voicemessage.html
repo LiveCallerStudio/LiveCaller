@@ -609,6 +609,7 @@
       </div>
 
       <audio id="playback" controls></audio>
+      <button class="action-btn btn-rerecord" id="downloadWavBtn" type="button">⬇ DOWNLOAD WAV</button>
 
       <p class="disclaimer">By submitting, you agree your message may be broadcast on-air or on stream.</p>
 
@@ -725,7 +726,7 @@ async function startRecording(){
   if(!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder){
     showError("Your browser doesn't support mic recording. Try Chrome, Safari, or Firefox."); return;
   }
-  try{ stream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true, sampleRate:{ideal:48000}, channelCount:{ideal:1} } }); }
+  try{ stream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:false, sampleRate:{ideal:48000}, channelCount:{ideal:1} } }); }
   catch(err){ showError("Microphone access blocked. Please allow mic permissions and try again."); return; }
 
   // A classic voicemail tone plays after microphone permission, before recording begins.
@@ -737,7 +738,7 @@ async function startRecording(){
   const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' :
                    MediaRecorder.isTypeSupported('audio/ogg;codecs=opus') ? 'audio/ogg;codecs=opus' :
                    MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
-  const recorderOptions = { audioBitsPerSecond:128000 };
+  const recorderOptions = { audioBitsPerSecond:192000 };
   if(mimeType) recorderOptions.mimeType = mimeType;
   try{ mediaRecorder = new MediaRecorder(stream,recorderOptions); }
   catch(err){ showError('This browser cannot record the preferred high-quality audio format. Try Safari or Chrome updated to the latest version.'); stream.getTracks().forEach(t=>t.stop()); stream=null; return; }
@@ -972,6 +973,33 @@ closeBtn.addEventListener('click',()=>{
     resetRecordingUI();
   }, 250);
 });
+
+async function downloadVoiceMessageWav(){
+  if(!audioBlob || !audioBlob.size){ showError('Record a message first.'); return; }
+  const button=document.getElementById('downloadWavBtn');
+  if(button){button.disabled=true;button.textContent='Preparing WAV…';}
+  try{
+    const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+    if(!AudioContextClass)throw new Error('WAV conversion is not supported by this browser.');
+    const ctx=new AudioContextClass({sampleRate:48000});
+    try{
+      const decoded=await ctx.decodeAudioData(await audioBlob.arrayBuffer());
+      const channels=Math.min(2,Math.max(1,decoded.numberOfChannels)), rate=decoded.sampleRate||48000, frames=decoded.length;
+      const buffer=new ArrayBuffer(44+frames*channels*2), view=new DataView(buffer);
+      const write=(offset,value)=>{for(let i=0;i<value.length;i++)view.setUint8(offset+i,value.charCodeAt(i));};
+      write(0,'RIFF');view.setUint32(4,36+frames*channels*2,true);write(8,'WAVE');write(12,'fmt ');
+      view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,channels,true);
+      view.setUint32(24,rate,true);view.setUint32(28,rate*channels*2,true);view.setUint16(32,channels*2,true);view.setUint16(34,16,true);
+      write(36,'data');view.setUint32(40,frames*channels*2,true);
+      const channelData=Array.from({length:channels},(_,i)=>decoded.getChannelData(i));let offset=44;
+      for(let i=0;i<frames;i++)for(let ch=0;ch<channels;ch++){const sample=Math.max(-1,Math.min(1,channelData[ch][i]));view.setInt16(offset,sample<0?sample*0x8000:sample*0x7fff,true);offset+=2;}
+      const url=URL.createObjectURL(new Blob([buffer],{type:'audio/wav'})),a=document.createElement('a');
+      a.href=url;a.download='live-caller-voice-message.wav';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);
+    }finally{await ctx.close().catch(()=>{});}
+  }catch(error){showError('Could not convert this recording to WAV in this browser. You can still send the original high-quality recording.');console.warn('WAV export failed:',error);}
+  finally{if(button){button.disabled=false;button.textContent='⬇ DOWNLOAD WAV';}}
+}
+document.getElementById('downloadWavBtn')?.addEventListener('click',downloadVoiceMessageWav);
 
 sendBtn.addEventListener('click', async()=>{
   if(!audioBlob) return;
