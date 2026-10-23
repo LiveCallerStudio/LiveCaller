@@ -1736,9 +1736,13 @@ function ensureMultiLineController(){
       } catch(error) {
         console.warn('Could not update multi-line monitor route:', error?.message || error);
       }
-      // The explicit Hold action owns the overlay state update. Do not clear it
-      // here: Take On Air may be switching from another line, and this callback
-      // also runs while the controller safely mutes the previous caller.
+      // Detach this caller from the OBS relay immediately when the controller
+      // holds it. During a line switch this prevents a brief overlap while the
+      // next call's Firestore status is being saved.
+      if(held && multiLineOnAirCallId === callId){
+        multiLineOnAirCallId = null;
+        syncMultiLineOverlayTracks(callId);
+      }
       refreshPhoneLineBank();
     },
     onTrack: ({callId}) => {
@@ -1840,6 +1844,7 @@ async function takeMultiLineOnAir(callId){
   if(!line) throw new Error('That caller no longer owns a line.');
   await multiLineAdapter.takeOnAir(callId);
   multiLineOnAirCallId = callId;
+  for(const activeId of multiLineController.sessions.keys()) syncMultiLineOverlayTracks(activeId);
   const callSnap = await getDoc(doc(db,'liveCalls',callId));
   const data = callSnap.data() || {};
   await setDoc(liveStateRef,{
@@ -1860,6 +1865,7 @@ async function holdMultiLineCall(callId){
   await multiLineAdapter.holdCall(callId);
   if(wasOnAir){
     multiLineOnAirCallId = null;
+    syncMultiLineOverlayTracks(callId);
     await setDoc(liveStateRef,{active:false,updatedAt:Date.now()},{merge:true});
   }
   refreshPhoneLineBank();
@@ -1876,6 +1882,7 @@ async function endMultiLineCall(callId){
   ensureMultiLineController();
   if(multiLineOnAirCallId === callId){
     multiLineOnAirCallId = null;
+    syncMultiLineOverlayTracks(callId);
     await setDoc(liveStateRef,{active:false,updatedAt:Date.now()},{merge:true});
   }
   await multiLineAdapter.endCall(callId);
@@ -1942,8 +1949,11 @@ function syncMultiLineOverlayTracks(callId){
   for(const [key,record] of multiLineOverlayPeers){
     if(record.callId!==callId || record.pc.signalingState==='closed') continue;
     const transceivers=record.pc.getTransceivers();
-    const audio=stream.getAudioTracks().find(track=>track.readyState==='live')||null;
-    const video=stream.getVideoTracks().find(track=>track.readyState==='live')||null;
+    // Never relay screened/held callers into OBS. The producer's explicit
+    // Take On Air selection is the sole gate for caller media leaving this page.
+    const onAir = multiLineOnAirCallId === callId;
+    const audio=onAir ? (stream.getAudioTracks().find(track=>track.readyState==='live')||null) : null;
+    const video=onAir ? (stream.getVideoTracks().find(track=>track.readyState==='live')||null) : null;
     transceivers.filter(t=>t.receiver?.track?.kind==='audio').forEach((t,index)=>{
       try{t.direction='sendonly';t.sender.replaceTrack(index===0?audio:null).catch(error=>console.warn('OBS audio relay:',error?.message||error));}catch{}
     });
