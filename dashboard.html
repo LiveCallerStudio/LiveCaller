@@ -1731,8 +1731,8 @@ function ensureMultiLineController(){
       // Holding silences both the program route and the producer's monitor.
       // Resuming only restores monitoring; it does NOT put the caller on air.
       try {
-        if(held) multiLineController?.setMonitor(null);
-        else multiLineController?.setMonitor(callId);
+        if(held && multiLineController?.audioRouter?.monitorCallId === callId) multiLineController?.setMonitor(null);
+        else if(!held) multiLineController?.setMonitor(callId);
       } catch(error) {
         console.warn('Could not update multi-line monitor route:', error?.message || error);
       }
