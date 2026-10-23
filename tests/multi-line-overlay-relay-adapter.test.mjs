@@ -5,7 +5,7 @@ import { MultiLineOverlayRelayAdapter } from '../lib/multi-line-overlay-relay-ad
 function fakeSnapshot(changes = [], data = {}, exists = true) {
   return { docChanges: () => changes, data: () => data, exists: () => exists };
 }
-function setup() {
+function setup({ addDocError = null, onError = error => { throw error; } } = {}) {
   const listeners = new Map();
   const errorListeners = new Map();
   const writes = [];
@@ -35,13 +35,13 @@ function setup() {
     doc: (_db, ...parts) => parts.join('/'),
     collection: (dbOrRef, ...parts) => typeof dbOrRef === 'string' ? [dbOrRef, ...parts].join('/') : parts.join('/'),
     setDoc: async (...args) => writes.push(args),
-    addDoc: async (...args) => candidates.push(args),
+    addDoc: async (...args) => { if (addDocError) throw addDocError; candidates.push(args); },
     onSnapshot: (path, next, error) => {
       listeners.set(path, next);
       if (error) errorListeners.set(path, error);
       return () => { listeners.delete(path); errorListeners.delete(path); };
     },
-    onError: error => { throw error; }
+    onError
   });
   return { adapter, listeners, errorListeners, writes, candidates, controller, audioTrack };
 }
@@ -167,6 +167,27 @@ test('candidate signaling errors close the affected relay and remove its listene
   assert.equal(relay.pc.closed, true);
   assert.equal(adapter.calls.get('call-error').sessions.has('overlay-error'), false);
   assert.equal(listeners.has(candidatePath), false);
+  await adapter.close();
+});
+
+
+test('local ICE publication failure closes the relay instead of leaving it active', async () => {
+  const { adapter, listeners } = setup({
+    addDocError: new Error('candidate write denied'),
+    onError: () => {}
+  });
+  adapter.watchCall('call-local-ice-error');
+  listeners.get('liveCalls/call-local-ice-error/overlaySessions')(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-local-ice-error', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  const relay = adapter.calls.get('call-local-ice-error').sessions.get('overlay-local-ice-error');
+  relay.pc.onicecandidate({ candidate: { toJSON: () => ({ candidate: 'candidate-write-fails' }) } });
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(relay.pc.closed, true);
+  assert.equal(adapter.calls.get('call-local-ice-error').sessions.has('overlay-local-ice-error'), false);
   await adapter.close();
 });
 
