@@ -2013,7 +2013,13 @@ async function answerCall(callId, callerName, callerCity){
   try{
     const initialSnap = await getDoc(activeCallRef);
     callData = initialSnap.data();
-    if(!callData || !callData.offer){alert('Could not read the incoming call offer.');return;}
+    if(!callData || !callData.offer){
+      alert('Could not read the incoming call offer.');
+      // Release the reserved call ID/ref so a stale or deleted offer cannot
+      // leave the studio in a half-selected state.
+      cleanupActiveCall();
+      return;
+    }
     const isVideoCall = callData.mediaType === 'video';
     // Producer camera is intentionally not requested: caller video is the
     // guest-priority picture for screening and the OBS overlay. Producer sends audio only.
