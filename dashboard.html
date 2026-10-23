@@ -1146,13 +1146,56 @@ async function startExperimentalMultiLine() {
         root,
         adapter: experimentalMultiLineAdapter,
         controller: experimentalMultiLineController,
-        allowOnAir: false,
+        allowOnAir: true,
         onActionComplete: async ({ action, callId }) => {
           try {
-            if (action === 'answer') experimentalMultiLineOverlayRelayAdapter?.watchCall(callId);
-            if (action === 'end') await experimentalMultiLineOverlayRelayAdapter?.unwatchCall(callId);
+            if (action === 'answer') {
+              experimentalMultiLineOverlayRelayAdapter?.watchCall(callId);
+            }
+
+            if (action === 'air') {
+              // The adapter persists status=live before this global state is published.
+              // overlay.html then creates a WebRTC offer under this call's overlaySessions;
+              // the selected program-bus track is supplied by the relay bridge.
+              const callSnap = await getDoc(doc(db, 'liveCalls', callId));
+              const callData = callSnap.data() || {};
+              if (callData.status !== 'live') {
+                throw new Error('Call status was not persisted as live; OBS was not activated');
+              }
+              await setDoc(liveStateRef, {
+                active: true,
+                callId,
+                name: callData.callerName || 'Anonymous Caller',
+                city: callData.callerCity || '',
+                messageType: 'livecall',
+                audioUrl: null,
+                updatedAt: Date.now()
+              });
+            }
+
+            if (action === 'hold' || action === 'end') {
+              const liveSnap = await getDoc(liveStateRef);
+              if (liveSnap.exists?.() && liveSnap.data()?.callId === callId) {
+                await setDoc(liveStateRef, { active: false, updatedAt: Date.now() }, { merge: true });
+              }
+            }
+
+            if (action === 'end') {
+              await experimentalMultiLineOverlayRelayAdapter?.unwatchCall(callId);
+            }
             await experimentalMultiLineOverlayRelayAdapter?.sync();
+            if (action === 'end') runDeferredDashboardRefreshIfIdle();
           } catch (error) {
+            // If publishing the selected caller to the overlay fails, do not leave
+            // the program bus active without its matching OBS scene/relay state.
+            if (action === 'air') {
+              try { await experimentalMultiLineAdapter?.holdCall(callId); }
+              catch (rollbackError) {
+                console.error('Could not fail closed after OBS activation failed:', rollbackError);
+              }
+              await setDoc(liveStateRef, { active: false, updatedAt: Date.now() }, { merge: true }).catch(() => {});
+            }
+            try { await experimentalMultiLineOverlayRelayAdapter?.sync(); } catch {}
             status.textContent = 'OBS relay warning: ' + (error?.message || 'relay setup failed');
             console.error('Experimental OBS relay action:', error);
           }
@@ -1166,7 +1209,7 @@ async function startExperimentalMultiLine() {
           console.error('Experimental multi-line console:', error);
         }
       });
-      status.textContent = 'Ready · isolated audio relay signaling enabled · Take On Air remains disabled pending device/OBS validation';
+      status.textContent = 'Ready · three isolated audio lines · OBS program routing enabled for controlled testing';
     } catch (error) {
       status.textContent = 'Could not start experimental console: ' + (error?.message || 'unknown error');
       console.error('Experimental multi-line startup failed:', error);
@@ -1812,7 +1855,8 @@ function performDashboardRefresh(){
   window.location.replace(next.toString());
 }
 function refreshIsBlockedByLiveMedia(){
-  return !!(activePc || screeningPc || activeCallId || screeningCallId);
+  const experimentalSessions = experimentalMultiLineController?.getSnapshot?.().sessions?.length || 0;
+  return !!(activePc || screeningPc || activeCallId || screeningCallId || experimentalSessions > 0);
 }
 function runDeferredDashboardRefreshIfIdle(){
   if(!refreshAfterCall || refreshIsBlockedByLiveMedia()) return;
