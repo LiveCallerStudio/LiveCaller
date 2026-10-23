@@ -645,7 +645,7 @@
       linear-gradient(135deg,rgba(20,29,22,.98),rgba(9,13,10,.99));
     box-shadow:0 20px 60px rgba(0,0,0,.22),inset 0 1px rgba(255,255,255,.025)
   }
-  .phone-desk-hero:after{content:"☎";position:absolute;right:27%;bottom:-100px;font-size:280px;line-height:1;color:rgba(83,252,24,.035);pointer-events:none}
+  
   .phone-desk-copy,.phone-desk-actions{position:relative;z-index:1}
   .eyebrow,.desk-status-label{font-size:10px;font-weight:900;letter-spacing:.19em;text-transform:uppercase;color:#a5b5a9}
   .eyebrow{display:flex;align-items:center;gap:9px;color:var(--green)}
@@ -692,7 +692,6 @@
   #callsEmpty .ic{font-size:32px}
   @media(max-width:900px){
     .phone-desk-hero{grid-template-columns:1fr;gap:22px}
-    .phone-desk-hero:after{right:-5%;font-size:200px}
     .phone-desk-actions{max-width:none}
   }
   @media(max-width:600px){
@@ -744,10 +743,6 @@
     </div>
   </div>
   <div class="header-right">
-    <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Toggle listener call-in availability">
-      <span class="lines-dot"></span>
-      <span id="linesToggleText">Call-Ins Open</span>
-    </button>
     <div class="call-counter" id="callCounter">📞 <span id="callCountNum">0</span> Incoming</div>
     <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
     <div class="counter"><span class="dot"></span><span id="queueCount">0 waiting</span></div>
@@ -827,11 +822,11 @@
         <div class="desk-status-label">LINE CONTROLS</div>
         <div class="desk-line-control">
           <div><strong>Voice line</strong><small id="deskVoiceStatus">Checking status…</small></div>
-          <span class="desk-control-anchor">Managed above</span>
+          <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Open or close the voice line"><span class="lines-dot"></span><span id="linesToggleText">Open</span></button>
         </div>
         <div class="desk-line-control">
           <div><strong>Video guests</strong><small>Allow or pause new video callers</small></div>
-          <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video calls can join"><span class="lines-dot"></span><span id="videoToggleText">Video Calls Open</span></button>
+          <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video calls can join"><span class="lines-dot"></span><span id="videoToggleText">Open</span></button>
         </div>
       </div>
     </section>
@@ -1056,7 +1051,7 @@ function renderLinesToggle(){
   if(deskVoiceStatus) deskVoiceStatus.textContent = linesOpen ? 'Open · accepting callers' : 'Closed · calls paused';
   linesToggleBtn.classList.toggle('open', linesOpen);
   linesToggleBtn.classList.toggle('closed', !linesOpen);
-  linesToggleText.textContent = linesOpen ? 'Call-Ins Open' : 'Call-Ins Closed';
+  linesToggleText.textContent = linesOpen ? 'Open' : 'Close';
 }
 
 function startLinesToggleListener(){
@@ -1096,7 +1091,7 @@ let videoOpen = true;
 function renderVideoToggle(){
   videoToggleBtn.classList.toggle('open', videoOpen);
   videoToggleBtn.classList.toggle('closed', !videoOpen);
-  videoToggleText.textContent = videoOpen ? 'Video Calls Open' : 'Video Calls Closed';
+  videoToggleText.textContent = videoOpen ? 'Open' : 'Close';
 }
 
 function startVideoToggleListener(){
