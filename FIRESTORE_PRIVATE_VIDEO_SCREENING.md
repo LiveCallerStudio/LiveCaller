@@ -1,93 +1,135 @@
 # Private video guest screening — Firebase setup
 
-This is an addendum to current Firestore rules, not a replacement. Preserve existing producer-only dashboard permissions and current `liveCalls` / ICE signaling rules.
+These instructions are tailored to the current Live Caller Studio code and the Firestore rules supplied for review. This is an addendum, not a replacement for the existing rules. The current app uses `liveCalls/{callId}` for both audio and video calls; private screening is stored under `liveCalls/{callId}/screeningSessions/{sessionId}`. The separate `videoCalls` match in the supplied rules is not used by this feature.
 
-## 1. Enable anonymous sign-in
+## 1. Enable anonymous authentication
 
-In Firebase Console → Authentication → Sign-in method, enable **Anonymous**. The video caller page uses this identity to bind a screening session to the guest who created the call.
+In Firebase Console → Authentication → Sign-in method, enable **Anonymous**. The video caller signs in anonymously before creating a video call. Audio callers do not need anonymous authentication.
 
-## 2. Update the existing `liveCalls` create rule
+## 2. Extend the existing `validAudioCall(d)` validator
 
-Video calls now include `guestUid` in their new `liveCalls` document; audio calls do not add this field. Update the existing create-field allowlist to allow the optional field and enforce it only for video calls:
+The function currently rejects `guestUid` and `screeningSessionId` because they are absent from its `keys().hasOnly([...])` list. Add both fields to that allowlist:
 
 ```javascript
-&& (
-  request.resource.data.mediaType != 'video'
-  || (request.auth != null
-      && request.resource.data.guestUid == request.auth.uid)
+'guestUid','screeningSessionId'
+```
+
+Then add these checks inside `validAudioCall(d)`:
+
+```javascript
+(!('guestUid' in d) ||
+  (d.guestUid is string && d.guestUid.size() <= 128)) &&
+optString(d, 'screeningSessionId', 150) &&
+```
+
+Keep the existing `offer`, `status`, timestamp, and other field validations intact. The name `validAudioCall` is historical: it validates the shared `liveCalls` document for audio and video.
+
+## 3. Bind video call creation to the anonymous guest
+
+In `match /liveCalls/{callId}`, keep the existing create checks and add the following condition to the `allow create` expression after `!('answer' in request.resource.data)` (or equivalently as another `&&` condition):
+
+```javascript
+(
+  request.resource.data.mediaType == 'video'
+    ? (request.auth != null &&
+       request.resource.data.guestUid == request.auth.uid)
+    : !('guestUid' in request.resource.data)
 )
 ```
 
-Keep the existing create policy for audio callers unchanged. For video calls, validate that `guestUid` is a string and matches the authenticated anonymous user.
+The existing caller page sends `mediaType: 'audio'` or `mediaType: 'video'`; it sends `guestUid` only for video calls. This preserves audio call creation while requiring video calls to be tied to their authenticated anonymous UID. Do not let a public caller choose producer-controlled statuses such as `live`, `answered`, or `held`.
 
-Keep existing validation for caller name, call type, status, timestamps, and offer. Do not allow callers to set producer-controlled status to `live`, `answered`, or `held`.
+## 4. Add the private screening rules under `match /liveCalls/{callId}`
 
-The existing producer update rule must permit the producer to set `screeningSessionId` while the parent call remains `waiting`. Do not permit a guest to set this field.
-
-## 3. Add scoped rules for private screening signaling
-
-Inside the existing `match /databases/{database}/documents` block, adapt the producer helper name below to the helper already used by your rules. This example assumes `isProducer()` exists and that the parent call's `guestUid` is the authenticated guest.
+Place this nested match inside the existing `match /liveCalls/{callId}` block. Do not place it under `/videoCalls`.
 
 ```javascript
-match /liveCalls/{callId}/screeningSessions/{sessionId} {
-  function parentCall() {
-    return get(/databases/$(database)/documents/liveCalls/$(callId)).data;
-  }
+match /screeningSessions/{sessionId} {
   function isThisGuest() {
-    return request.auth != null && parentCall().guestUid == request.auth.uid;
+    return request.auth != null &&
+      get(/databases/$(database)/documents/liveCalls/$(callId))
+        .data.guestUid == request.auth.uid;
   }
-  function isWaiting() {
-    return parentCall().status == 'waiting';
+  function parentCallIsWaiting() {
+    return get(/databases/$(database)/documents/liveCalls/$(callId))
+      .data.status == 'waiting';
   }
 
   allow read: if isProducer() || isThisGuest();
 
-  allow create: if isProducer() && isWaiting()
-    && request.resource.data.keys().hasOnly([
-      'client', 'producerUid', 'createdAt', 'offer', 'mediaType'
-    ])
-    && request.resource.data.client == 'dashboard-screen'
-    && request.resource.data.producerUid == request.auth.uid
-    && request.resource.data.createdAt is number
-    && request.resource.data.mediaType == 'video'
-    && request.resource.data.offer is map
-    && request.resource.data.offer.type == 'offer'
-    && request.resource.data.offer.sdp is string;
+  // Matches the dashboard's actual setDoc payload.
+  allow create: if isProducer() &&
+    parentCallIsWaiting() &&
+    request.resource.data.keys().hasAll([
+      'offer', 'client', 'producerUid', 'createdAt', 'mediaType'
+    ]) &&
+    request.resource.data.keys().hasOnly([
+      'offer', 'client', 'producerUid', 'createdAt', 'mediaType'
+    ]) &&
+    rtc(request.resource.data.offer, 'offer') &&
+    request.resource.data.client == 'dashboard-screen' &&
+    request.resource.data.producerUid == request.auth.uid &&
+    request.resource.data.createdAt is number &&
+    request.resource.data.mediaType == 'video';
 
-  allow update: if isProducer()
-    || (isThisGuest() && isWaiting()
-      && resource.data.client == 'dashboard-screen'
-      && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['answer', 'answeredBy', 'answeredAt'])
-      && request.resource.data.answeredBy == request.auth.uid
-      && request.resource.data.answer.type == 'answer'
-      && request.resource.data.answer.sdp is string
-      && request.resource.data.answeredAt is number);
+  // The guest can add only its own answer; the producer may manage the session.
+  allow update: if isProducer() ||
+    (isThisGuest() &&
+      parentCallIsWaiting() &&
+      resource.data.client == 'dashboard-screen' &&
+      request.resource.data.diff(resource.data)
+        .affectedKeys().hasOnly(['answer', 'answeredBy', 'answeredAt']) &&
+      request.resource.data.keys().hasAll([
+        'offer', 'client', 'producerUid', 'createdAt', 'mediaType',
+        'answer', 'answeredBy', 'answeredAt'
+      ]) &&
+      rtc(request.resource.data.answer, 'answer') &&
+      request.resource.data.answeredBy == request.auth.uid &&
+      request.resource.data.answeredAt is number);
 
   allow delete: if isProducer();
 
   match /producerCandidates/{candidateId} {
     allow read: if isProducer() || isThisGuest();
-    allow create: if isProducer() && isWaiting();
+    allow create: if isProducer() &&
+      parentCallIsWaiting() &&
+      validCandidate();
     allow update, delete: if false;
   }
+
   match /guestCandidates/{candidateId} {
     allow read: if isProducer() || isThisGuest();
-    allow create: if isThisGuest() && isWaiting();
+    allow create: if isThisGuest() &&
+      parentCallIsWaiting() &&
+      validCandidate();
     allow update, delete: if false;
   }
 }
 ```
 
-Firestore rules are not filters. Test producer and guest separately in Rules Playground or Emulator. Confirm an unrelated anonymous user cannot read a call/session, create a session, write ICE candidates, or change call status.
+The guest answer update above preserves the existing session fields and limits the guest's changed fields to the answer and its attribution/timestamp. The existing producer update rule for `liveCalls` must permit the producer to set or clear `screeningSessionId`; adding that field to `validAudioCall` allows validation to pass. Only the producer should set that field.
 
-## 4. Smoke test
+## 5. Test before deploying
 
-1. Open `videocall.html` in a guest browser and allow camera/microphone.
-2. In the dashboard Calls tab, click **Screen Guest** on a video caller.
-3. Confirm dashboard video appears and says **Private Guest Screening — Not On Air**.
+Use the Firebase Emulator or Rules Playground to test with separate producer and guest identities:
+
+1. A video guest can create a waiting `liveCalls` document only when `guestUid == request.auth.uid`.
+2. Audio call creation still works without `guestUid`.
+3. The producer can create a screening session only while the parent call is waiting.
+4. Only the matching guest can read that session, answer it, and create `guestCandidates`.
+5. An unrelated anonymous user cannot read the session, answer it, or write either candidate collection.
+6. A guest cannot change the parent call's `status`, `screeningSessionId`, or producer-controlled fields.
+7. Existing audio calls, the normal video answer flow, and the separate OBS overlay relay still work.
+
+Firestore rules are not filters. The existing parent `liveCalls` rule currently allows public reads; this addendum does not change that broader existing policy. Review that exposure separately before production if caller metadata should be private.
+
+## 6. Smoke test the app
+
+1. Open `videocall.html` and start a video call, granting camera/microphone access.
+2. In the producer dashboard, click **Screen Guest** on that waiting video call.
+3. Confirm the dashboard shows **Private preview connected. Guest is not on air**.
 4. Preview audio starts muted; enable it only when needed.
 5. Click **Stop Screening** and confirm the guest returns to waiting.
 6. Start screening again, then click **Answer**. Confirm the private peer closes and the normal call connection takes over.
-7. Use **Send On Air** only after answering; confirm OBS uses its separate relay.
+7. Use **Send On Air** only after answering; confirm OBS still uses its separate relay.
 8. Test Wi-Fi-to-cellular and cellular-to-Wi-Fi.
