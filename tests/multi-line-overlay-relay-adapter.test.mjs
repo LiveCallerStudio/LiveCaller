@@ -5,7 +5,7 @@ import { MultiLineOverlayRelayAdapter } from '../lib/multi-line-overlay-relay-ad
 function fakeSnapshot(changes = [], data = {}, exists = true) {
   return { docChanges: () => changes, data: () => data, exists: () => exists };
 }
-function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemoteCandidate = false, rejectIceCandidateConstruction = false, rejectCandidateSubscription = false, setDocError = null, onError = error => { throw error; } } = {}) {
+function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemoteCandidate = false, rejectIceCandidateConstruction = false, rejectCandidateSubscription = false, rejectCallWatcherSetup = false, setDocError = null, onError = error => { throw error; } } = {}) {
   const listeners = new Map();
   const errorListeners = new Map();
   const writes = [];
@@ -46,6 +46,7 @@ function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemo
     setDoc: async (...args) => { if (setDocError) throw setDocError; writes.push(args); },
     addDoc: async (...args) => { if (addDocError) throw addDocError; candidates.push(args); },
     onSnapshot: (path, next, error) => {
+      if (rejectCallWatcherSetup && path === 'liveCalls/call-watch-setup-error/overlaySessions') throw new Error('call watcher setup failed');
       if (rejectCandidateSubscription && path.endsWith('/overlayCandidates')) throw new Error('candidate listener setup failed');
       listeners.set(path, next);
       if (error) errorListeners.set(path, error);
@@ -269,6 +270,20 @@ test('a throwing error reporter cannot interrupt answer failure cleanup', async 
   } finally {
     console.error = originalError;
   }
+});
+
+
+test('synchronous call watcher setup failure rolls back the partial call record', async () => {
+  const reportedErrors = [];
+  const { adapter, listeners } = setup({
+    rejectCallWatcherSetup: true,
+    onError: error => reportedErrors.push(error)
+  });
+  assert.throws(() => adapter.watchCall('call-watch-setup-error'), /call watcher setup failed/);
+  assert.equal(adapter.calls.has('call-watch-setup-error'), false);
+  assert.equal(listeners.has('liveCalls/call-watch-setup-error/overlaySessions'), false);
+  assert.equal(reportedErrors.some(error => /call watcher setup failed/.test(error.message)), true);
+  await adapter.close();
 });
 
 test('candidate listener setup failure closes the peer and removes the session', async () => {
