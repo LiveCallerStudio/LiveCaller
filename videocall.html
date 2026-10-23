@@ -423,6 +423,10 @@ async function answerScreeningSession(id){
   const sessionSnap=await getDoc(sessionRef);
   const sessionData=sessionSnap.data();
   if(!sessionData||!sessionData.offer||sessionData.client!=='dashboard-screen')return;
+  // The producer may have answered or stopped screening while this read was in flight.
+  const parentSnap=await getDoc(callDocRef);
+  const parentData=parentSnap.data();
+  if(!parentData||parentData.status!=='waiting'||parentData.screeningSessionId!==id)return;
   const peer=new RTCPeerConnection(STUN);
   screeningPc=peer;screeningSessionId=id;
   peer.onicecandidate=e=>{if(e.candidate)addDoc(collection(sessionRef,'guestCandidates'),e.candidate.toJSON()).catch(err=>{console.warn('Private screening ICE write failed:',err&&err.code);setStatus('waiting','Private preview signaling blocked by Firestore rules.');});};
