@@ -115,6 +115,26 @@ assert.equal(docs.get('liveCalls/a').status, 'ended');
 assert.equal(adapter.calls.has('a'), false);
 assert.equal(adapter.calls.has('c'), true);
 
+// Keep every direct liveCalls document write within the allowlist and status
+// enum from the supplied validAudioCall Firestore rules. Candidate subcollections
+// have their own schema and are intentionally excluded from this assertion.
+const allowedCallFields = new Set([
+  'callerName', 'callerCity', 'offer', 'answer', 'status', 'createdAt',
+  'updatedAt', 'liveSince', 'rejectedAt', 'mediaType', 'guestUid',
+  'screeningSessionId'
+]);
+const allowedCallStatuses = new Set([
+  'waiting', 'answered', 'held', 'live', 'ended', 'timeout', 'rejected'
+]);
+for (const write of writes.filter(item => item.path.split('/').length === 2 && item.path.startsWith('liveCalls/'))) {
+  for (const field of Object.keys(write.data)) {
+    assert.ok(allowedCallFields.has(field), `unexpected liveCalls field: ${field}`);
+  }
+  if ('status' in write.data) {
+    assert.ok(allowedCallStatuses.has(write.data.status), `unexpected liveCalls status: ${write.data.status}`);
+  }
+}
+
 adapter.close();
 assert.equal(fakeController.closed, true);
 assert.equal(adapter.calls.size, 0);
