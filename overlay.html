@@ -65,6 +65,7 @@
   <video id="guestVideo" autoplay playsinline muted></video>
   <audio id="liveAudio" autoplay playsinline></audio>
 <script type="module">
+import { isActiveOverlayCallStatus } from './lib/overlay-call-status.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
 import { getFirestore, doc, collection, onSnapshot, addDoc, setDoc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
 
@@ -220,7 +221,7 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
     // while the legacy single-call flow uses live. Keep signaling alive for
     // every active status; the producer's program router controls whether audio
     // is actually sent while a call is answered or held.
-    if(!['live','answered','on-air','on-hold'].includes(parentStatus)){
+    if(!isActiveOverlayCallStatus(parentStatus)){
       stopOverlayCallAudio();
       render({active:false});
     }
