@@ -30,7 +30,7 @@ assert.match(cleanup, /callIsOnAir\s*=\s*false\s*;\s*callIsOnHold\s*=\s*false\s*
 
 assert.match(cleanup, /refreshPhoneLineBank\(releasedCallId\);/,
   'call cleanup must repaint the phone-line board without requiring a page refresh');
-assert.ok(cleanup.indexOf('activeCallId = null') < cleanup.indexOf('refreshPhoneLineBank()'),
+assert.ok(cleanup.indexOf('activeCallId = null') < cleanup.indexOf('refreshPhoneLineBank(releasedCallId)'),
   'the line board must refresh after active call state has been cleared');
 
 const lineRefresh = extractFunction('refreshPhoneLineBank');
