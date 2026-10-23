@@ -60,4 +60,28 @@ assert.equal(manager.getCall(2).state, CALL_STATE.HELD);
 
 assert.throws(() => manager.markConnected(3), /no live call/);
 assert.throws(() => manager.hold(99), /lineId/);
+
+// If the program adapter rejects a route (for example, an ended audio track),
+// the manager must not advertise the caller as on-air or leave it unheld.
+const failedRouteEvents = [];
+const failedRouteManager = new MultiLineCallManager({
+  routeToProgram: id => {
+    failedRouteEvents.push(['route', id]);
+    if (id === 'stale') throw new Error('Selected caller has no live incoming audio track');
+  },
+  setHoldAudio: (id, enabled) => failedRouteEvents.push(['hold', id, enabled])
+});
+failedRouteManager.registerCall({ callId: 'stale' });
+failedRouteManager.markConnected(1);
+assert.throws(() => failedRouteManager.takeOnAir(1), /no live incoming audio track/);
+assert.equal(failedRouteManager.getSnapshot().programCallId, null);
+assert.equal(failedRouteManager.getCall(1).state, CALL_STATE.HELD);
+assert.deepEqual(failedRouteEvents, [
+  ['route', null],
+  ['hold', 'stale', false],
+  ['route', 'stale'],
+  ['route', null],
+  ['hold', 'stale', true]
+], 'failed program routing must attempt silence and restore hold state');
+
 console.log('three-line call manager: all tests passed');
