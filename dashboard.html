@@ -903,6 +903,14 @@
         <div class="active-call-timer" id="activeCallTimer">0:00</div>
       </div>
       <div class="active-call-status" id="activeCallStatus">Screening</div>
+      <section class="caller-screening-notes" aria-label="Private caller screening notes" style="margin:12px 0;padding:12px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(0,0,0,.16);">
+        <label for="callerScreeningNotes" style="display:block;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:7px;">Private Screening Notes · Not On Air</label>
+        <textarea id="callerScreeningNotes" rows="2" maxlength="1200" placeholder="Topic, intro, pronunciation, location details…" style="display:block;width:100%;box-sizing:border-box;resize:vertical;padding:10px;border-radius:8px;border:1px solid var(--border,rgba(255,255,255,.16));background:rgba(0,0,0,.22);color:var(--text,#fff);font:inherit;font-size:13px;"></textarea>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;flex-wrap:wrap;">
+          <span id="callerScreeningNotesStatus" aria-live="polite" style="font-size:11px;color:var(--sub);">Private to the studio dashboard.</span>
+          <button class="cbtn" id="saveCallerScreeningNotesBtn" type="button" style="padding:8px 12px;">Save Notes</button>
+        </div>
+      </section>
       <div id="producerVideoStage" style="display:none;position:relative;width:100%;max-width:720px;aspect-ratio:16/9;background:#050505;border:1px solid #333;border-radius:14px;overflow:hidden;margin:14px 0;">
         <video id="callerVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;background:#050505;"></video>
         <video id="producerVideo" autoplay playsinline muted style="display:none !important;"></video>
@@ -2132,6 +2140,10 @@ async function answerCall(callId, callerName, callerCity){
   // 9. Show active call panel
   activeCallerName.textContent = (callerName || 'Anonymous Caller') + (callData && callData.mediaType==='video' ? ' · Video' : ' · Audio');
   activeCallerCity.textContent = callerCity || '';
+  const screeningNotesField = document.getElementById('callerScreeningNotes');
+  if(screeningNotesField) screeningNotesField.value = typeof callData.screeningNotes === 'string' ? callData.screeningNotes : '';
+  const screeningNotesStatus = document.getElementById('callerScreeningNotesStatus');
+  if(screeningNotesStatus) screeningNotesStatus.textContent = 'Private to the studio dashboard.';
   activeCallPanel.style.display = 'block';
   setCallStatus('Screening — caller not on air yet');
   holdBtn.textContent = '⏸ Hold';
@@ -2407,6 +2419,30 @@ callOnAirBtn.addEventListener('click', async()=>{
     onAirBadge.classList.remove('show');
     await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
     await setDoc(activeCallRef, { status: 'answered' }, { merge: true });
+  }
+});
+
+// Save producer-only screening notes to the current call record. These notes are not
+// added to the OBS live-state payload or caller-facing media stream.
+document.getElementById('saveCallerScreeningNotesBtn')?.addEventListener('click', async()=>{
+  if(!activeCallRef || !activeCallId){
+    alert('Connect to a caller before saving screening notes.');
+    return;
+  }
+  const field = document.getElementById('callerScreeningNotes');
+  const status = document.getElementById('callerScreeningNotesStatus');
+  const button = document.getElementById('saveCallerScreeningNotesBtn');
+  const notes = String(field?.value || '').trim().slice(0,1200);
+  if(button) button.disabled = true;
+  if(status) status.textContent = 'Saving private notes…';
+  try{
+    await setDoc(activeCallRef,{screeningNotes:notes,screeningNotesUpdatedAt:Date.now()},{merge:true});
+    if(status) status.textContent = notes ? 'Notes saved to this call.' : 'Notes cleared for this call.';
+  }catch(error){
+    console.error('Could not save caller screening notes:',error);
+    if(status) status.textContent = 'Save failed. Check your connection and try again.';
+  }finally{
+    if(button) button.disabled = false;
   }
 });
 
