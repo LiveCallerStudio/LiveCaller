@@ -905,6 +905,7 @@ onAuthStateChanged(auth, (user)=>{
     startVideoToggleListener();
   } else {
     stopQueueListener();
+    stopCallsListener();
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
   }
@@ -2251,13 +2252,48 @@ document.getElementById('screeningRetryBtn')?.addEventListener('click',()=>{
 document.getElementById('screeningStopBtn')?.addEventListener('click',()=>stopVideoScreening(true));
 
 // Calls Firestore listener — shows incoming calls queue
+let callsListenerUnsub = null;
+let staleCallSweepInterval = null;
+let latestCallsForCleanup = [];
+const staleCallCleanupLastAttempt = new Map();
+const STALE_WAITING_CALL_MS = 5 * 60 * 1000;
+
+function stopCallsListener(){
+  if(callsListenerUnsub){ callsListenerUnsub(); callsListenerUnsub=null; }
+  if(staleCallSweepInterval){ clearInterval(staleCallSweepInterval); staleCallSweepInterval=null; }
+  latestCallsForCleanup = [];
+}
+
+function sweepStaleWaitingCalls(calls = latestCallsForCleanup){
+  const now = Date.now();
+  calls.forEach(c=>{
+    if(c.status !== 'waiting' || c.id === activeCallId) return;
+    const created = c.createdAt?.toMillis ? c.createdAt.toMillis()
+      : (typeof c.createdAt === 'number' ? c.createdAt
+      : (typeof c.createdAt?.seconds === 'number' ? c.createdAt.seconds * 1000 : 0));
+    if(!created || now - created < STALE_WAITING_CALL_MS) return;
+    const lastAttempt = staleCallCleanupLastAttempt.get(c.id) || 0;
+    if(now - lastAttempt < 60000) return;
+    staleCallCleanupLastAttempt.set(c.id, now);
+    updateDoc(doc(db, 'liveCalls', c.id), { status: 'ended' }).then(()=>{
+      console.info('Closed stale waiting call:', c.id);
+    }).catch(err=>{
+      console.warn('Could not close stale waiting call:', c.id, err.code || err.message || err);
+    });
+  });
+}
+
+// Close abandoned waiting calls after five minutes, using the existing status field only.
 function startCallsListener(){
+  stopCallsListener();
   // Read the full collection first. An orderBy(createdAt) query can silently
   // omit older/test call documents that do not have createdAt.
-  onSnapshot(
+  callsListenerUnsub = onSnapshot(
     collection(db, 'liveCalls'),
     (snap)=>{
       const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
+      latestCallsForCleanup = calls;
+      sweepStaleWaitingCalls(calls);
       const sortTime = c => {
         const v = c.createdAt;
         if(v && typeof v.toMillis === 'function') return v.toMillis();
@@ -2323,6 +2359,7 @@ function startCallsListener(){
       console.error('Live Caller Studio incoming calls listener failed:', err);
     }
   );
+  staleCallSweepInterval = setInterval(()=>sweepStaleWaitingCalls(), 30000);
 }
 
 // Audio and video calls share the liveCalls screening queue above. The former
