@@ -1533,8 +1533,7 @@ function stopOverlayRelayPeers(){
   overlayRelayPeers.clear();
 }
 
-// Keep the OBS relay's media lanes in a stable order: caller audio/video,
-// followed by producer audio/video. Tracks may arrive after the overlay offer.
+// Keep OBS relay media lanes caller-only. Caller tracks may arrive after the offer.
 function syncOverlayRelayTracks(record){
   if(!record || !record.pc || record.pc.signalingState==='closed') return;
   const transceivers=record.pc.getTransceivers();
@@ -1542,7 +1541,6 @@ function syncOverlayRelayTracks(record){
   // on activePc for the caller, but must never be sent over the OBS relay.
   const callerAudio=(callerRemoteStream?.getAudioTracks()||[]).find(t=>t.readyState==='live')||null;
   const callerVideo=(callerRemoteStream?.getVideoTracks()||[]).find(t=>t.readyState==='live')||null;
-  const producerVideo=(producerStream?.getVideoTracks()||[]).find(t=>t.readyState==='live')||null;
   const audioLanes=transceivers.filter(t=>t.receiver?.track?.kind==='audio');
   const videoLanes=transceivers.filter(t=>t.receiver?.track?.kind==='video');
   audioLanes.forEach((t,index)=>{
