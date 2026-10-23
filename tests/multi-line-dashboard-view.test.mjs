@@ -54,4 +54,15 @@ assert.deepEqual(errors, []);
 view.close();
 assert.equal(root.listeners.has('click'), false);
 assert.equal(root.innerHTML, '');
+
+const guardedView = new MultiLineDashboardView({
+  root, adapter, controller, allowOnAir: false,
+  getLocalStream: async () => ({ tracks: [] }),
+  onError: error => errors.push(error)
+});
+assert.match(root.innerHTML, /On-air disabled \(OBS integration pending\)/);
+assert.match(root.innerHTML, /disabled title="Broadcast routing is not integrated yet"/);
+await root.click({ inside: true, disabled: true, dataset: { mlAction: 'air', callId: 'a' } });
+assert.equal(calls.some(call => call[0] === 'air'), false);
+guardedView.close();
 console.log('multi-line dashboard view: all tests passed');
