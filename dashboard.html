@@ -771,6 +771,7 @@
 <nav class="tab-nav" aria-label="Studio sections">
   <button class="tab-btn active" data-tab="calls">☎ Phone System <span class="tab-notification" id="callsTabNotice" aria-label="0 incoming calls" hidden>0</span></button>
   <button class="tab-btn" data-tab="queue">♫ Voice Messages <span class="tab-notification" id="queueTabNotice" aria-label="0 pending requests" hidden>0</span></button>
+  <button class="tab-btn" data-tab="songrequests">🎵 Song Requests <span class="tab-notification" id="songRequestsTabNotice" aria-label="0 pending song requests" hidden>0</span></button>
   <button class="tab-btn" data-tab="history">◷ Call History</button>
   <button class="tab-btn" data-tab="analytics">▥ Analytics</button>
 </nav>
@@ -861,6 +862,28 @@
 
     <!-- Hidden audio element — producer hears caller here, OBS captures via Browser Source -->
     <audio id="callerAudio" autoplay style="display:none;"></audio>
+  </div>
+
+  <!-- SONG REQUESTS TAB -->
+  <div class="tab-content" id="tab-songrequests" style="display:none;">
+    <div class="analytics-section">
+      <h2 class="section-title">Song Request Queue</h2>
+      <p style="color:var(--sub);font-size:13px;margin:0 0 16px;">Requests submitted from the public Song Request page appear here live. Mark songs as played when you're done.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+        <input class="search" id="songRequestSearch" aria-label="Search song requests" placeholder="Search artist, song, name, city…" style="flex:1;min-width:190px;width:auto;">
+        <select id="songRequestFilter" aria-label="Filter song requests">
+          <option value="pending">Incoming / Pending</option>
+          <option value="all">All requests</option>
+          <option value="played">Played</option>
+        </select>
+      </div>
+      <div id="songRequestsStatus" style="color:var(--sub);font-size:13px;margin-bottom:12px;" aria-live="polite">Connecting to song requests…</div>
+      <div id="songRequestsList" class="queue"></div>
+      <div id="songRequestsEmpty" class="empty" style="display:none;padding:44px 20px;">
+        <div class="ic">🎵</div>
+        <div>No song requests in this view.</div>
+      </div>
+    </div>
   </div>
 
   <!-- ANALYTICS TAB -->
@@ -995,12 +1018,14 @@ onAuthStateChanged(auth, (user)=>{
     loginScreen.style.display = 'none';
     dashboardApp.style.display = 'block';
     startQueueListener();
+    startSongRequestsListener();
     startCallsListener();
     startCallHistoryListener();
     startLinesToggleListener();
     startVideoToggleListener();
   } else {
     stopQueueListener();
+    stopSongRequestsListener();
     stopCallsListener();
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
@@ -2659,6 +2684,121 @@ function formatDur(s){
   const m = Math.floor(s/60);
   return `${m}:${(s%60).toString().padStart(2,'0')}`;
 }
+
+// ── Dedicated public song-request queue (songrequest.html writes to songRequests) ──
+let songRequestsUnsubscribe = null;
+let allSongRequests = [];
+const songRequestsList = document.getElementById('songRequestsList');
+const songRequestsEmpty = document.getElementById('songRequestsEmpty');
+const songRequestsStatus = document.getElementById('songRequestsStatus');
+const songRequestSearch = document.getElementById('songRequestSearch');
+const songRequestFilter = document.getElementById('songRequestFilter');
+
+function renderSongRequests(){
+  if(!songRequestsList) return;
+  const term = (songRequestSearch?.value || '').trim().toLowerCase();
+  const filter = songRequestFilter?.value || 'pending';
+  const pendingCount = allSongRequests.filter(r => !r.status || r.status === 'pending').length;
+  updateTabNotice('songRequestsTabNotice', pendingCount, 'pending song request');
+  let requests = allSongRequests.filter(r => {
+    const status = r.status || 'pending';
+    if(filter === 'pending' && status !== 'pending') return false;
+    if(filter === 'played' && status !== 'played' && status !== 'approved') return false;
+    if(term){
+      const hay = [r.artist, r.songTitle, r.name, r.city, status].filter(Boolean).join(' ').toLowerCase();
+      if(!hay.includes(term)) return false;
+    }
+    return true;
+  });
+  requests.sort((a,b) => {
+    const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+    const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+    return ta - tb; // FIFO: oldest incoming request first
+  });
+  if(songRequestsStatus) songRequestsStatus.textContent = allSongRequests.length
+    ? pendingCount + ' incoming · ' + allSongRequests.filter(r => r.status === 'played' || r.status === 'approved').length + ' played'
+    : 'No song requests received yet.';
+  songRequestsList.innerHTML = requests.map(r => {
+    const status = r.status || 'pending';
+    const played = status === 'played' || status === 'approved';
+    const date = r.createdAt?.toDate ? r.createdAt.toDate().toLocaleString() : 'Just received';
+    return `
+      <article class="card ${played ? 'approved' : 'new'}" data-song-request-id="${escapeHtml(r.id)}">
+        <div class="card-body">
+          <div class="card-top">
+            <span class="card-name">${escapeHtml(r.artist || 'Unknown artist')}</span>
+            <span class="card-city">— ${escapeHtml(r.songTitle || 'Untitled song')}</span>
+            <span class="badge ${played ? 'approved' : ''}">${played ? 'Played' : 'Incoming'}</span>
+          </div>
+          <div class="card-song">${escapeHtml([r.name, r.city].filter(Boolean).join(' · ') || 'Listener details not provided')}</div>
+          <div class="card-time" style="margin-left:0;">Requested: ${escapeHtml(date)}</div>
+        </div>
+        <div class="card-actions">
+          ${played
+            ? '<button class="ibtn" data-song-action="pending">↩ Move to Incoming</button>'
+            : '<button class="ibtn approve" data-song-action="played">✓ Mark Played</button>'}
+          <button class="ibtn delete" data-song-action="delete">🗑 Delete</button>
+        </div>
+      </article>`;
+  }).join('');
+  const empty = requests.length === 0;
+  if(songRequestsEmpty) songRequestsEmpty.style.display = empty ? 'block' : 'none';
+  songRequestsList.style.display = empty ? 'none' : 'flex';
+}
+
+function startSongRequestsListener(){
+  if(songRequestsUnsubscribe) return;
+  songRequestsStatus.textContent = 'Connecting to song requests…';
+  songRequestsUnsubscribe = onSnapshot(
+    query(collection(db, 'songRequests'), orderBy('createdAt', 'desc')),
+    snapshot => {
+      allSongRequests = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      songRequestsStatus.textContent = '';
+      renderSongRequests();
+    },
+    err => {
+      songRequestsUnsubscribe = null;
+      songRequestsStatus.textContent = 'Could not load song requests: ' + (err.message || 'check Firestore access rules.');
+      songRequestsList.innerHTML = '';
+      songRequestsList.style.display = 'none';
+      songRequestsEmpty.style.display = 'block';
+      songRequestsEmpty.querySelector('div:last-child').textContent = 'Song request access is blocked. Check Firestore rules for the songRequests collection.';
+    }
+  );
+}
+
+function stopSongRequestsListener(){
+  if(songRequestsUnsubscribe){ songRequestsUnsubscribe(); songRequestsUnsubscribe = null; }
+  allSongRequests = [];
+  renderSongRequests();
+}
+
+songRequestSearch?.addEventListener('input', renderSongRequests);
+songRequestFilter?.addEventListener('change', renderSongRequests);
+songRequestsList?.addEventListener('click', async e => {
+  const btn = e.target.closest('[data-song-action]');
+  if(!btn) return;
+  const card = btn.closest('[data-song-request-id]');
+  const id = card?.dataset.songRequestId;
+  const request = allSongRequests.find(r => r.id === id);
+  if(!request) return;
+  const action = btn.dataset.songAction;
+  btn.disabled = true;
+  try {
+    if(action === 'played'){
+      await updateDoc(doc(db, 'songRequests', id), { status: 'played', playedAt: serverTimestamp() });
+    } else if(action === 'pending'){
+      await updateDoc(doc(db, 'songRequests', id), { status: 'pending', playedAt: null });
+    } else if(action === 'delete'){
+      if(!confirm('Delete this song request? This cannot be undone.')) return;
+      await deleteDoc(doc(db, 'songRequests', id));
+    }
+  } catch(err) {
+    alert('Could not update song request: ' + (err.message || 'check Firestore rules.'));
+  } finally {
+    if(btn.isConnected) btn.disabled = false;
+  }
+});
 
 function startQueueListener(){
   if(queueUnsubscribe) return;
