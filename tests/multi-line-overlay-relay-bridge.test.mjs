@@ -105,6 +105,30 @@ test('a selected route failure silences every relay and reports the error', asyn
   assert.equal(errors.length, 1);
 });
 
+test('a throwing error reporter cannot replace routing failure or interrupt silence', async () => {
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    const { bridge, controller } = setup();
+    bridge.onError = () => { throw new Error('reporter crashed'); };
+    controller.audioRouter.programCallId = 'selected';
+    const other = fakePeer();
+    const selected = fakePeer();
+    selected.sender.replaceTrack = async track => {
+      if (track) throw new Error('program route failed');
+      selected.sender.track = null;
+    };
+    await assert.rejects(
+      bridge.sync([{ callId: 'other', pc: other }, { callId: 'selected', pc: selected }]),
+      /program route failed/
+    );
+    assert.equal(other.sender.track, null);
+    assert.equal(selected.sender.track, null);
+  } finally {
+    console.error = originalError;
+  }
+});
+
 test('silence clears all audio lanes and close prevents further use', async () => {
   const { bridge, controller, track } = setup();
   controller.audioRouter.programCallId = 'a';
