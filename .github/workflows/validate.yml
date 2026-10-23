@@ -26,5 +26,7 @@ jobs:
         run: node --experimental-default-type=module tests/line-state.test.mjs
       - name: Test public home page line-state behavior
         run: node --experimental-default-type=module tests/home-v2.behavior.test.mjs
+      - name: Test caller cleanup regressions
+        run: node --experimental-default-type=module tests/call-cleanup.test.mjs
       - name: Test production-safety guardrails
         run: node --experimental-default-type=module tests/production-safety.test.mjs
