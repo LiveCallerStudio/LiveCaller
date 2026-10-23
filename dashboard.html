@@ -1616,7 +1616,7 @@ function watchOverlayRelaySessions(callId){
           syncOverlayRelayTracks(record);
           const answer=await pc.createAnswer();
           await pc.setLocalDescription(answer);
-          await setDoc(sessionRef,{answer:{type:answer.type,sdp:answer.sdp},answeredAt:Date.now(),client:'dashboard-caller-relay'},{merge:true});
+          await setDoc(sessionRef,{answer:{type:answer.type,sdp:answer.sdp},updatedAt:Date.now()},{merge:true});
         }catch(err){
           console.error('Could not answer OBS overlay audio/video offer:',err);
           setCallStatus('OBS overlay relay failed: '+(err.message||'WebRTC negotiation error'));
