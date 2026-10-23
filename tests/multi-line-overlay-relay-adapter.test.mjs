@@ -144,6 +144,21 @@ test('ending a call closes its relay and unsubscribes its listeners', async () =
   assert.equal(relay.pc.closed, true);
 });
 
+test('terminal call status with surrounding whitespace closes the overlay relay', async () => {
+  const { adapter, listeners } = setup();
+  adapter.watchCall('call-status-whitespace');
+  listeners.get('liveCalls/call-status-whitespace/overlaySessions')(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-status-whitespace', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  const relay = adapter.calls.get('call-status-whitespace').sessions.get('overlay-status-whitespace');
+  listeners.get('liveCalls/call-status-whitespace')?.(fakeSnapshot([], { status: ' ended ' }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(adapter.calls.has('call-status-whitespace'), false);
+  assert.equal(relay.pc.closed, true);
+});
+
 test('parent call deletion closes all relays and removes subscriptions', async () => {
   const { adapter, listeners } = setup();
   adapter.watchCall('call-deleted');
