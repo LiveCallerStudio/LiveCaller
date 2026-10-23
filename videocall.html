@@ -408,6 +408,24 @@ const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 const auth = getAuth(app);
 let guestUid = null;
+let guestAuthPromise = null;
+
+// Wait for Firebase to restore its persisted session before deciding whether
+// to create an anonymous user. Otherwise auth.currentUser can briefly be null
+// during page startup and an unnecessary second anonymous account can be made.
+async function getOrCreateGuestUser(){
+  await auth.authStateReady();
+  if(auth.currentUser) return auth.currentUser;
+  if(!guestAuthPromise){
+    guestAuthPromise = signInAnonymously(auth)
+      .then(credential => credential.user)
+      .catch(error => {
+        guestAuthPromise = null;
+        throw error;
+      });
+  }
+  return guestAuthPromise;
+}
 let screeningPc = null;
 let screeningSessionId = null;
 let screeningCandidatesUnsub = null;
@@ -685,8 +703,8 @@ async function startCall(){
 
   try{
     if(callMode==='video'){
-      const credential = auth.currentUser ? {user:auth.currentUser} : await signInAnonymously(auth);
-      guestUid = credential.user.uid;
+      const guestUser = await getOrCreateGuestUser();
+      guestUid = guestUser.uid;
     }
     localStream = await navigator.mediaDevices.getUserMedia({
       audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:false, sampleRate:48000, channelCount:1 },
