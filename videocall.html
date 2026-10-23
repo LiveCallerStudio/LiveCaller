@@ -695,35 +695,14 @@ async function startCall(){
       setStatus('ended', 'Call could not be connected right now. Try again soon!');
       stopTimer();
       cleanup(false);
-      setTimeout(()=>{
-        window.close();
-        document.body.innerHTML = `
-          <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;
-            justify-content:center;background:#0a0a0a;color:#f2f2f2;font-family:Arial,sans-serif;
-            text-align:center;padding:40px 20px;gap:16px;">
-            <div style="font-size:48px;">📵</div>
-            <div style="font-size:22px;font-weight:900;">Not Available</div>
-            <div style="font-size:14px;color:#888;">The producer is unavailable right now. Try calling back soon!</div>
-          </div>`;
-      }, 3000);
+      returnToPhoneHome(700);
     } else if(data.status === 'ended'){
       stopOutgoingRing();
       stopHoldMusicCaller();
       setStatus('ended', 'Call ended. Thank you for calling in!');
       stopTimer();
       cleanup(false);
-      setTimeout(()=>{
-        window.close();
-        document.body.innerHTML = `
-          <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;
-            justify-content:center;background:#0a0a0a;color:#f2f2f2;font-family:Arial,sans-serif;
-            text-align:center;padding:40px 20px;gap:16px;">
-            <div style="font-size:48px;">📞</div>
-            <div style="font-size:22px;font-weight:900;">Call Ended</div>
-            <div style="font-size:14px;color:#888;">Thanks for calling in to Live Caller Studio!</div>
-            <div style="font-size:12px;color:#555;margin-top:8px;">You can close this window.</div>
-          </div>`;
-      }, 3000);
+      returnToPhoneHome(700);
     }
   });
 
@@ -748,6 +727,10 @@ async function startCall(){
   callerNameDisplay.textContent = name + (callMode==='video' ? ' · Video Call' : ' · Audio Call');
   setStatus('waiting', 'Calling Live Caller Studio…');
   startOutgoingRing(); // Start outgoing ring while waiting
+}
+
+function returnToPhoneHome(delay=700){
+  window.setTimeout(()=>window.location.replace('home-v2.html'), delay);
 }
 
 function cleanup(updateFirestore = true){
@@ -786,18 +769,7 @@ endBtn.addEventListener('click', async ()=>{
   setStatus('ended', 'Call ended. Thank you for calling in!');
   if(callDocRef) await updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
   cleanup(false);
-  setTimeout(()=>{
-    window.close();
-    document.body.innerHTML = `
-      <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;
-        justify-content:center;background:#0a0a0a;color:#f2f2f2;font-family:Arial,sans-serif;
-        text-align:center;padding:40px 20px;gap:16px;">
-        <div style="font-size:48px;">📞</div>
-        <div style="font-size:22px;font-weight:900;">Call Ended</div>
-        <div style="font-size:14px;color:#888;">Thanks for calling in to Live Caller Studio!</div>
-        <div style="font-size:12px;color:#555;margin-top:8px;">You can close this window.</div>
-      </div>`;
-  }, 2000);
+  returnToPhoneHome(400);
 });
 
 callBtn.addEventListener('click', startCall);
