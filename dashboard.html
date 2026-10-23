@@ -2043,7 +2043,18 @@ async function endActiveCallerCall(){
   endBtn.disabled = true;
   endBtn.textContent = 'Ending…';
   // Signal the caller first so their page immediately tears down and returns home.
-  await setDoc(activeCallRef, { status:'ended', endedAt:Date.now(), endedBy:'producer' }, {merge:true}).catch(()=>{});
+  try{
+    // Keep this update to the existing call-status field only. Strict Firestore
+    // rules may reject additional endedAt/endedBy fields and leave the caller live.
+    await updateDoc(activeCallRef, { status:'ended' });
+  }catch(err){
+    console.error('Could not signal caller hang-up in Firestore:', err.code || err.message || err);
+    setCallStatus('Could not end caller session — Firestore denied the status update');
+    endBtn.disabled = false;
+    endBtn.textContent = '📵 End Call';
+    localEndInProgress = false;
+    return false;
+  }
   // Always take OBS off-air, even if the dashboard's on-air toggle was stale.
   await setDoc(liveStateRef, {active:false, callId:null, updatedAt:Date.now()}, {merge:true}).catch(()=>{});
   stopHoldMusic(); stopPhoneRing();
