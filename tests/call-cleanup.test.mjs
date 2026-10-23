@@ -41,6 +41,12 @@ assert.match(lineRefresh, /const activeLine = activePc \?/,
 assert.match(lineRefresh, /lineBank\.innerHTML/,
   'the line-board refresh must repaint the displayed tiles');
 
+const callsListener = extractFunction('startCallsListener');
+assert.match(callsListener, /refreshPhoneLineBank\(\);/,
+  'Firestore snapshots must use the same line renderer as call cleanup');
+assert.doesNotMatch(callsListener, /lineBank\.innerHTML/,
+  'snapshot rendering must not keep a second divergent copy of the phone-line template');
+
 const screening = extractFunction('stopVideoScreening');
 assert.match(screening, /screeningUnsubs\.forEach/,
   'screening teardown must unsubscribe screening listeners');

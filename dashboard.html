@@ -2743,38 +2743,7 @@ function startCallsListener(){
       }
 
       const isBusy = !!activePc;
-      const lineBank = document.getElementById('phoneLineBank');
-      const activeLine = isBusy ? {
-        id: activeCallId || 'active',
-        callerName: document.getElementById('activeCallerName')?.textContent || 'Active caller',
-        callerCity: document.getElementById('activeCallerCity')?.textContent || '',
-        mediaType: activeCallMediaType,
-        lineStatus: callIsOnHold ? 'hold' : callIsOnAir ? 'active' : 'screening'
-      } : null;
-      // Three visible slots are a UI limit, not three independent WebRTC sessions.
-      const boardLines = [
-        ...(activeLine ? [activeLine] : []),
-        ...ringing.slice(0, activeLine ? 2 : 3).map(c => ({...c, lineStatus:'ringing'}))
-      ];
-      const fixedLines = Array.from({length:3}, (_,index) => boardLines[index] || null);
-      lineBank.innerHTML = fixedLines.map((line,index) => {
-        if (!line) return `<div class="phone-line-tile" role="group" aria-label="Line ${index+1}, available">
-          <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(index+1).padStart(2,'0')}</span><span class="phone-line-state">AVAILABLE</span></div>
-          <div class="phone-line-name">No caller assigned</div>
-          <div class="phone-line-detail">Ready for the next queued call</div>
-        </div>`;
-        const status = line.lineStatus;
-        const statusLabel = status === 'active' ? 'ON AIR' : status === 'screening' ? 'SCREENING' : status === 'hold' ? 'ON HOLD' : 'RINGING';
-        const name = line.callerName || 'Anonymous Caller';
-        const city = line.callerCity || 'Location not provided';
-        const media = line.mediaType === 'video' ? 'VIDEO LINE' : 'AUDIO LINE';
-        return `<div class="phone-line-tile line-${status}" role="group" aria-label="Line ${index+1}, ${statusLabel}">
-          <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(index+1).padStart(2,'0')}</span><span class="phone-line-state"><i class="line-led led-${status}"></i>${statusLabel}</span></div>
-          <div class="phone-line-name">${escapeHtml(name)}</div>
-          <div class="phone-line-detail">${escapeHtml(city)}</div>
-          <div class="phone-line-detail">${media} ${status === 'active' ? '· ON PROGRAM' : status === 'screening' ? '· PRIVATE SCREENING' : status === 'hold' ? '· HOLD AUDIO' : '· AWAITING ANSWER'}</div>
-        </div>`;
-      }).join('');
+      refreshPhoneLineBank();
       const waitingSection = document.getElementById('callWaitingSection');
       const waitingQueue = document.getElementById('waitingCallsQueue');
       const waitingCount = document.getElementById('callWaitingCount');
