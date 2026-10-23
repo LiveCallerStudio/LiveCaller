@@ -2016,22 +2016,27 @@ async function handleRemoteHangup(){
   setCallStatus('Call ended by caller','');
   localEndInProgress=false;
 }
-endBtn.addEventListener('click', async()=>{
-  if(!activeCallRef) return;
+async function endActiveCallerCall(){
+  if(!activeCallRef || localEndInProgress) return false;
   localEndInProgress = true;
   endBtn.disabled = true;
   endBtn.textContent = 'Ending…';
+  // Signal the caller first so their page immediately tears down and returns home.
+  await setDoc(activeCallRef, { status:'ended', endedAt:Date.now(), endedBy:'producer' }, {merge:true}).catch(()=>{});
+  // Always take OBS off-air, even if the dashboard's on-air toggle was stale.
+  await setDoc(liveStateRef, {active:false, callId:null, updatedAt:Date.now()}, {merge:true}).catch(()=>{});
+  stopHoldMusic(); stopPhoneRing();
   let recUrl = null;
   if(isRecording) recUrl = await stopCallRecording().catch(()=>null);
-  stopHoldMusic(); stopPhoneRing();
-  await setDoc(activeCallRef, { status: 'ended', endedAt: Date.now(), endedBy:'producer' }, { merge: true }).catch(()=>{});
-  // Always clear the live scene when ending a call; do not rely only on the UI toggle.
-  await setDoc(liveStateRef, { active:false, callId:null, updatedAt:Date.now() }, {merge:true}).catch(()=>{});
   await saveCallHistory(recUrl);
   cleanupActiveCall();
   localEndInProgress = false;
   endBtn.disabled = false;
   endBtn.textContent = '📵 End Call';
+  return true;
+}
+endBtn.addEventListener('click', async()=>{
+  await endActiveCallerCall();
 });
 
 // Calls Firestore listener — shows incoming calls queue
@@ -2193,8 +2198,15 @@ function startVideoCallsListener(){
 }
 
 videoEndBtn.addEventListener('click', async()=>{
+  // If this is a caller connected through the phone system, end that same
+  // liveCalls document so the caller's status listener closes their session.
+  if(activeCallRef){
+    await endActiveCallerCall();
+    return;
+  }
   if(!currentLiveVideoId) return;
-  await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), { status: 'ended' }).catch(()=>{});
+  await updateDoc(doc(db, 'videoCalls', currentLiveVideoId), {status:'ended', endedAt:Date.now(), endedBy:'producer'}).catch(()=>{});
+  await setDoc(liveStateRef, {active:false, callId:null, updatedAt:Date.now()}, {merge:true}).catch(()=>{});
 });
 
 document.addEventListener('click', async(e)=>{
