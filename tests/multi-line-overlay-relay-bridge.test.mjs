@@ -71,6 +71,22 @@ test('switching callers clears the previous relay before enabling the next', asy
   assert.equal(a.sender.history.at(-1), null);
 });
 
+test('does not route audio through a lane configured inactive even if its current direction is stale', async () => {
+  const { bridge, controller, track } = setup();
+  controller.audioRouter.programCallId = 'selected';
+  const peer = fakePeer();
+  const transceiver = {
+    direction: 'inactive',
+    currentDirection: 'sendonly',
+    receiver: { track: { kind: 'audio' } },
+    sender: peer.sender
+  };
+  peer.getTransceivers = () => [transceiver];
+  await bridge.sync([{ callId: 'selected', pc: peer }]);
+  assert.equal(peer.sender.track, null);
+  assert.notEqual(peer.sender.track, track);
+});
+
 test('a selected route failure silences every relay and reports the error', async () => {
   const { bridge, controller, errors } = setup();
   controller.audioRouter.programCallId = 'b';
