@@ -16,6 +16,12 @@ assert.match(video, /onSnapshot\(doc\(db, 'hotlineSettings', 'callLines'\)/, 'ca
 assert.match(video, /phoneLineState = LINE\.UNKNOWN;\s*videoLineState = LINE\.UNKNOWN;/, 'Firestore read errors must fail closed for live calls');
 assert.match(video, /function updateLineUi\(\)/, 'line UI must reflect the currently selected call mode');
 assert.match(video, /onicecandidateerror/, 'caller WebRTC must log ICE candidate errors');
+assert.match(video, /signInAnonymously\(auth\)/, 'video guest must authenticate anonymously for scoped screening rules');
+assert.match(video, /screeningSessions/, 'video guest must answer a separate pre-acceptance screening peer');
+assert.match(video, /guestUid/, 'video call must bind screening ownership to the guest UID');
+assert.match(dashboard, /Private Guest Screening — Not On Air/, 'dashboard preview must be labeled private and off-air');
+assert.match(dashboard, /data-action="video-screen"/, 'video queue must offer a screen-before-answer action');
+assert.match(dashboard, /function stopVideoScreening\(/, 'producer must be able to stop the private preview independently');
 assert.match(video, /pc\.connectionState === 'failed'/, 'caller must expose failed WebRTC connections');
 assert.match(sw, /requestUrl\.origin !== self\.location\.origin/, 'service worker must not intercept third-party requests');
 assert.match(sw, /event\.request\.mode === 'navigate'/, 'offline HTML fallback must be limited to document navigations');
