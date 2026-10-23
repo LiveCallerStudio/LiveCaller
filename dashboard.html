@@ -2183,7 +2183,7 @@ function refreshPhoneLineBank(releasedCallId = null){
   }catch(error){ console.warn('Could not read multi-line state:',error?.message||error); }
   const used = new Set(controllerLines.filter(line=>line?.callId).map(line=>line.lineId));
   // The legacy video workflow remains visible and uses the first free display tile.
-  const legacyLine = activePc ? {
+  const activeLine = activePc ? {
     lineId:[1,2,3].find(id=>!used.has(id)) || null,
     callId:activeCallId || 'legacy-active',
     callerName:document.getElementById('activeCallerName')?.textContent || 'Active video caller',
@@ -2192,7 +2192,7 @@ function refreshPhoneLineBank(releasedCallId = null){
     legacy:true
   } : null;
   const byId = new Map(controllerLines.map(line=>[line.lineId,line]));
-  if(legacyLine?.lineId && !byId.get(legacyLine.lineId)?.callId) byId.set(legacyLine.lineId,legacyLine);
+  if(activeLine?.lineId && !byId.get(activeLine.lineId)?.callId) byId.set(activeLine.lineId,activeLine);
   lineBank.innerHTML = [1,2,3].map(lineId=>{
     const line=byId.get(lineId);
     if(!line?.callId) return `<div class="phone-line-tile" role="group" aria-label="Line ${lineId}, available">
