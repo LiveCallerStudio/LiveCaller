@@ -561,6 +561,20 @@ async function requestAudioBitrate(peer, bitrate = 192000){
   }
 }
 
+async function requestVideoQuality(peer, maxBitrate = 650000, maxFramerate = 24){
+  for(const sender of peer.getSenders()){
+    if(sender.track?.kind !== 'video') continue;
+    try{
+      const params = sender.getParameters();
+      params.encodings = params.encodings?.length ? params.encodings : [{}];
+      params.encodings[0].maxBitrate = maxBitrate;
+      params.encodings[0].maxFramerate = maxFramerate;
+      if('degradationPreference' in params) params.degradationPreference = 'maintain-framerate';
+      await sender.setParameters(params);
+    }catch(error){ console.debug('Video quality hint not supported by this browser:',error?.message||error); }
+  }
+}
+
 async function startCall(){
   clearError();
   if(!linesOpen){
@@ -577,7 +591,7 @@ async function startCall(){
   try{
     localStream = await navigator.mediaDevices.getUserMedia({
       audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:false, sampleRate:48000, channelCount:1 },
-      video: callMode === 'video' ? { facingMode:'user', width:{ideal:1280}, height:{ideal:720} } : false
+      video: callMode === 'video' ? { facingMode:'user', width:{ideal:640,max:960}, height:{ideal:360,max:540}, frameRate:{ideal:24,max:30} } : false
     });
     if(callMode==='video'){localVideo.srcObject=localStream;videoStage.classList.add('show');cameraBtn.hidden=false;}
   }catch(err){
@@ -608,6 +622,7 @@ async function startCall(){
   };
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
   requestAudioBitrate(pc, 192000).catch(()=>{});
+  requestVideoQuality(pc).catch(()=>{});
 
   // Play remote audio (producer's voice)
   pc.ontrack = (event) => {
