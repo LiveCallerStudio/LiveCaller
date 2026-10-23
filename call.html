@@ -406,6 +406,9 @@ const STUN = {
 let pc = null;
 let localStream = null;
 let callDocRef = null;
+let callStatusUnsub = null;
+let dashboardCandidatesUnsub = null;
+let callStartInProgress = false;
 let timerInterval = null;
 let callSeconds = 0;
 let micMuted = false;
@@ -588,6 +591,10 @@ async function requestVideoQuality(peer, maxBitrate = 650000, maxFramerate = 24)
 }
 
 async function startCall(){
+  if(callStartInProgress || (callDocRef && !callerSessionEnding)) return;
+  callStartInProgress = true;
+  callerSessionEnding = false;
+  try{
   clearError();
   if((callMode === 'video' && !videoLinesOpen) || (callMode === 'audio' && !linesOpen)){
     const params = new URLSearchParams({source:'voicemail', name:callerNameInput.value.trim(), city:callerCityInput.value.trim(), callType:callMode});
@@ -621,15 +628,17 @@ async function startCall(){
     if (state === 'connected') {
       clearTimeout(peerDisconnectTimer);
       peerDisconnectTimer = null;
-    } else if (state === 'failed' || state === 'closed') {
-      finishCallerSession('The producer ended the call. Returning home…', 500);
-    } else if (state === 'disconnected') {
+      clearError();
+    } else if (state === 'failed' || state === 'disconnected') {
       clearTimeout(peerDisconnectTimer);
+      setStatus('connected', 'Connection interrupted — attempting to recover…');
       peerDisconnectTimer = setTimeout(() => {
-        if (pc && (pc.connectionState === 'disconnected' || pc.connectionState === 'failed')) {
-          finishCallerSession('Call connection ended. Returning home…', 500);
+        if (pc && ['disconnected','failed'].includes(pc.connectionState)) {
+          finishCallerSession('Connection could not be restored. Returning home…', 500);
         }
-      }, 8000);
+      }, 15000);
+    } else if (state === 'closed') {
+      finishCallerSession('Call connection closed. Returning home…', 500);
     }
   };
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -682,7 +691,7 @@ async function startCall(){
   await pc.setLocalDescription(offer);
 
   // Listen for answer + status changes
-  onSnapshot(callDocRef, async (snap) => {
+  callStatusUnsub = onSnapshot(callDocRef, async (snap) => {
     const data = snap.data();
     if(!data) return;
 
@@ -718,7 +727,7 @@ async function startCall(){
   });
 
   // Listen for dashboard ICE candidates — buffer them if remote desc not set yet
-  onSnapshot(collection(db, 'liveCalls', callDocRef.id, 'dashboardCandidates'), (snap) => {
+  dashboardCandidatesUnsub = onSnapshot(collection(db, 'liveCalls', callDocRef.id, 'dashboardCandidates'), (snap) => {
     snap.docChanges().forEach(async (change) => {
       if(change.type === 'added'){
         const candidate = new RTCIceCandidate(change.doc.data());
@@ -738,6 +747,20 @@ async function startCall(){
   callerNameDisplay.textContent = name + (callMode==='video' ? ' · Video Call' : ' · Audio Call');
   setStatus('waiting', 'Calling Live Caller Studio…');
   startOutgoingRing(); // Start outgoing ring while waiting
+  }catch(err){
+    console.error('Could not start caller session:', err.code || err.message || err);
+    if(callDocRef) await updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
+    cleanup(false);
+    callDocRef = null;
+    callerSessionEnding = false;
+    callBtn.disabled = false;
+    callBtn.textContent = callMode === 'video' ? '🎥 Start FaceTime Video Call' : '📞 Call In Live';
+    setupScreen.style.display = '';
+    callScreen.style.display = 'none';
+    showError('Could not start the call. Please check your connection and try again.');
+  }finally{
+    callStartInProgress = false;
+  }
 }
 
 let callerSessionEnding = false;
@@ -761,6 +784,11 @@ function finishCallerSession(message='Call ended. Returning home…', delay=700)
 }
 
 function cleanup(updateFirestore = true){
+  if(callStatusUnsub){ callStatusUnsub(); callStatusUnsub=null; }
+  if(dashboardCandidatesUnsub){ dashboardCandidatesUnsub(); dashboardCandidatesUnsub=null; }
+  clearTimeout(peerDisconnectTimer);
+  peerDisconnectTimer = null;
+  callStartInProgress = false;
   if(localStream) localStream.getTracks().forEach(t => t.stop());
   localVideo.srcObject = null; remoteVideo.srcObject = null; videoStage.classList.remove('show');
   if(pc){ pc.close(); pc = null; }
