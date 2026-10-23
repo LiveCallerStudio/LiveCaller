@@ -1989,7 +1989,8 @@ function performDashboardRefresh(){
   window.location.replace(next.toString());
 }
 function refreshIsBlockedByLiveMedia(){
-  return !!(activePc || screeningPc || activeCallId || screeningCallId);
+  return !!(activePc || screeningPc || activeCallId || screeningCallId ||
+    (multiLineController && multiLineController.sessions.size > 0));
 }
 function runDeferredDashboardRefreshIfIdle(){
   if(!refreshAfterCall || refreshIsBlockedByLiveMedia()) return;
