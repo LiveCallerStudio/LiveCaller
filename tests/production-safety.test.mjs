@@ -57,6 +57,12 @@ assert.match(dashboard, /async function answerMultiLineCall\(callId, callerName,
 assert.match(dashboard, /const onAir = multiLineOnAirCallId === callId[\s\S]*?onAir \? \(stream\.getAudioTracks\(\)/, 'multi-line OBS relay must send caller audio only after explicit on-air selection');
 assert.match(dashboard, /function refreshIsBlockedByLiveMedia\(\)[\s\S]*?multiLineController && multiLineController\.sessions\.size > 0/, 'safe refresh must account for controller-managed live calls');
 
+assert.match(dashboard, /id="multiLineMicMuteBtn"/, 'multi-line phone console must expose a studio microphone mute control');
+assert.match(dashboard, /function setMultiLineMicMuted\(muted\)[\s\S]*?track\.enabled=!multiLineMicMuted/, 'studio microphone mute must apply to every connected multi-line caller');
+assert.match(dashboard, /localStream\.getAudioTracks\(\)\.forEach\(track=>\{track\.enabled=!multiLineMicMuted;\}\)/, 'new lines must inherit the current studio microphone mute state');
+assert.match(dashboard, /const ringingByLine = new Map\(\)[\s\S]*?class="phone-line-tile line-ringing"/, 'waiting callers must light available virtual line tiles before answer');
+assert.match(dashboard, /data-action="answer-line" data-line-id="\$\{lineId\}"/, 'ringing line tiles must offer explicit line selection');
+
 console.log('production-safety checks: all passed');
 
 assert.match(dashboard, /data-song-action="played"/, 'song requests must have an explicit Mark Played action');
