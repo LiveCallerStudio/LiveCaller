@@ -72,13 +72,15 @@
   .brand small{display:block; color:var(--sub); font-size:11px; letter-spacing:1px;}
 
   .header-right{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
-  .header-live-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .header-search-tools{display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:0;}
+  .header-search-row{display:flex;align-items:center;gap:8px;justify-content:flex-end;width:100%;}
+  .header-live-controls{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;width:100%;}
   .header-live-controls .desk-line-control{display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);}
-  .header-live-controls .desk-line-control>div{display:flex;flex-direction:column;gap:3px;min-width:0;}
   .header-live-controls .desk-line-control strong{font-size:11px;white-space:nowrap;}
-  .header-live-controls .desk-line-control small{font-size:10px;max-width:112px;}
-  .header-live-controls .lines-toggle{padding:6px 9px;font-size:10px;}
-  @media(max-width:760px){.header-live-controls{width:100%;order:-1}.header-live-controls .desk-line-control{flex:1;justify-content:space-between}.header-live-controls .desk-line-control small{max-width:none}.header-right{align-items:stretch}}
+  .header-live-controls .lines-toggle{padding:6px 10px;font-size:10px;min-width:66px;justify-content:center;}
+  .voice-message-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 18px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);}
+  .voice-message-tools label{font-size:12px;color:var(--sub);font-weight:700;}
+  @media(max-width:760px){.header-search-tools{width:100%;align-items:stretch;order:3}.header-search-row{justify-content:stretch}.header-search-row .search{width:100%;flex:1;min-width:0}.header-live-controls{justify-content:stretch}.header-live-controls .desk-line-control{flex:1;justify-content:space-between}.header-right{align-items:stretch}.voice-message-tools select{flex:1;min-width:0}}
 
   .lines-toggle{
     display:flex;align-items:center;gap:8px;
@@ -775,20 +777,19 @@
     <div class="call-counter" id="callCounter">📞 <span id="callCountNum">0</span> Incoming</div>
     <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
     
-    <input class="search" id="searchInput" placeholder="Search name, city, song…">
-    <select id="filterSelect">
-      <option value="pending">Pending only</option>
-      <option value="all">All messages</option>
-      <option value="approved">Approved only</option>
-    </select>
-    <div class="header-live-controls" aria-label="Live line controls">
-      <div class="desk-line-control">
-        <div><strong>Voice line</strong><small id="deskVoiceStatus">Checking status…</small></div>
-        <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Open or close the voice line"><span class="lines-dot"></span><span id="linesToggleText">Open</span></button>
+    <div class="header-search-tools">
+      <div class="header-search-row">
+        <input class="search" id="searchInput" placeholder="Search name, city, song…" aria-label="Search voice messages">
       </div>
-      <div class="desk-line-control">
-        <div><strong>Video guests</strong><small>Allow or pause new video callers</small></div>
-        <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Toggle whether video calls can join"><span class="lines-dot"></span><span id="videoToggleText">Open</span></button>
+      <div class="header-live-controls" aria-label="Live line controls">
+        <div class="desk-line-control">
+          <strong>Audio in</strong>
+          <button class="lines-toggle open" id="linesToggleBtn" type="button" title="Close audio callers"><span class="lines-dot"></span><span id="linesToggleText">Close</span></button>
+        </div>
+        <div class="desk-line-control">
+          <strong>Video in</strong>
+          <button class="lines-toggle open" id="videoToggleBtn" type="button" title="Close video callers"><span class="lines-dot"></span><span id="videoToggleText">Close</span></button>
+        </div>
       </div>
     </div>
     <a class="home-btn" href="home.html">
@@ -813,6 +814,14 @@
 <main>
   <!-- QUEUE TAB -->
   <div class="tab-content" id="tab-queue" style="display:none;">
+    <div class="voice-message-tools">
+      <label for="filterSelect">Messages</label>
+      <select id="filterSelect" aria-label="Filter voice messages">
+        <option value="pending">Pending only</option>
+        <option value="all">All messages</option>
+        <option value="approved">Approved only</option>
+      </select>
+    </div>
     <div id="emptyState" class="empty" style="display:none;">
       <div class="ic">📭</div>
       <div>No voice messages waiting.</div>
@@ -1060,8 +1069,6 @@ const linesToggleText = document.getElementById('linesToggleText');
 let linesOpen = true;
 
 function renderLinesToggle(){
-  const deskVoiceStatus = document.getElementById('deskVoiceStatus');
-  if(deskVoiceStatus) deskVoiceStatus.textContent = linesOpen ? 'Open · accepting callers' : 'Closed · calls paused';
   linesToggleBtn.classList.toggle('open', linesOpen);
   linesToggleBtn.classList.toggle('closed', !linesOpen);
   linesToggleText.textContent = linesOpen ? 'Open' : 'Close';
@@ -1077,7 +1084,7 @@ function startLinesToggleListener(){
 }
 
 linesToggleBtn.addEventListener('click', async()=>{
-  if(linesOpen && !confirm('Close phone lines? Listeners won\'t be able to call in until you reopen them.')) return;
+
   linesToggleBtn.disabled = true;
   try{
     await setDoc(linesSettingsRef, { open: !linesOpen, updatedAt: Date.now() }, { merge:true });
@@ -1126,7 +1133,7 @@ function startVideoToggleListener(){
 }
 
 videoToggleBtn.addEventListener('click', async()=>{
-  if(videoOpen && !confirm('Close video calls? Nobody new will be able to join until you reopen the video line.')) return;
+
   videoToggleBtn.disabled = true;
   try{
     await setDoc(linesSettingsRef, { videoOpen: !videoOpen, updatedAt: Date.now() }, { merge:true });
