@@ -17,6 +17,7 @@ function fakePeer(kind = 'audio') {
     sender,
     getSenders: () => [sender],
     getTransceivers: () => [{
+      direction: kind === 'audio' ? 'sendonly' : 'inactive',
       receiver: { track: { kind } },
       sender
     }]
