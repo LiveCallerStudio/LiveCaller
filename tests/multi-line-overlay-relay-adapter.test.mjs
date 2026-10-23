@@ -116,6 +116,41 @@ test('parent call deletion closes all relays and removes subscriptions', async (
 });
 
 
+
+test('call status subscription errors close all call relays and unsubscribe watchers', async () => {
+  const { adapter, listeners, errorListeners } = setup();
+  adapter.watchCall('call-status-error');
+  listeners.get('liveCalls/call-status-error/overlaySessions')(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-status-error', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  const relay = adapter.calls.get('call-status-error').sessions.get('overlay-status-error');
+  assert.throws(() => errorListeners.get('liveCalls/call-status-error')(new Error('status permission denied')), /status permission denied/);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(adapter.calls.has('call-status-error'), false);
+  assert.equal(relay.pc.closed, true);
+  assert.equal(listeners.has('liveCalls/call-status-error/overlaySessions'), false);
+  await adapter.close();
+});
+
+test('overlay session subscription errors close all call relays and unsubscribe watchers', async () => {
+  const { adapter, listeners, errorListeners } = setup();
+  adapter.watchCall('call-session-error');
+  listeners.get('liveCalls/call-session-error/overlaySessions')(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-session-error', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  const relay = adapter.calls.get('call-session-error').sessions.get('overlay-session-error');
+  assert.throws(() => errorListeners.get('liveCalls/call-session-error/overlaySessions')(new Error('session permission denied')), /session permission denied/);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(adapter.calls.has('call-session-error'), false);
+  assert.equal(relay.pc.closed, true);
+  assert.equal(listeners.has('liveCalls/call-session-error'), false);
+  await adapter.close();
+});
+
 test('candidate signaling errors close the affected relay and remove its listener', async () => {
   const { adapter, listeners, errorListeners } = setup();
   adapter.watchCall('call-error');
