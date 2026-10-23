@@ -67,6 +67,8 @@ assert.match(dashboard, /id="multiLineHoldAudioFile" accept="audio\/\*"/, 'multi
 assert.match(dashboard, /async function setMultiLineHoldAudio\(callId,held\)[\s\S]*?entry\.session\.replaceTrack\('audio',source\.track\)/, 'held callers must receive the hold-audio track instead of the producer microphone');
 assert.match(dashboard, /if\(mic\) mic\.enabled=false;[\s\S]*?entry\.session\.replaceTrack\('audio',source\.track\)/, 'producer microphone must be muted before hold-track replacement');
 assert.match(dashboard, /await setMultiLineHoldAudio\(callId,false\);\s*await multiLineAdapter\.takeOnAir\(callId\)/, 'hold audio must be removed before the selected caller is routed on air');
+assert.match(dashboard, /await multiLineAdapter\.holdCall\(previousCallId\);\s*await setMultiLineHoldAudio\(previousCallId,true\)/, 'switching callers must persist hold and await the previous caller hold loop before routing the next caller');
+assert.match(dashboard, /!snapshot\.programCallId && !multiLineController\.audioRouter\.monitorCallId/, 'private monitoring must not overlap program audio or another monitor route');
 assert.match(dashboard, /const onAir = multiLineOnAirCallId === callId;[\s\S]*?const audio=onAir \? \(stream\.getAudioTracks\(\)/, 'OBS relay must continue to use only the selected caller remote stream, never local hold audio');
 assert.match(dashboard, /if\(source\.timer\) clearTimeout\(source\.timer\)[\s\S]*?source\.context\?\.close/, 'per-line hold audio resources must be cleaned up');
 
