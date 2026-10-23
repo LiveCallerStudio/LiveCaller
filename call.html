@@ -498,9 +498,21 @@ let callMode = 'audio';
 const errorBanner      = document.getElementById('errorBanner');
 const linesClosedBanner= document.getElementById('linesClosedBanner');
 
-let linesOpen = true; // defaults open until the settings doc says otherwise
-
-document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{callMode=btn.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>{b.classList.toggle('active',b===btn);b.setAttribute('aria-pressed',String(b===btn));});callBtn.innerHTML=callMode==='video'?'🎥 Start FaceTime Video Call':'📞 Start FaceTime Audio Call';}));
+let linesOpen = true; // phone line state
+let videoLinesOpen = true; // video line state shares the same settings document
+function updateCallModeUi(){
+  const open = callMode === 'video' ? videoLinesOpen : linesOpen;
+  linesClosedBanner.classList.toggle('show', !open);
+  if(!open){
+    callBtn.innerHTML = '📮 Leave Voicemail';
+    linesClosedBanner.innerHTML = callMode === 'video'
+      ? '<strong>🎥 Video Calls Are Closed</strong><br>Leave a voice message for the producer instead.'
+      : '<strong>📞 Phone Lines Are Closed</strong><br>Leave a voice message for the producer instead.';
+  }else{
+    callBtn.innerHTML = callMode === 'video' ? '🎥 Start FaceTime Video Call' : '📞 Start FaceTime Audio Call';
+  }
+}
+document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{callMode=btn.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>{b.classList.toggle('active',b===btn);b.setAttribute('aria-pressed',String(b===btn));});updateCallModeUi();}));
 function showError(msg){ errorBanner.textContent = msg; errorBanner.classList.add('show'); }
 function clearError(){ errorBanner.classList.remove('show'); }
 
@@ -561,9 +573,23 @@ async function requestAudioBitrate(peer, bitrate = 192000){
   }
 }
 
+async function requestVideoQuality(peer, maxBitrate = 650000, maxFramerate = 24){
+  for(const sender of peer.getSenders()){
+    if(sender.track?.kind !== 'video') continue;
+    try{
+      const params = sender.getParameters();
+      params.encodings = params.encodings?.length ? params.encodings : [{}];
+      params.encodings[0].maxBitrate = maxBitrate;
+      params.encodings[0].maxFramerate = maxFramerate;
+      if('degradationPreference' in params) params.degradationPreference = 'maintain-framerate';
+      await sender.setParameters(params);
+    }catch(error){ console.debug('Video quality hint not supported by this browser:',error?.message||error); }
+  }
+}
+
 async function startCall(){
   clearError();
-  if(!linesOpen){
+  if((callMode === 'video' && !videoLinesOpen) || (callMode === 'audio' && !linesOpen)){
     const params = new URLSearchParams({source:'voicemail', name:callerNameInput.value.trim(), city:callerCityInput.value.trim(), callType:callMode});
     window.location.href = 'voicemessage.html?' + params.toString();
     return;
@@ -577,7 +603,7 @@ async function startCall(){
   try{
     localStream = await navigator.mediaDevices.getUserMedia({
       audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:false, sampleRate:48000, channelCount:1 },
-      video: callMode === 'video' ? { facingMode:'user', width:{ideal:1280}, height:{ideal:720} } : false
+      video: callMode === 'video' ? { facingMode:'user', width:{ideal:640,max:960}, height:{ideal:360,max:540}, frameRate:{ideal:24,max:30} } : false
     });
     if(callMode==='video'){localVideo.srcObject=localStream;videoStage.classList.add('show');cameraBtn.hidden=false;}
   }catch(err){
@@ -608,6 +634,7 @@ async function startCall(){
   };
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
   requestAudioBitrate(pc, 192000).catch(()=>{});
+  requestVideoQuality(pc).catch(()=>{});
 
   // Play remote audio (producer's voice)
   pc.ontrack = (event) => {
@@ -771,15 +798,10 @@ window.addEventListener('beforeunload', ()=>{ stopOutgoingRing(); stopHoldMusicC
 onSnapshot(doc(db, 'hotlineSettings', 'callLines'), (snap)=>{
   const d = snap.data();
   linesOpen = d ? d.open !== false : true;
-  linesClosedBanner.classList.toggle('show', !linesOpen);
+  videoLinesOpen = d ? d.videoOpen !== false : true;
   callBtn.disabled = false;
   callBtn.style.opacity = '';
-  if(!linesOpen){
-    callBtn.innerHTML = '📮 Leave Voicemail';
-    linesClosedBanner.innerHTML = '<strong>📞 Phone Lines Are Closed</strong><br>Tap “Leave Voicemail” to record a message for the producer’s Messages queue.';
-  }else{
-    callBtn.innerHTML = callMode==='video' ? '🎥 Start FaceTime Video Call' : '📞 Start FaceTime Audio Call';
-  }
+  updateCallModeUi();
 }, ()=>{ /* if this ever errors, leave calls enabled rather than block listeners */ });
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
