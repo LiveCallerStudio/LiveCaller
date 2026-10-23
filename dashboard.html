@@ -1444,6 +1444,7 @@ let activePc = null;         // RTCPeerConnection for current call
 let activeCallId = null;     // current call Firestore ID
 let activeCallRef = null;    // Firestore doc ref for current call
 let producerStream = null;   // producer mic stream
+let producerAudioSender = null; // stable sender reference, including while its track is detached
 let callTimerInterval = null;
 let callSeconds = 0;
 let callIsOnAir = false;
@@ -1566,6 +1567,7 @@ function cleanupActiveCall(){
   stopOverlayRelayPeers();
   if(activePc){ activePc.close(); activePc = null; }
   if(producerStream){ producerStream.getTracks().forEach(t=>t.stop()); producerStream = null; }
+  producerAudioSender = null;
   if(callerRemoteStream){ callerRemoteStream.getTracks().forEach(t=>{try{callerRemoteStream.removeTrack(t)}catch(e){}}); callerRemoteStream=null; }
   callerAudio.srcObject = null;
   callerPlaybackSources.forEach(source=>{try{source.disconnect()}catch(e){}});
@@ -1704,7 +1706,10 @@ async function answerCall(callId, callerName, callerCity){
     if(activePc.iceConnectionState==='failed') setCallStatus('ICE negotiation failed. Check Firestore candidate permissions and TURN reachability.');
   };
   activePc.onicecandidateerror=e=>console.warn('Producer ICE candidate error:',{code:e.errorCode,text:e.errorText,url:e.url});
-  producerStream.getTracks().forEach(track => activePc.addTrack(track, producerStream));
+  producerStream.getTracks().forEach(track => {
+    const sender = activePc.addTrack(track, producerStream);
+    if(track.kind === 'audio') producerAudioSender = sender;
+  });
   requestAudioBitrate(activePc).catch(()=>{});
 
   // Keep one durable remote stream for the screening preview and the OBS overlay relay.
@@ -1846,8 +1851,8 @@ holdBtn.addEventListener('click', async()=>{
     // Replace sender track with hold music
     const holdStream = buildHoldMusicStream();
     const holdTrack = holdStream.getAudioTracks()[0];
-    const sender = activePc.getSenders().find(s => s.track?.kind === 'audio');
-    if(sender && holdTrack) await sender.replaceTrack(holdTrack).catch(()=>{});
+    const sender = producerAudioSender;
+    if(sender && holdTrack) await sender.replaceTrack(holdTrack).catch(err=>console.warn('Could not route hold audio:',err.message||err));
     holdBtn.textContent = '▶ Resume';
     holdBtn.classList.add('on-hold');
     setCallStatus('On Hold — caller hears hold music', 'on-hold');
@@ -1857,9 +1862,8 @@ holdBtn.addEventListener('click', async()=>{
     stopHoldMusic();
     if(producerStream){
       producerStream.getAudioTracks().forEach(t => t.enabled = true);
-      const sender = activePc.getSenders().find(s => s.track?.kind === 'audio');
       const micTrack = producerStream.getAudioTracks()[0];
-      if(sender && micTrack) await sender.replaceTrack(micTrack).catch(()=>{});
+      if(producerAudioSender) await producerAudioSender.replaceTrack(micMuted ? null : micTrack).catch(err=>console.warn('Could not restore producer mic:',err.message||err));
     }
     holdBtn.textContent = '⏸ Hold';
     holdBtn.classList.remove('on-hold');
@@ -1869,10 +1873,27 @@ holdBtn.addEventListener('click', async()=>{
 });
 
 // Mic mute (dashboard only — caller still hears hold music or silence)
-micMuteBtn.addEventListener('click', ()=>{
-  if(!producerStream) return;
+micMuteBtn.addEventListener('click', async()=>{
+  if(!producerStream || !producerAudioSender) return;
   micMuted = !micMuted;
-  producerStream.getAudioTracks().forEach(t => t.enabled = !micMuted);
+  const micTrack = producerStream.getAudioTracks()[0];
+  if(micTrack) micTrack.enabled = !micMuted;
+
+  // Detach the producer mic from the caller-facing WebRTC sender while muted.
+  // If hold is active, leave the hold-music track attached instead.
+  if(!callIsOnHold){
+    try{
+      await producerAudioSender.replaceTrack(micMuted ? null : micTrack);
+    }catch(err){
+      // Keep the UI honest if the browser refuses the sender change.
+      micMuted = !micMuted;
+      if(micTrack) micTrack.enabled = !micMuted;
+      micMuteBtn.textContent = micMuted ? '🔇 Unmute Mic' : '🎤 Mute Mic';
+      micMuteBtn.classList.toggle('muted', micMuted);
+      console.error('Could not change producer mic state:', err);
+      return;
+    }
+  }
   micMuteBtn.textContent = micMuted ? '🔇 Unmute Mic' : '🎤 Mute Mic';
   micMuteBtn.classList.toggle('muted', micMuted);
 });
