@@ -759,10 +759,10 @@
     <div class="on-air-badge" id="onAirBadge"><span class="on-air-dot"></span> ON AIR</div>
     <div class="counter"><span class="dot"></span><span id="queueCount">0 waiting</span></div>
     <input class="search" id="searchInput" placeholder="Search name, city, song…">
-    <select id="filterSelect">
-      <option value="pending">Pending only</option>
-      <option value="all">All messages</option>
-      <option value="approved">Approved only</option>
+    <select id="filterSelect" aria-label="Filter messages">
+      <option value="pending">Pending</option>
+      <option value="all">All approved and pending</option>
+      <option value="approved">Approved</option>
     </select>
     <a class="home-btn" href="home.html">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
