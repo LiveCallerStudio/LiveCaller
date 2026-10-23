@@ -78,3 +78,12 @@ assert.ok(dashboard.includes('async function downloadCallRecordingMp3'), 'call a
 assert.ok(voice.includes('id="downloadMp3Btn"'), 'voice message review must offer MP3 download');
 assert.ok(voice.includes('new lamejs.Mp3Encoder(channels,rate,320)'), 'voice-message MP3 must request 320 kbps');
 assert.ok(voice.includes("live-caller-voice-message-320kbps.mp3"), 'voice-message MP3 must be a separate export file');
+
+assert.match(dashboard, /function safeCloudinaryMediaUrl\(value\)/, 'dashboard must validate untrusted media URLs');
+assert.match(dashboard, /url\.hostname !== 'res\.cloudinary\.com'/, 'dashboard media URLs must be restricted to the expected Cloudinary host');
+assert.match(dashboard, /url\.pathname\.startsWith\('\/vz1v6nzp\/video\/upload\/'\)/, 'dashboard media URLs must be restricted to the expected upload path');
+assert.doesNotMatch(dashboard, /href="\$\{m\.audioUrl\}"/, 'message download links must not interpolate unvalidated media URLs');
+assert.doesNotMatch(dashboard, /href="\$\{c\.recordingUrl\}"/, 'archive links must not interpolate unvalidated recording URLs');
+assert.doesNotMatch(dashboard, /src="\$\{c\.recordingUrl\}"/, 'archive audio players must not interpolate unvalidated recording URLs');
+assert.match(dashboard, /hiddenPlayer\.src = safeAudioUrl/, 'preview and on-air playback must use validated media URLs');
+assert.match(overlay, /candidate\.hostname === 'res\.cloudinary\.com'/, 'OBS overlay must reject non-Cloudinary media URLs');
