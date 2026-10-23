@@ -3157,12 +3157,67 @@ function startCallsListener(){
 // independent videoCalls queue is retired so video callers use the same
 // Answer → private screening → Send On Air workflow as audio callers.
 
+// Convert an archived Opus/WebM recording to an editable 48 kHz PCM WAV on demand.
+// The original upload remains untouched; conversion does not restore information lost to Opus.
+async function downloadCallRecordingWav(url, callerName, button){
+  if(!url) throw new Error('Recording URL is missing.');
+  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+  const OfflineContextClass=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  if(!AudioContextClass||!OfflineContextClass) throw new Error('WAV conversion is not supported by this browser.');
+  const originalText=button?.textContent;
+  if(button){button.disabled=true;button.textContent='Preparing WAV…';}
+  let ctx;
+  try{
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),45000);
+    let response;
+    try{response=await fetch(url,{mode:'cors',signal:controller.signal});}
+    finally{clearTimeout(timeout);}
+    if(!response.ok) throw new Error('Recording download failed (HTTP '+response.status+').');
+    const sourceBuffer=await response.arrayBuffer();
+    ctx=new AudioContextClass();
+    const decoded=await ctx.decodeAudioData(sourceBuffer);
+    const channels=Math.min(2,Math.max(1,decoded.numberOfChannels));
+    const rate=48000, frames=Math.max(1,Math.ceil(decoded.duration*rate));
+    const offline=new OfflineContextClass(channels,frames,rate);
+    const source=offline.createBufferSource();
+    source.buffer=decoded;
+    source.connect(offline.destination);
+    source.start(0);
+    const rendered=await offline.startRendering();
+    const renderedFrames=rendered.length;
+    const wav=new ArrayBuffer(44+renderedFrames*channels*2),view=new DataView(wav);
+    const write=(offset,value)=>{for(let i=0;i<value.length;i++)view.setUint8(offset+i,value.charCodeAt(i));};
+    write(0,'RIFF');view.setUint32(4,36+renderedFrames*channels*2,true);write(8,'WAVE');write(12,'fmt ');
+    view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,channels,true);
+    view.setUint32(24,rate,true);view.setUint32(28,rate*channels*2,true);view.setUint16(32,channels*2,true);view.setUint16(34,16,true);
+    write(36,'data');view.setUint32(40,renderedFrames*channels*2,true);
+    const channelData=Array.from({length:channels},(_,i)=>rendered.getChannelData(i));let offset=44;
+    for(let i=0;i<renderedFrames;i++)for(let ch=0;ch<channels;ch++){
+      const sample=Math.max(-1,Math.min(1,channelData[ch][i]));
+      view.setInt16(offset,sample<0?sample*0x8000:sample*0x7fff,true);offset+=2;
+    }
+    const safeName=String(callerName||'caller').replace(/[^a-z0-9_-]+/gi,'-').replace(/^-+|-+$/g,'')||'caller';
+    const objectUrl=URL.createObjectURL(new Blob([wav],{type:'audio/wav'})),a=document.createElement('a');
+    a.href=objectUrl;a.download='live-caller-'+safeName+'-48khz.wav';document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(objectUrl),15000);
+  }finally{
+    if(ctx) await ctx.close().catch(()=>{});
+    if(button){button.disabled=false;button.textContent=originalText||'⬇ WAV 48 kHz';}
+  }
+}
+
 // ── Call History & Recordings delete actions ──
 document.addEventListener('click', async(e)=>{
+  const wavBtn=e.target.closest('[data-action="download-recording-wav"]');
+  if(wavBtn){
+    try{await downloadCallRecordingWav(wavBtn.dataset.url,wavBtn.dataset.name,wavBtn);}
+    catch(err){console.warn('Could not export call recording WAV:',err);alert('Could not create WAV. Check your connection and try again. '+(err?.message||''));}
+    return;
+  }
   const btn = e.target.closest('[data-action="delete-history"],[data-action="delete-recording"]');
   if(!btn) return;
   const id = btn.dataset.id;
-  const action = btn.dataset.action;
   if(!id) return;
   if(!confirm('Delete this record permanently?')) return;
   try{
@@ -3296,7 +3351,8 @@ function startCallHistoryListener(){
               <div class="rec-actions">
                 <audio class="rec-audio" src="${c.recordingUrl}" controls preload="none"></audio>
                 <div class="rec-btns">
-                  <a class="rbtn rbtn-save" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>
+                  <a class="rbtn rbtn-save" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save Opus</a>
+                  <button class="rbtn rbtn-save" data-action="download-recording-wav" data-id="${c.id}" data-url="${escapeHtml(c.recordingUrl)}" data-name="${escapeHtml(c.callerName || 'caller')}">⬇ WAV 48 kHz</button>
                   <button class="rbtn rbtn-del" data-action="delete-recording" data-id="${c.id}">🗑 Delete</button>
                 </div>
               </div>
