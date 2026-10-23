@@ -92,3 +92,20 @@ test('ending a call closes its relay and unsubscribes its listeners', async () =
   assert.equal(adapter.calls.has('call-a'), false);
   assert.equal(relay.pc.closed, true);
 });
+
+test('parent call deletion closes all relays and removes subscriptions', async () => {
+  const { adapter, listeners } = setup();
+  adapter.watchCall('call-deleted');
+  listeners.get('liveCalls/call-deleted/overlaySessions')(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  const relay = adapter.calls.get('call-deleted').sessions.get('overlay');
+  listeners.get('liveCalls/call-deleted')(fakeSnapshot([], {}, false));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(adapter.calls.has('call-deleted'), false);
+  assert.equal(relay.pc.closed, true);
+  assert.equal(listeners.has('liveCalls/call-deleted/overlaySessions'), false);
+  await adapter.close();
+});
