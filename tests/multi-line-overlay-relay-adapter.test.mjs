@@ -5,7 +5,7 @@ import { MultiLineOverlayRelayAdapter } from '../lib/multi-line-overlay-relay-ad
 function fakeSnapshot(changes = [], data = {}, exists = true) {
   return { docChanges: () => changes, data: () => data, exists: () => exists };
 }
-function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemoteCandidate = false, rejectIceCandidateConstruction = false, onError = error => { throw error; } } = {}) {
+function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemoteCandidate = false, rejectIceCandidateConstruction = false, rejectCandidateSubscription = false, onError = error => { throw error; } } = {}) {
   const listeners = new Map();
   const errorListeners = new Map();
   const writes = [];
@@ -46,6 +46,7 @@ function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemo
     setDoc: async (...args) => writes.push(args),
     addDoc: async (...args) => { if (addDocError) throw addDocError; candidates.push(args); },
     onSnapshot: (path, next, error) => {
+      if (rejectCandidateSubscription && path.endsWith('/overlayCandidates')) throw new Error('candidate listener setup failed');
       listeners.set(path, next);
       if (error) errorListeners.set(path, error);
       return () => { listeners.delete(path); errorListeners.delete(path); };
@@ -220,6 +221,24 @@ test('local ICE publication failure closes the relay instead of leaving it activ
 });
 
 
+
+
+test('candidate listener setup failure closes the peer and removes the session', async () => {
+  const reportedErrors = [];
+  const { adapter, listeners } = setup({
+    rejectCandidateSubscription: true,
+    onError: error => reportedErrors.push(error)
+  });
+  adapter.watchCall('call-listener-setup-error');
+  listeners.get('liveCalls/call-listener-setup-error/overlaySessions')(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-listener-setup-error', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  const call = adapter.calls.get('call-listener-setup-error');
+  assert.equal(call.sessions.has('overlay-listener-setup-error'), false);
+  assert.equal(reportedErrors.some(error => /candidate listener setup failed/.test(error.message)), true);
+  await adapter.close();
+});
 
 test('malformed remote ICE candidate data closes the relay and removes its listener', async () => {
   const reportedErrors = [];
