@@ -215,7 +215,12 @@ async function connectOverlayCallAudio(callId, collectionName='liveCalls', isVid
   // failed to update. Only a live parent call may keep caller media on air.
   overlayCallUnsubs.push(onSnapshot(doc(db, collectionName, callId), snap=>{
     if(overlayCallPc!==pc) return;
-    if(snap.data()?.status !== 'live'){
+    const parentStatus=String(snap.data()?.status || '').toLowerCase();
+    // The experimental multi-line producer writes answered/on-air/on-hold,
+    // while the legacy single-call flow uses live. Keep signaling alive for
+    // every active status; the producer's program router controls whether audio
+    // is actually sent while a call is answered or held.
+    if(!['live','answered','on-air','on-hold'].includes(parentStatus)){
       stopOverlayCallAudio();
       render({active:false});
     }
