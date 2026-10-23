@@ -4,7 +4,7 @@
 
 The dashboard currently owns one live WebRTC session through singleton variables such as `activePc`, `activeCallId`, `activeCallRef`, `producerStream`, `producerAudioSender`, and a single `callerRemoteStream`. The incoming-call renderer disables Answer whenever `activePc` exists. The three-tile phone bank is therefore a queue/status display, not three independently connected phone lines.
 
-`lib/multi-line-call-manager.js` provides a tested state coordinator, but it is intentionally not a WebRTC adapter. Do not describe the application as supporting three simultaneous connected calls until the dashboard integration and real-device tests below are complete.
+`lib/multi-line-call-manager.js` provides a tested state coordinator. `lib/producer-call-session.js` now provides a per-call WebRTC adapter with its own peer connection, senders, remote stream, ICE buffering, and teardown. The adapter does not route audio to speakers or program output; the dashboard must supply explicit routing adapters. The dashboard has not yet been migrated to use these modules, so the application does not yet support three simultaneous connected calls.
 
 ## Required migration
 
@@ -17,6 +17,10 @@ The dashboard currently owns one live WebRTC session through singleton variables
 7. **OBS and live state.** Publish the selected call ID/name/media type only after the call's Firestore status is successfully set to live. Take the program off-air immediately before a switch or end. Never send a held, waiting, or private-screening stream to the program/OBS relay.
 8. **Update the UI.** Each line tile should show caller, media type, state, and actions valid for that state: Answer/Screen, Hold/Resume, Select On Air, Take Off Air, and End. Disable actions while their asynchronous transition is in flight.
 9. **Keep Firestore compatible.** Preserve current collection and candidate path names until rules are verified against the deployed project. Add no new Firestore fields without matching rule tests and deployment verification.
+
+## Adapter coverage added
+
+`tests/producer-call-session.test.mjs` checks independent peer connections and remote streams, ICE buffering until the offer is installed, sender isolation, SDP transforms, and closing one session without closing another. CI now runs this test.
 
 ## Acceptance tests
 
