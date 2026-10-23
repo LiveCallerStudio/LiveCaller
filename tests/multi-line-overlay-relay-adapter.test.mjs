@@ -286,6 +286,33 @@ test('synchronous call watcher setup failure rolls back the partial call record'
   await adapter.close();
 });
 
+test('late Firestore offer snapshot cannot recreate a session after unwatch', async () => {
+  const { adapter, listeners } = setup();
+  adapter.watchCall('call-late-offer');
+  const path = 'liveCalls/call-late-offer/overlaySessions';
+  const lateSnapshot = listeners.get(path);
+  await adapter.unwatchCall('call-late-offer');
+  lateSnapshot(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-late', data: () => ({ offer: { type: 'offer', sdp: 'late-offer' } }) }
+  }]));
+  assert.equal(adapter.calls.has('call-late-offer'), false);
+  await adapter.close();
+});
+
+test('late Firestore offer snapshot cannot create a session while adapter is closing', async () => {
+  const { adapter, listeners } = setup();
+  adapter.watchCall('call-closing-late-offer');
+  const path = 'liveCalls/call-closing-late-offer/overlaySessions';
+  const lateSnapshot = listeners.get(path);
+  const closing = adapter.close();
+  lateSnapshot(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-closing-late', data: () => ({ offer: { type: 'offer', sdp: 'late-offer' } }) }
+  }]));
+  await closing;
+  assert.equal(adapter.calls.size, 0);
+  assert.equal(adapter.closed, true);
+});
+
 test('candidate listener setup failure closes the peer and removes the session', async () => {
   const reportedErrors = [];
   const { adapter, listeners } = setup({
