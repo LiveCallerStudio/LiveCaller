@@ -524,7 +524,7 @@ function startTimer(){
 function stopTimer(){ clearInterval(timerInterval); }
 
 
-function tuneOpusSdp(sdp, bitrate = 128000){
+function tuneOpusSdp(sdp, bitrate = 192000){
   if(!sdp) return sdp;
   const lines = sdp.split(/\r?\n/);
   const audioIndex = lines.findIndex(line => line.startsWith('m=audio '));
@@ -549,7 +549,7 @@ function tuneOpusSdp(sdp, bitrate = 128000){
   lines.splice(audioIndex,audioEnd-audioIndex,...audioLines);
   return lines.join('\r\n');
 }
-async function requestAudioBitrate(peer, bitrate = 128000){
+async function requestAudioBitrate(peer, bitrate = 192000){
   for(const sender of peer.getSenders()){
     if(sender.track?.kind !== 'audio') continue;
     try{
@@ -607,7 +607,7 @@ async function startCall(){
     }
   };
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-  requestAudioBitrate(pc).catch(()=>{});
+  requestAudioBitrate(pc, 192000).catch(()=>{});
 
   // Play remote audio (producer's voice)
   pc.ontrack = (event) => {
