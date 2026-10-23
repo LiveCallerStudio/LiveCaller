@@ -5,7 +5,7 @@ import { MultiLineOverlayRelayAdapter } from '../lib/multi-line-overlay-relay-ad
 function fakeSnapshot(changes = [], data = {}, exists = true) {
   return { docChanges: () => changes, data: () => data, exists: () => exists };
 }
-function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemoteCandidate = false, rejectIceCandidateConstruction = false, rejectCandidateSubscription = false, rejectCallWatcherSetup = false, setDocError = null, onError = error => { throw error; } } = {}) {
+function setup({ addDocError = null, rejectPeerCreation = false, rejectRemoteDescription = false, rejectRemoteCandidate = false, rejectIceCandidateConstruction = false, rejectCandidateSubscription = false, rejectCallWatcherSetup = false, setDocError = null, onError = error => { throw error; } } = {}) {
   const listeners = new Map();
   const errorListeners = new Map();
   const writes = [];
@@ -14,6 +14,7 @@ function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemo
   const controller = { audioRouter: { programCallId: null, getProgramStream: () => ({ getAudioTracks: () => [audioTrack] }) } };
   class Peer {
     constructor() {
+      if (rejectPeerCreation) throw new Error('peer creation failed');
       this.signalingState = 'stable'; this.connectionState = 'new'; this.transceivers = [
         { receiver: { track: { kind: 'audio' } }, sender: { track: null, async replaceTrack(track) { this.track = track; } } },
         { receiver: { track: { kind: 'video' } }, sender: { track: null, async replaceTrack(track) { this.track = track; } } }
@@ -76,6 +77,21 @@ test('watches a call, answers overlay offers, and silences relay while no call i
   assert.equal(relay.pc.closed, true);
 });
 
+
+test('peer connection construction failure is reported without escaping the Firestore callback', async () => {
+  const reportedErrors = [];
+  const { adapter, listeners } = setup({
+    rejectPeerCreation: true,
+    onError: error => reportedErrors.push(error)
+  });
+  adapter.watchCall('call-peer-creation-error');
+  assert.doesNotThrow(() => listeners.get('liveCalls/call-peer-creation-error/overlaySessions')(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-peer-creation-error', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+  }])));
+  assert.equal(adapter.calls.get('call-peer-creation-error').sessions.has('overlay-peer-creation-error'), false);
+  assert.equal(reportedErrors.some(error => /peer creation failed/.test(error.message)), true);
+  await adapter.close();
+});
 
 test('invalid overlay offers close the peer and remove the failed session', async () => {
   const reportedErrors = [];
