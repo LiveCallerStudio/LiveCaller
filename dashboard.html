@@ -1067,6 +1067,7 @@ function renderLinesToggle(){
   linesToggleBtn.classList.toggle('open', linesOpen);
   linesToggleBtn.classList.toggle('closed', !linesOpen);
   linesToggleText.textContent = linesOpen ? 'Open' : 'Close';
+  renderDeskLineState();
 }
 
 function startLinesToggleListener(){
@@ -1103,10 +1104,19 @@ const videoToggleBtn = document.getElementById('videoToggleBtn');
 const videoToggleText = document.getElementById('videoToggleText');
 let videoOpen = true;
 
+function renderDeskLineState(){
+  const open = linesOpen && videoOpen;
+  const label = document.getElementById('deskLineState');
+  const detail = document.getElementById('deskLineStateDetail');
+  if(label) label.textContent = open ? 'Accepting Callers' : 'Calls Paused';
+  if(detail) detail.textContent = open ? 'Open' : 'Closed';
+}
+
 function renderVideoToggle(){
   videoToggleBtn.classList.toggle('open', videoOpen);
   videoToggleBtn.classList.toggle('closed', !videoOpen);
   videoToggleText.textContent = videoOpen ? 'Open' : 'Close';
+  renderDeskLineState();
 }
 
 function startVideoToggleListener(){
@@ -2517,7 +2527,9 @@ function startCallsListener(){
       updateTabNotice('callsTabNotice', count, 'incoming call');
       callCountNum.textContent = count;
       const deskIncomingMetric = document.getElementById('deskIncomingMetric');
-      if(deskIncomingMetric) deskIncomingMetric.textContent = count ? `${count} waiting ${count===1?'caller':'callers'}` : 'Queue is clear';
+      if(deskIncomingMetric) deskIncomingMetric.textContent = count ? `${count} waiting ${count===1?'caller':'callers'}` : 'No callers waiting';
+      const phoneQueueCount = document.getElementById('phoneQueueCount');
+      if(phoneQueueCount) phoneQueueCount.textContent = `${count} ${count===1?'CALLER':'CALLERS'} WAITING`;
       count > 0 ? callCounter.classList.add('show') : callCounter.classList.remove('show');
 
       if(count > 0 && !activePc){
