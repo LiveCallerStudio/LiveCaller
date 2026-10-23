@@ -30,6 +30,8 @@ jobs:
         run: node --experimental-default-type=module tests/producer-call-session.test.mjs
       - name: Test three-line media controller integration
         run: node --experimental-default-type=module tests/multi-line-media-controller.test.mjs
+      - name: Test per-call Firestore multi-line adapter
+        run: node --experimental-default-type=module tests/firestore-multi-line-adapter.test.mjs
       - name: Test isolated program and monitor audio routing
         run: node --experimental-default-type=module tests/program-audio-router.test.mjs
       - name: Test public home page line-state behavior
