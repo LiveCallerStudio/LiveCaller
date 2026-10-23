@@ -5,7 +5,7 @@ import { MultiLineOverlayRelayAdapter } from '../lib/multi-line-overlay-relay-ad
 function fakeSnapshot(changes = [], data = {}, exists = true) {
   return { docChanges: () => changes, data: () => data, exists: () => exists };
 }
-function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemoteCandidate = false, rejectIceCandidateConstruction = false, rejectCandidateSubscription = false, onError = error => { throw error; } } = {}) {
+function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemoteCandidate = false, rejectIceCandidateConstruction = false, rejectCandidateSubscription = false, setDocError = null, onError = error => { throw error; } } = {}) {
   const listeners = new Map();
   const errorListeners = new Map();
   const writes = [];
@@ -43,7 +43,7 @@ function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemo
     RTCSessionDescription: class { constructor(value) { Object.assign(this, value); } },
     doc: (_db, ...parts) => parts.join('/'),
     collection: (dbOrRef, ...parts) => typeof dbOrRef === 'string' ? [dbOrRef, ...parts].join('/') : parts.join('/'),
-    setDoc: async (...args) => writes.push(args),
+    setDoc: async (...args) => { if (setDocError) throw setDocError; writes.push(args); },
     addDoc: async (...args) => { if (addDocError) throw addDocError; candidates.push(args); },
     onSnapshot: (path, next, error) => {
       if (rejectCandidateSubscription && path.endsWith('/overlayCandidates')) throw new Error('candidate listener setup failed');
@@ -222,6 +222,25 @@ test('local ICE publication failure closes the relay instead of leaving it activ
 
 
 
+
+
+test('answer publication failure closes the peer before reporting the error', async () => {
+  const reportedErrors = [];
+  const { adapter, listeners } = setup({
+    setDocError: new Error('answer write denied'),
+    onError: error => { reportedErrors.push(error); throw new Error('error reporter failed'); }
+  });
+  adapter.watchCall('call-answer-write-error');
+  listeners.get('liveCalls/call-answer-write-error/overlaySessions')(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-answer-write-error', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  const call = adapter.calls.get('call-answer-write-error');
+  assert.equal(call.sessions.has('overlay-answer-write-error'), false);
+  assert.equal(reportedErrors.some(error => /answer write denied/.test(error.message)), true);
+  await adapter.close();
+});
 
 test('candidate listener setup failure closes the peer and removes the session', async () => {
   const reportedErrors = [];
