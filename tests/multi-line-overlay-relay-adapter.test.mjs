@@ -5,7 +5,7 @@ import { MultiLineOverlayRelayAdapter } from '../lib/multi-line-overlay-relay-ad
 function fakeSnapshot(changes = [], data = {}, exists = true) {
   return { docChanges: () => changes, data: () => data, exists: () => exists };
 }
-function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemoteCandidate = false, onError = error => { throw error; } } = {}) {
+function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemoteCandidate = false, rejectIceCandidateConstruction = false, onError = error => { throw error; } } = {}) {
   const listeners = new Map();
   const errorListeners = new Map();
   const writes = [];
@@ -36,7 +36,10 @@ function setup({ addDocError = null, rejectRemoteDescription = false, rejectRemo
   }
   const adapter = new MultiLineOverlayRelayAdapter({
     db: {}, controller, iceConfig: [], RTCPeerConnection: Peer,
-    RTCIceCandidate: class { constructor(value) { Object.assign(this, value); } },
+    RTCIceCandidate: class { constructor(value) {
+      if (rejectIceCandidateConstruction) throw new Error('malformed ICE candidate');
+      Object.assign(this, value);
+    } },
     RTCSessionDescription: class { constructor(value) { Object.assign(this, value); } },
     doc: (_db, ...parts) => parts.join('/'),
     collection: (dbOrRef, ...parts) => typeof dbOrRef === 'string' ? [dbOrRef, ...parts].join('/') : parts.join('/'),
@@ -216,6 +219,32 @@ test('local ICE publication failure closes the relay instead of leaving it activ
   await adapter.close();
 });
 
+
+
+test('malformed remote ICE candidate data closes the relay and removes its listener', async () => {
+  const reportedErrors = [];
+  const { adapter, listeners } = setup({
+    rejectIceCandidateConstruction: true,
+    onError: error => reportedErrors.push(error)
+  });
+  adapter.watchCall('call-malformed-ice');
+  listeners.get('liveCalls/call-malformed-ice/overlaySessions')(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-malformed-ice', data: () => ({ offer: { type: 'offer', sdp: 'offer' } }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  const call = adapter.calls.get('call-malformed-ice');
+  const relay = call.sessions.get('overlay-malformed-ice');
+  listeners.get('liveCalls/call-malformed-ice/overlaySessions/overlay-malformed-ice/overlayCandidates')(fakeSnapshot([{
+    type: 'added', doc: { id: 'candidate-malformed', data: () => ({ candidate: 'invalid' }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(relay.pc.closed, true);
+  assert.equal(call.sessions.has('overlay-malformed-ice'), false);
+  assert.equal(listeners.has('liveCalls/call-malformed-ice/overlaySessions/overlay-malformed-ice/overlayCandidates'), false);
+  assert.equal(reportedErrors.some(error => /malformed ICE candidate/.test(error.message)), true);
+  await adapter.close();
+});
 
 test('rejected early remote ICE candidates close the relay and remove the session', async () => {
   const reportedErrors = [];
