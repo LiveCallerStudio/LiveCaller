@@ -5,7 +5,7 @@ import { MultiLineOverlayRelayAdapter } from '../lib/multi-line-overlay-relay-ad
 function fakeSnapshot(changes = [], data = {}, exists = true) {
   return { docChanges: () => changes, data: () => data, exists: () => exists };
 }
-function setup({ addDocError = null, onError = error => { throw error; } } = {}) {
+function setup({ addDocError = null, rejectRemoteDescription = false, onError = error => { throw error; } } = {}) {
   const listeners = new Map();
   const errorListeners = new Map();
   const writes = [];
@@ -22,7 +22,10 @@ function setup({ addDocError = null, onError = error => { throw error; } } = {})
     }
     getTransceivers() { return this.transceivers; }
     getSenders() { return this.transceivers.map(t => t.sender); }
-    async setRemoteDescription(value) { this.remoteDescription = value; }
+    async setRemoteDescription(value) {
+      if (rejectRemoteDescription) throw new Error('invalid remote offer');
+      this.remoteDescription = value;
+    }
     async addIceCandidate(value) { (this.remoteCandidates ||= []).push(value); }
     async createAnswer() { return { type: 'answer', sdp: 'v=0\\r\\nanswer' }; }
     async setLocalDescription(value) { this.localDescription = value; }
@@ -63,6 +66,25 @@ test('watches a call, answers overlay offers, and silences relay while no call i
   assert.equal(relay.pc.transceivers[0].sender.track, null);
   await adapter.close();
   assert.equal(relay.pc.closed, true);
+});
+
+
+test('invalid overlay offers close the peer and remove the failed session', async () => {
+  const reportedErrors = [];
+  const { adapter, listeners } = setup({
+    rejectRemoteDescription: true,
+    onError: error => reportedErrors.push(error)
+  });
+  adapter.watchCall('call-invalid-offer');
+  listeners.get('liveCalls/call-invalid-offer/overlaySessions')(fakeSnapshot([{
+    type: 'added', doc: { id: 'overlay-invalid-offer', data: () => ({ offer: { type: 'offer', sdp: 'malformed' } }) }
+  }]));
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  const call = adapter.calls.get('call-invalid-offer');
+  assert.equal(call.sessions.has('overlay-invalid-offer'), false);
+  assert.equal(reportedErrors.some(error => /invalid remote offer/.test(error.message)), true);
+  await adapter.close();
 });
 
 test('selected program audio is routed only to the matching call overlay', async () => {
