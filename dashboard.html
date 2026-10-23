@@ -1395,9 +1395,10 @@ function render(){
     const isNew = m.status === 'pending';
     const previewing = currentlyPlayingId === m.id;
     const isLive = livePlayingId === m.id;
+    const audioUrl = safeCloudinaryMediaUrl(m.audioUrl);
     return `
-    <div class="card ${isNew ? 'new' : ''} ${m.status==='approved' ? 'approved' : ''} ${m.favorited ? 'favorited' : ''}" data-id="${m.id}">
-      <button class="play-btn ${previewing ? 'playing' : ''}" data-action="play" data-id="${m.id}" aria-label="${previewing ? 'Stop preview' : 'Preview'}">
+    <div class="card ${isNew ? 'new' : ''} ${m.status==='approved' ? 'approved' : ''} ${m.favorited ? 'favorited' : ''}" data-id="${escapeHtml(m.id)}">
+      <button class="play-btn ${previewing ? 'playing' : ''}" data-action="play" data-id="${escapeHtml(m.id)}" aria-label="${previewing ? 'Stop preview' : 'Preview'}">
         ${previewing ? `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`
                      : `<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>`}
       </button>
@@ -1413,11 +1414,11 @@ function render(){
         <div class="waveform ${previewing || isLive ? 'active' : ''}">${buildWaveformBars()}</div>
       </div>
       <div class="card-actions">
-        <button class="ibtn approve" data-action="approve" data-id="${m.id}">✓ Approve</button>
-        <button class="ibtn favorite ${m.favorited ? 'active' : ''}" data-action="favorite" data-id="${m.id}">⭐ ${m.favorited ? 'Saved' : 'Favorite'}</button>
-        <button class="ibtn on-air-btn ${isLive ? 'live' : ''}" data-action="golive" data-id="${m.id}">${isLive ? '⏹ Stop Live' : '🔴 Send Live On Air'}</button>
-        <a class="ibtn download" href="${m.audioUrl}" download target="_blank" rel="noopener">⬇ Download</a>
-        <button class="ibtn delete" data-action="delete" data-id="${m.id}">🗑 Delete</button>
+        <button class="ibtn approve" data-action="approve" data-id="${escapeHtml(m.id)}">✓ Approve</button>
+        <button class="ibtn favorite ${m.favorited ? 'active' : ''}" data-action="favorite" data-id="${escapeHtml(m.id)}">⭐ ${m.favorited ? 'Saved' : 'Favorite'}</button>
+        <button class="ibtn on-air-btn ${isLive ? 'live' : ''}" data-action="golive" data-id="${escapeHtml(m.id)}">${isLive ? '⏹ Stop Live' : '🔴 Send Live On Air'}</button>
+        ${audioUrl ? `<a class="ibtn download" href="${escapeHtml(audioUrl)}" download target="_blank" rel="noopener">⬇ Download</a>` : '<span class="ibtn download" aria-disabled="true">Audio unavailable</span>'}
+        <button class="ibtn delete" data-action="delete" data-id="${escapeHtml(m.id)}">🗑 Delete</button>
       </div>
     </div>`;
   }).join('');
@@ -1458,7 +1459,19 @@ function typeDetail(m){
 }
 
 function escapeHtml(str){
-  return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function safeCloudinaryMediaUrl(value){
+  if(typeof value !== 'string' || !value) return '';
+  try{
+    const url = new URL(value);
+    if(url.protocol !== 'https:' || url.hostname !== 'res.cloudinary.com' ||
+       !url.pathname.startsWith('/vz1v6nzp/video/upload/')) return '';
+    return url.href;
+  }catch{
+    return '';
+  }
 }
 
 queueEl.addEventListener('click', async (e)=>{
@@ -1468,8 +1481,10 @@ queueEl.addEventListener('click', async (e)=>{
   const action = btn.dataset.action;
   const msg = allMessages.find(m=>m.id===id);
   if(!msg) return;
+  const safeAudioUrl = safeCloudinaryMediaUrl(msg.audioUrl);
 
   if(action === 'play'){
+    if(!safeAudioUrl){ console.warn('Skipped preview: media URL failed validation.'); return; }
     // PREVIEW ONLY — plays in this browser, never touches OBS or Firestore
     if(currentlyPlayingId === id){
       hiddenPlayer.pause();
@@ -1485,13 +1500,14 @@ queueEl.addEventListener('click', async (e)=>{
       await setDoc(liveStateRef, { active: false, updatedAt: Date.now() });
     }
     currentlyPlayingId = id;
-    hiddenPlayer.src = msg.audioUrl;
+    hiddenPlayer.src = safeAudioUrl;
     hiddenPlayer.muted = false; // audible in dashboard browser only
     hiddenPlayer.play().catch(()=>{});
     render();
   }
 
   if(action === 'golive'){
+    if(!safeAudioUrl){ console.warn('Skipped on-air playback: media URL failed validation.'); return; }
     // SEND LIVE ON AIR — audio plays in OBS overlay only, muted in this browser
     if(livePlayingId === id){
       // Already live — stop it
@@ -1505,7 +1521,7 @@ queueEl.addEventListener('click', async (e)=>{
     // Stop any local preview first
     currentlyPlayingId = null;
     livePlayingId = id;
-    hiddenPlayer.src = msg.audioUrl;
+    hiddenPlayer.src = safeAudioUrl;
     hiddenPlayer.muted = true; // MUTED in browser — OBS overlay plays the real audio
     hiddenPlayer.play().catch(()=>{});
     onAirBadge.classList.add('show');
@@ -1513,7 +1529,7 @@ queueEl.addEventListener('click', async (e)=>{
       active: true,
       name: msg.name || 'Anonymous Caller',
       city: msg.city || '',
-      audioUrl: msg.audioUrl,
+      audioUrl: safeAudioUrl,
       messageType: msg.messageType || 'general',
       songArtist: msg.songArtist || null,
       songTrack: msg.songTrack || null,
@@ -3336,7 +3352,7 @@ function startCallHistoryListener(){
         const t = toReliableDate(c.createdAt);
         return t && t >= today;
       }).length;
-      histRec.textContent = calls.filter(c=> c.recordingUrl).length;
+      histRec.textContent = calls.filter(c=> safeCloudinaryMediaUrl(c.recordingUrl)).length;
       // Average only completed, answered calls with a measured duration.
       const durations = calls.filter(c=>{
         const status = String(c.status || '').toLowerCase();
@@ -3362,8 +3378,8 @@ function startCallHistoryListener(){
       }
 
       histList.innerHTML = visibleCalls.map(c=>`
-        <div class="hist-card" data-histid="${c.id}">
-          <div class="hist-icon">${c.recordingUrl ? '🔴' : '📞'}</div>
+        <div class="hist-card" data-histid="${escapeHtml(c.id)}">
+          <div class="hist-icon">${safeCloudinaryMediaUrl(c.recordingUrl) ? '🔴' : '📞'}</div>
           <div class="hist-body">
             <div class="hist-name">${escapeHtml(c.callerName || 'Unknown')}</div>
             <div class="hist-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${escapeHtml(c.status || '')}</div>
@@ -3371,18 +3387,18 @@ function startCallHistoryListener(){
           <div class="hist-right">
             <div class="hist-dur">${formatDur(c.duration || 0)}</div>
             <div class="hist-actions" style="margin-top:4px;">
-              ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" target="_blank" rel="noopener">▶ Play</a>` : ''}
-              ${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}
+              ${safeCloudinaryMediaUrl(c.recordingUrl) ? `<a class="hist-play" href="${escapeHtml(safeCloudinaryMediaUrl(c.recordingUrl))}" target="_blank" rel="noopener">▶ Play</a>` : ''}
+              ${safeCloudinaryMediaUrl(c.recordingUrl) ? `<a class="hist-play" href="${escapeHtml(safeCloudinaryMediaUrl(c.recordingUrl))}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}
             </div>
             <div class="hist-time-row">
               <div class="hist-time">${escapeHtml(formatReliableDate(c.createdAt))}</div>
-              <button class="hist-delete" data-action="delete-history" data-id="${c.id}" title="Delete" aria-label="Delete call history record">🗑</button>
+              <button class="hist-delete" data-action="delete-history" data-id="${escapeHtml(c.id)}" title="Delete" aria-label="Delete call history record">🗑</button>
             </div>
           </div>
         </div>`).join('');
 
       // ── Recordings section remains the full recording archive regardless of history filter ──
-      const recorded = calls.filter(c => c.recordingUrl);
+      const recorded = calls.filter(c => safeCloudinaryMediaUrl(c.recordingUrl));
       const recList    = document.getElementById('recordingsList');
       const recEmpty   = document.getElementById('recordingsEmpty');
 
@@ -3392,19 +3408,19 @@ function startCallHistoryListener(){
         } else {
           recEmpty.style.display = 'none';
           recList.innerHTML = recorded.map(c=>`
-            <div class="rec-card" data-recid="${c.id}">
+            <div class="rec-card" data-recid="${escapeHtml(c.id)}">
               <div class="rec-icon">🎙️</div>
               <div class="rec-body">
                 <div class="rec-name">${escapeHtml(c.callerName || 'Unknown')}</div>
                 <div class="rec-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${formatDur(c.duration || 0)} · ${timeAgo(c.createdAt)}</div>
               </div>
               <div class="rec-actions">
-                <audio class="rec-audio" src="${c.recordingUrl}" controls preload="none"></audio>
+                <audio class="rec-audio" src="${escapeHtml(safeCloudinaryMediaUrl(c.recordingUrl))}" controls preload="none"></audio>
                 <div class="rec-btns">
-                  <a class="rbtn rbtn-save" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save Original</a>
-                  <button class="rbtn rbtn-save" data-action="download-recording-wav" data-id="${c.id}" data-url="${escapeHtml(c.recordingUrl)}" data-name="${escapeHtml(c.callerName || 'caller')}">⬇ WAV 48 kHz</button>
-                  <button class="rbtn rbtn-save" data-action="download-recording-mp3" data-id="${c.id}" data-url="${escapeHtml(c.recordingUrl)}" data-name="${escapeHtml(c.callerName || 'caller')}">⬇ MP3 320 kbps</button>
-                  <button class="rbtn rbtn-del" data-action="delete-recording" data-id="${c.id}">🗑 Delete</button>
+                  <a class="rbtn rbtn-save" href="${escapeHtml(safeCloudinaryMediaUrl(c.recordingUrl))}" download target="_blank" rel="noopener">⬇ Save Original</a>
+                  <button class="rbtn rbtn-save" data-action="download-recording-wav" data-id="${escapeHtml(c.id)}" data-url="${escapeHtml(safeCloudinaryMediaUrl(c.recordingUrl))}" data-name="${escapeHtml(c.callerName || 'caller')}">⬇ WAV 48 kHz</button>
+                  <button class="rbtn rbtn-save" data-action="download-recording-mp3" data-id="${escapeHtml(c.id)}" data-url="${escapeHtml(safeCloudinaryMediaUrl(c.recordingUrl))}" data-name="${escapeHtml(c.callerName || 'caller')}">⬇ MP3 320 kbps</button>
+                  <button class="rbtn rbtn-del" data-action="delete-recording" data-id="${escapeHtml(c.id)}">🗑 Delete</button>
                 </div>
               </div>
             </div>`).join('');
@@ -3430,9 +3446,9 @@ function startCallHistoryListener(){
     empty.style.display = 'none';
     list.innerHTML = visible.map(c=>`
       <div class="hist-card" data-histid="${escapeHtml(c.id)}">
-        <div class="hist-icon">${c.recordingUrl ? '🔴' : '📞'}</div>
+        <div class="hist-icon">${safeCloudinaryMediaUrl(c.recordingUrl) ? '🔴' : '📞'}</div>
         <div class="hist-body"><div class="hist-name">${escapeHtml(c.callerName || 'Unknown')}</div><div class="hist-meta">${escapeHtml(c.callerCity || '')}${c.callerCity ? ' · ' : ''}${escapeHtml(c.status || '')}</div></div>
-        <div class="hist-right"><div class="hist-dur">${formatDur(c.duration || 0)}</div><div class="hist-actions" style="margin-top:4px;">${c.recordingUrl ? `<a class="hist-play" href="${c.recordingUrl}" target="_blank" rel="noopener">▶ Play</a><a class="hist-play" href="${c.recordingUrl}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}</div><div class="hist-time-row"><div class="hist-time">${escapeHtml(formatReliableDate(c.createdAt))}</div><button class="hist-delete" data-action="delete-history" data-id="${escapeHtml(c.id)}" title="Delete" aria-label="Delete call history record">🗑</button></div></div>
+        <div class="hist-right"><div class="hist-dur">${formatDur(c.duration || 0)}</div><div class="hist-actions" style="margin-top:4px;">${safeCloudinaryMediaUrl(c.recordingUrl) ? `<a class="hist-play" href="${escapeHtml(safeCloudinaryMediaUrl(c.recordingUrl))}" target="_blank" rel="noopener">▶ Play</a><a class="hist-play" href="${escapeHtml(safeCloudinaryMediaUrl(c.recordingUrl))}" download target="_blank" rel="noopener">⬇ Save</a>` : ''}</div><div class="hist-time-row"><div class="hist-time">${escapeHtml(formatReliableDate(c.createdAt))}</div><button class="hist-delete" data-action="delete-history" data-id="${escapeHtml(c.id)}" title="Delete" aria-label="Delete call history record">🗑</button></div></div>
       </div>`).join('');
   });
 }
