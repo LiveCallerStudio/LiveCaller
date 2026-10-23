@@ -50,6 +50,7 @@ const fakeController = {
   candidates: [],
   ended: [],
   held: [],
+  resumed: [],
   closed: false,
   async answerCall(args) {
     this.answered.push(args);
@@ -58,6 +59,7 @@ const fakeController = {
   async addRemoteCandidate(callId, candidate) { this.candidates.push({ callId, candidate }); },
   takeOnAir(callId) { return { callId, state: 'on-air' }; },
   holdCall(callId) { this.held.push(callId); return { callId, state: 'held' }; },
+  resumeCall(callId) { this.resumed.push(callId); return { callId, state: 'connected' }; },
   endCall(callId) { this.ended.push(callId); },
   getSnapshot() { return { lines: [] }; },
   close() { this.closed = true; }
@@ -98,6 +100,14 @@ assert.deepEqual(fakeController.candidates, [{ callId: 'a', candidate: { candida
 await adapter.takeOnAir('a');
 assert.equal(docs.get('liveCalls/a').status, 'live');
 await adapter.holdCall('b');
+assert.equal(docs.get('liveCalls/b').status, 'held');
+await adapter.resumeCall('b');
+assert.equal(docs.get('liveCalls/b').status, 'answered');
+assert.deepEqual(fakeController.resumed, ['b']);
+await adapter.holdCall('b');
+failNextUpdate = true;
+await assert.rejects(adapter.resumeCall('b'), /simulated Firestore write failure/);
+assert.ok(fakeController.held.includes('b'), 'failed resume persistence must return the caller to hold');
 assert.equal(docs.get('liveCalls/b').status, 'held');
 
 failNextUpdate = true;
