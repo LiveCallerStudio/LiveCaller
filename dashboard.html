@@ -643,6 +643,11 @@
   }
 
  
+  /* Compact live call-waiting indicator; does not change the existing call lifecycle. */
+  .call-waiting-card{border-color:#b88a28!important;background:linear-gradient(100deg,rgba(45,34,12,.5),rgba(13,18,15,.98))!important}
+  .call-waiting-label{grid-column:1/-1;color:#ffd36a;font-size:10px;font-weight:900;letter-spacing:.12em;margin-bottom:-4px}
+  .call-card-actions .ibtn:disabled{opacity:.65;cursor:not-allowed;filter:saturate(.5)}
+  .phone-desk-hero,.broadcast-phone-queue,.phone-desk-metrics{display:none!important}
   /* Broadcast-style studio phone queue */
   .broadcast-phone-queue{margin:0 0 14px;padding:18px 20px;border:1px solid #334239;border-radius:16px;background:linear-gradient(135deg,rgba(17,25,20,.98),rgba(8,12,10,.98));box-shadow:inset 0 1px rgba(255,255,255,.035)}
   .broadcast-queue-head{display:flex;align-items:center;justify-content:space-between;gap:18px}
@@ -844,19 +849,7 @@
       <div class="record-status" id="recordStatus"></div>
     </div>
 
-    <!-- Unified phone desk: audio and video share one incoming queue and one active-call workflow. -->
-    <section class="phone-desk-hero" aria-labelledby="phoneDeskTitle">
-      <div class="phone-desk-copy">
-        <div class="eyebrow"><span class="live-pip"></span> LIVE CALL-IN DESK</div>
-
-      </div>
-
-    </section>
-    <section class="broadcast-phone-queue" aria-labelledby="phoneQueueTitle">
-      <div class="broadcast-queue-head">
-        <div><div class="desk-status-label">STUDIO PHONE BOARD</div><h3 id="phoneQueueTitle">Incoming Call Queue</h3><p>Incoming audio and video calls</p></div>
-      </div>
-    </section>
+    <!-- Incoming calls and call-waiting entries render directly below the active call controls. -->
     <div class="calls-section-title" id="incomingCallsTitle" style="display:none;">Incoming Calls</div>
     <section class="video-screening-panel" id="videoScreeningPanel" aria-live="polite">
       <div style="font-size:12px;font-weight:900;letter-spacing:1.4px;color:var(--green);text-transform:uppercase;">Private Guest Screening — Not On Air</div>
@@ -2549,7 +2542,7 @@ function startCallsListener(){
 
       if(ringing.length === 0 && !activePc){
         callsEmpty.style.display = 'block';
-        callsEmpty.innerHTML = '<div>No incoming calls right now.</div><div style="font-size:12px;color:var(--sub);margin-top:6px;">New FaceTime Audio and Video calls will show here with Answer and Reject buttons.</div>';
+        callsEmpty.innerHTML = '<div>No incoming calls.</div>';
         callsQueue.innerHTML = '';
         incomingCallsTitle.style.display = 'none';
         return;
@@ -2558,7 +2551,8 @@ function startCallsListener(){
       incomingCallsTitle.style.display = ringing.length > 0 ? 'block' : 'none';
 
       callsQueue.innerHTML = ringing.map(c=>`
-        <div class="call-card" data-id="${escapeHtml(c.id)}">
+        <div class="call-card ${activePc ? 'call-waiting-card' : ''}" data-id="${escapeHtml(c.id)}">
+          ${activePc ? '<div class="call-waiting-label" role="status">☎ CALL WAITING</div>' : ''}
           <div class="call-ring-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.68 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
@@ -2572,7 +2566,7 @@ function startCallsListener(){
           <div class="call-card-actions">
             ${c.mediaType === 'video' ? `<button class="ibtn ibtn-answer" data-action="video-screen" data-id="${escapeHtml(c.id)}">👁 Screen Guest</button>` : ''}
             <button class="ibtn ibtn-answer" data-action="answer" data-id="${escapeHtml(c.id)}"
-              data-name="${escapeHtml(c.callerName||'')}" data-city="${escapeHtml(c.callerCity||'')}">✆ Answer</button>
+              data-name="${escapeHtml(c.callerName||'')}" data-city="${escapeHtml(c.callerCity||'')}" ${activePc ? 'disabled title="End the current call before answering this waiting caller"' : ''}>${activePc ? '⏳ Waiting' : '✆ Answer'}</button>
             <button class="ibtn ibtn-reject" data-action="reject" data-id="${escapeHtml(c.id)}">✕ Reject</button>
           </div>
         </div>`).join('');
