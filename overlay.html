@@ -303,7 +303,17 @@ function render(data){
     subtitle.textContent=details.length ? details.join(' • ') : 'Sending Scene On Air';
     pill.textContent='ON AIR';
   }
-  const url = typeof data.audioUrl === 'string' && /^https:\/\//i.test(data.audioUrl) ? data.audioUrl : '';
+  const url = (() => {
+    try {
+      const candidate = new URL(data.audioUrl || '');
+      return candidate.protocol === 'https:' &&
+        candidate.hostname === 'res.cloudinary.com' &&
+        candidate.pathname.startsWith('/vz1v6nzp/video/upload/')
+        ? candidate.href : '';
+    } catch {
+      return '';
+    }
+  })();
   if(type === 'livecall' || type === 'livevideo'){
     if(liveAudio.srcObject) return;
     if(url && url !== currentAudioUrl){ liveAudio.src=url; currentAudioUrl=url; liveAudio.play().catch(()=>{}); }

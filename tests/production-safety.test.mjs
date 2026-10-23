@@ -8,6 +8,7 @@ const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 const dashboard = fs.readFileSync(path.join(root, 'dashboard.html'), 'utf8');
 const setup = fs.readFileSync(path.join(root, 'SETUP.md'), 'utf8');
 const voice = fs.readFileSync(path.join(root, 'voicemessage.html'), 'utf8');
+const overlay = fs.readFileSync(path.join(root, 'overlay.html'), 'utf8');
 
 assert.match(video, /resolveLineStates\(snap\)/, 'video guest page must use the shared producer line-state resolver');
 assert.match(video, /if\(callMode==='video' && videoLineState!==LINE\.OPEN\)/, 'video calls must not bypass a closed or unknown producer video line');
@@ -61,7 +62,7 @@ console.log('production-safety checks: all passed');
 assert.match(dashboard, /data-song-action="played"/, 'song requests must have an explicit Mark Played action');
 assert.match(dashboard, /function toReliableDate\(/, 'call history must normalize Firestore and legacy date values safely');
 assert.match(dashboard, /startedAt: callStartTime \? new Date\(callStartTime\) : null/, 'call history must persist measured call start time');
-assert.match(dashboard, /const recorded = calls\.filter\(c => c\.recordingUrl\)/, 'recordings tab must derive its archive from realtime call history');
+assert.match(dashboard, /const recorded = calls\.filter\(c => safeCloudinaryMediaUrl\(c\.recordingUrl\)\)/, 'recordings tab must derive its archive from realtime call history while validating media URLs');
 assert.match(dashboard, /audioBitsPerSecond:192000/, 'call recordings should request high-bitrate audio');
 assert.match(voice, /audioBitsPerSecond:192000/, 'voice messages should request high-bitrate audio');
 assert.match(voice, /echoCancellation:true, noiseSuppression:true, autoGainControl:false, sampleRate:\{ideal:48000\}/, 'voice message capture should request echo cancellation, noise suppression, and 48 kHz');
@@ -78,3 +79,12 @@ assert.ok(dashboard.includes('async function downloadCallRecordingMp3'), 'call a
 assert.ok(voice.includes('id="downloadMp3Btn"'), 'voice message review must offer MP3 download');
 assert.ok(voice.includes('new lamejs.Mp3Encoder(channels,rate,320)'), 'voice-message MP3 must request 320 kbps');
 assert.ok(voice.includes("live-caller-voice-message-320kbps.mp3"), 'voice-message MP3 must be a separate export file');
+
+assert.match(dashboard, /function safeCloudinaryMediaUrl\(value\)/, 'dashboard must validate untrusted media URLs');
+assert.match(dashboard, /url\.hostname !== 'res\.cloudinary\.com'/, 'dashboard media URLs must be restricted to the expected Cloudinary host');
+assert.match(dashboard, /url\.pathname\.startsWith\('\/vz1v6nzp\/video\/upload\/'\)/, 'dashboard media URLs must be restricted to the expected upload path');
+assert.doesNotMatch(dashboard, /href="\$\{m\.audioUrl\}"/, 'message download links must not interpolate unvalidated media URLs');
+assert.doesNotMatch(dashboard, /href="\$\{c\.recordingUrl\}"/, 'archive links must not interpolate unvalidated recording URLs');
+assert.doesNotMatch(dashboard, /src="\$\{c\.recordingUrl\}"/, 'archive audio players must not interpolate unvalidated recording URLs');
+assert.match(dashboard, /hiddenPlayer\.src = safeAudioUrl/, 'preview and on-air playback must use validated media URLs');
+assert.match(overlay, /candidate\.hostname === 'res\.cloudinary\.com'/, 'OBS overlay must reject non-Cloudinary media URLs');
