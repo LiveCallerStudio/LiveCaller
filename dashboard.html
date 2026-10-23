@@ -1855,7 +1855,14 @@ function syncOverlayRelayTracks(record){
   });
 }
 function cleanupActiveCall(){
-  if(screeningCallId)stopVideoScreening(true);
+  // A screening teardown must never prevent the primary caller session from being released.
+  if(screeningCallId){
+    try{stopVideoScreening(true);}
+    catch(err){
+      console.error('Could not fully stop private screening during call cleanup:',err);
+      screeningCallId=null;
+    }
+  }
   clearInterval(callTimerInterval);
   if(callCandidateUnsub){ callCandidateUnsub(); callCandidateUnsub = null; }
   if(activeCallStatusUnsub){ activeCallStatusUnsub(); activeCallStatusUnsub = null; }
