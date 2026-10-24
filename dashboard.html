@@ -889,7 +889,7 @@
         <div>
           <div class="phone-console-kicker">STUDIO PHONE HYBRID</div>
           <h2>Multi-Line Controller</h2>
-          <p>Monitor every line at a glance. Selectable call handling depends on the connection state.</p>
+          <p>Handle up to three callers at once. Caller audio plays automatically when a line connects.</p>
         </div>
         <div>
           <div class="phone-console-legend" aria-label="Line status legend">
@@ -900,7 +900,7 @@
           </div>
           <div class="phone-console-tools" aria-label="Producer microphone controls">
             <button type="button" class="phone-console-mic" id="multiLineMicMuteBtn" aria-pressed="false" title="Mute or unmute the producer microphone sent to all connected callers">🎤 Producer Mic: LIVE</button>
-            <span class="phone-console-hold-status">Private monitoring stays on this dashboard. Caller audio reaches OBS only after Take On Air.</span>
+            <span class="phone-console-hold-status">Private callers are heard in the dashboard. Caller audio reaches OBS only after Take On Air.</span>
           </div>
           <div class="phone-console-hold-source">
             <label for="multiLineHoldAudioFile">HOLD AUDIO LOOP</label>
@@ -1867,7 +1867,7 @@ function getAvailableMultiLineIds(){
 
 function resumeMultiLineAudioContext(){
   const context=multiLineController?.audioRouter?.context;
-  if(context?.state==='suspended') return context.resume().catch(error=>console.warn('Could not resume dashboard caller monitor audio:',error?.message||error));
+  if(context?.state==='suspended') return context.resume().catch(error=>console.warn('Could not resume dashboard caller audio:',error?.message||error));
   return Promise.resolve();
 }
 
@@ -2537,7 +2537,7 @@ function refreshPhoneLineBank(releasedCallId = null){
       <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(lineId).padStart(2,'0')}</span><span class="phone-line-state"><i class="line-led led-${status}"></i>${statusLabel}</span></div>
       <div class="phone-line-name">${escapeHtml(name)}</div>
       <div class="phone-line-detail">${escapeHtml(city)}</div>
-      <div class="phone-line-detail">${line.mediaType==='video'?'VIDEO LINE':'AUDIO LINE'} · ${state==='on-air'?'CALLER ONLY TO OBS':state==='held'?'HELD / SILENT':'PRIVATE MONITOR'}${multiLineMicMuted?' · STUDIO MIC MUTED':''}</div>
+      <div class="phone-line-detail">${line.mediaType==='video'?'VIDEO LINE':'AUDIO LINE'} · ${state==='on-air'?'CALLER ONLY TO OBS':state==='held'?'HELD / SILENT':'PRIVATE CALL'}${multiLineMicMuted?' · STUDIO MIC MUTED':''}</div>
       ${controls}
     </div>`;
   }).join('');
