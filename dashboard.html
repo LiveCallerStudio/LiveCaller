@@ -898,8 +898,9 @@
             <span><i class="line-led led-active"></i>On air</span>
             <span><i class="line-led led-hold"></i>On hold</span>
           </div>
-          <div class="phone-console-tools">
-            <button type="button" class="phone-console-mic" id="multiLineMicMuteBtn" aria-pressed="false" title="Mute or unmute the studio microphone sent to callers">🎤 Studio Mic: LIVE</button>
+          <div class="phone-console-tools" aria-label="Producer microphone controls">
+            <button type="button" class="phone-console-mic" id="multiLineMicMuteBtn" aria-pressed="false" title="Mute or unmute the producer microphone sent to all connected callers">🎤 Producer Mic: LIVE</button>
+            <span class="phone-console-hold-status">Private monitoring stays on this dashboard. Caller audio reaches OBS only after Take On Air.</span>
           </div>
           <div class="phone-console-hold-source">
             <label for="multiLineHoldAudioFile">HOLD AUDIO LOOP</label>
@@ -1868,6 +1869,12 @@ function getAvailableMultiLineIds(){
   return [1,2,3].filter(lineId=>!occupied.has(lineId));
 }
 
+function resumeMultiLineAudioContext(){
+  const context=multiLineController?.audioRouter?.context;
+  if(context?.state==='suspended') return context.resume().catch(error=>console.warn('Could not resume dashboard caller monitor audio:',error?.message||error));
+  return Promise.resolve();
+}
+
 function setMultiLineMicMuted(muted){
   multiLineMicMuted=!!muted;
   if(multiLineController){
@@ -1879,20 +1886,51 @@ function setMultiLineMicMuted(muted){
   const button=document.getElementById('multiLineMicMuteBtn');
   if(button){
     button.setAttribute('aria-pressed',String(multiLineMicMuted));
-    button.textContent=multiLineMicMuted?'🎤 Studio Mic: MUTED':'🎤 Studio Mic: LIVE';
+    button.textContent=multiLineMicMuted?'🎤 Producer Mic: MUTED':'🎤 Producer Mic: LIVE';
     button.title=multiLineMicMuted?'Unmute the studio microphone sent to callers':'Mute the studio microphone sent to callers';
   }
   return multiLineMicMuted;
+}
+
+function disposeMultiLineHoldSource(source){
+  if(!source) return;
+  if(source.timer) clearTimeout(source.timer);
+  try{source.bufferSource?.stop();}catch{}
+  try{source.track?.stop();}catch{}
+  try{source.context?.close().catch(()=>{});}catch{}
 }
 
 function stopMultiLineHoldSource(callId){
   const source=multiLineHoldSources.get(callId);
   if(!source) return;
   multiLineHoldSources.delete(callId);
-  if(source.timer) clearTimeout(source.timer);
-  try{source.bufferSource?.stop();}catch{}
-  try{source.track?.stop();}catch{}
-  try{source.context?.close().catch(()=>{});}catch{}
+  disposeMultiLineHoldSource(source);
+}
+
+// When the station uploads a loop while callers are already on hold, replace
+// their existing synthetic/old-file tracks immediately instead of waiting for
+// those calls to be held again.
+async function refreshHeldMultiLineAudioSources(){
+  for(const [callId,oldSource] of [...multiLineHoldSources.entries()]){
+    const entry=multiLineController?.sessions.get(callId);
+    if(!entry || entry.session.senders.get('audio')?.track!==oldSource.track) continue;
+    multiLineHoldSources.delete(callId);
+    let nextSource;
+    try{
+      nextSource=createMultiLineHoldSource(callId);
+      if(contextIsSuspended(nextSource.context)) await nextSource.context.resume().catch(()=>{});
+      await entry.session.replaceTrack('audio',nextSource.track);
+      disposeMultiLineHoldSource(oldSource);
+      console.info('[Multi-line hold audio] refreshed uploaded loop for held caller',callId);
+    }catch(error){
+      if(nextSource){
+        if(multiLineHoldSources.get(callId)===nextSource) multiLineHoldSources.delete(callId);
+        disposeMultiLineHoldSource(nextSource);
+      }
+      multiLineHoldSources.set(callId,oldSource);
+      console.error('[Multi-line hold audio] could not update existing held caller',callId,error?.message||error);
+    }
+  }
 }
 
 function createMultiLineHoldSource(callId){
@@ -1987,6 +2025,9 @@ async function answerMultiLineCall(callId, callerName, callerCity, lineId){
   if(![1,2,3].includes(Number(lineId))) throw new Error('Choose Line 1, Line 2, or Line 3.');
   if(!getAvailableMultiLineIds().includes(Number(lineId))) throw new Error('That line is already occupied. Choose another available line.');
   unlockCallerPlayback();
+  // AudioContext is created before the user gesture. Resume it here so private
+  // caller monitoring is audible on the producer dashboard (not only in OBS).
+  await resumeMultiLineAudioContext();
   const callSnap = await getDoc(doc(db,'liveCalls',callId));
   const callData = callSnap.data();
   if(!callData?.offer) throw new Error('This caller is no longer available.');
@@ -2007,7 +2048,10 @@ async function answerMultiLineCall(callId, callerName, callerCity, lineId){
     });
     // Try to enable private monitoring now. If the remote track has not arrived
     // yet, onTrack will enable it later; this must not fail the answered call.
-    try{multiLineController.setMonitor(callId);}catch(error){console.debug('Caller monitor pending remote audio:',error?.message||error);}
+    try{
+      await resumeMultiLineAudioContext();
+      multiLineController.setMonitor(callId);
+    }catch(error){console.debug('Caller monitor pending remote audio:',error?.message||error);}
     watchMultiLineOverlayRelay(callId);
     refreshPhoneLineBank();
   }catch(error){
@@ -2018,6 +2062,7 @@ async function answerMultiLineCall(callId, callerName, callerCity, lineId){
 
 async function takeMultiLineOnAir(callId){
   ensureMultiLineController();
+  await resumeMultiLineAudioContext();
   const snapshot = multiLineController.getSnapshot();
   const line = snapshot.lines.find(item=>item?.callId===callId);
   if(!line) throw new Error('That caller no longer owns a line.');
@@ -2153,7 +2198,9 @@ function syncMultiLineOverlayTracks(callId){
     // Take On Air selection is the sole gate for caller media leaving this page.
     const onAir = multiLineOnAirCallId === callId;
     const audio=onAir ? (stream.getAudioTracks().find(track=>track.readyState==='live')||null) : null;
-    const video=onAir ? (stream.getVideoTracks().find(track=>track.readyState==='live')||null) : null;
+    // This phone system is audio-only on the OBS overlay for every line.
+    // Never forward caller video, even if an older overlay peer offered a video lane.
+    const video=null;
     transceivers.filter(t=>t.receiver?.track?.kind==='audio').forEach((t,index)=>{
       try{t.direction='sendonly';t.sender.replaceTrack(index===0?audio:null).catch(error=>console.warn('OBS audio relay:',error?.message||error));}catch{}
     });
@@ -2306,7 +2353,9 @@ function syncOverlayRelayTracks(record){
   // Broadcast audio is caller-only. The producer's studio microphone remains
   // on activePc for the caller, but must never be sent over the OBS relay.
   const callerAudio=(callerRemoteStream?.getAudioTracks()||[]).find(t=>t.readyState==='live')||null;
-  const callerVideo=(callerRemoteStream?.getVideoTracks()||[]).find(t=>t.readyState==='live')||null;
+  // The overlay phone system carries caller audio only. Keep any legacy video
+  // transceiver negotiated by an older OBS browser source detached.
+  const callerVideo=null;
   const audioLanes=transceivers.filter(t=>t.receiver?.track?.kind==='audio');
   const videoLanes=transceivers.filter(t=>t.receiver?.track?.kind==='video');
   audioLanes.forEach((t,index)=>{
@@ -2315,8 +2364,8 @@ function syncOverlayRelayTracks(record){
       t.sender.replaceTrack(index===0?callerAudio:null).catch(err=>console.warn('OBS caller audio update:',err.message||err));
     }catch(err){console.warn('OBS caller audio lane:',err.message||err);}
   });
-  // OBS receives caller video only. Never forward the producer's camera.
-  // Clear any extra video lane left over from an older overlay offer.
+  // The phone overlay is audio-only. Clear any video lane left over from an
+  // older offer so no caller or producer video can reach the broadcast overlay.
   videoLanes.forEach((t,index)=>{
     try{
       t.direction='sendonly';
@@ -2372,8 +2421,8 @@ function cleanupActiveCall(){
 function refreshPhoneLineBank(releasedCallId = null){
   const lineBank = document.getElementById('phoneLineBank');
   if(!lineBank) return;
-  // Waiting callers appear as lit, virtual ringing tiles without reserving a
-  // real line. The Answer Line action performs the authoritative slot check.
+  // Waiting callers are shown once in the incoming/call-waiting queue below;
+  // available line tiles show only the waiting count, never duplicate caller cards.
   const queuedCallers = latestCallsForCleanup.filter(c => c.status === 'waiting' && c.id !== releasedCallId);
   let controllerLines = [];
   try{
@@ -2393,22 +2442,11 @@ function refreshPhoneLineBank(releasedCallId = null){
   } : null;
   const byId = new Map(controllerLines.map(line=>[line.lineId,line]));
   if(activeLine?.lineId && !byId.get(activeLine.lineId)?.callId) byId.set(activeLine.lineId,activeLine);
-  const ringingByLine = new Map();
-  let ringingIndex = 0;
-  for(const lineId of [1,2,3]){
-    if(!byId.get(lineId)?.callId && queuedCallers[ringingIndex]) ringingByLine.set(lineId,queuedCallers[ringingIndex++]);
-  }
+  // The line bank shows occupied/available line state; ringing callers get one
+  // canonical card in the incoming/call-waiting queue below, not another tile.
   lineBank.innerHTML = [1,2,3].map(lineId=>{
     const line=byId.get(lineId);
     if(!line?.callId){
-      const ringing=ringingByLine.get(lineId);
-      if(ringing) return `<div class="phone-line-tile line-ringing" role="group" aria-label="Line ${lineId}, ringing">
-        <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(lineId).padStart(2,'0')}</span><span class="phone-line-state"><i class="line-led led-ringing"></i>RINGING</span></div>
-        <div class="phone-line-name">${escapeHtml(ringing.callerName || 'Anonymous Caller')}</div>
-        <div class="phone-line-detail">${escapeHtml(ringing.callerCity || '')}</div>
-        <div class="phone-line-detail">${ringing.mediaType==='video'?'VIDEO CALL · USE SCREEN GUEST BELOW':'CALL WAITING · NOT CONNECTED'}</div>
-        ${ringing.mediaType==='video' ? '' : `<div class="phone-line-controls" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;"><button class="ibtn ibtn-answer" data-action="answer-line" data-line-id="${lineId}" data-id="${escapeHtml(ringing.id)}" data-name="${escapeHtml(ringing.callerName||'')}" data-city="${escapeHtml(ringing.callerCity||'')}">Answer Line ${lineId}</button><button class="ibtn ibtn-reject" data-action="reject" data-id="${escapeHtml(ringing.id)}">Reject</button></div>`}
-      </div>`;
       return `<div class="phone-line-tile" role="group" aria-label="Line ${lineId}, available">
         <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(lineId).padStart(2,'0')}</span><span class="phone-line-state">AVAILABLE</span></div>
         <div class="phone-line-name">No caller assigned</div>
@@ -2420,8 +2458,10 @@ function refreshPhoneLineBank(releasedCallId = null){
     const statusLabel=status==='active'?'ON AIR':status==='hold'?'ON HOLD':status==='ringing'?'RINGING':'SCREENING';
     const name=line.callerName || line.callId || 'Caller';
     const city=line.callerCity || '';
+    const monitoring=multiLineController?.audioRouter?.monitorCallId===line.callId;
     const controls=line.legacy ? '' : `<div class="phone-line-controls" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;">
       ${state==='held' ? `<button class="ibtn ibtn-answer" data-action="multi-resume" data-id="${escapeHtml(line.callId)}">Resume</button>` : `<button class="ibtn" data-action="multi-hold" data-id="${escapeHtml(line.callId)}">Hold</button>`}
+      ${state==='held' ? '' : `<button class="ibtn" data-action="multi-monitor" data-id="${escapeHtml(line.callId)}">${monitoring?'Stop Monitor':'Monitor Caller'}</button>`}
       ${state==='on-air' ? `<button class="ibtn" data-action="multi-hold" data-id="${escapeHtml(line.callId)}">Take Off Air</button>` : `<button class="ibtn ibtn-answer" data-action="multi-air" data-id="${escapeHtml(line.callId)}">Take On Air</button>`}
       <button class="ibtn ibtn-reject" data-action="multi-end" data-id="${escapeHtml(line.callId)}">End Call</button>
     </div>`;
@@ -3542,6 +3582,7 @@ async function restoreMultiLineHoldAudio(){
       const decoded=await context.decodeAudioData(await saved.blob.arrayBuffer());
       multiLineHoldAudioBuffer=decoded;
       multiLineHoldAudioName=saved.name||'hold-audio';
+      await refreshHeldMultiLineAudioSources();
       if(status)status.textContent='Saved loop ready: '+multiLineHoldAudioName+' · loops for held callers';
     }finally{try{await context.close();}catch{}}
   }catch(error){
@@ -3570,6 +3611,7 @@ document.getElementById('multiLineHoldAudioFile')?.addEventListener('change',asy
     // Activate the new loop only after successful decoding.
     multiLineHoldAudioBuffer=decoded;
     multiLineHoldAudioName=file.name||'hold-audio';
+    await refreshHeldMultiLineAudioSources();
     try{
       await saveMultiLineHoldAudioLocally(file);
       if(status)status.textContent='Saved: '+multiLineHoldAudioName+' · survives refreshes';
@@ -3596,12 +3638,17 @@ document.addEventListener('click', async(e)=>{
     finally{btn.disabled=false;}
     return;
   }
-  if(action==='multi-air' || action==='multi-hold' || action==='multi-resume' || action==='multi-end'){
+  if(action==='multi-air' || action==='multi-hold' || action==='multi-resume' || action==='multi-end' || action==='multi-monitor'){
     btn.disabled=true;
     try{
       if(action==='multi-air') await takeMultiLineOnAir(id);
       else if(action==='multi-hold') await holdMultiLineCall(id);
       else if(action==='multi-resume') await resumeMultiLineCall(id);
+      else if(action==='multi-monitor'){
+        await resumeMultiLineAudioContext();
+        const current=multiLineController?.audioRouter?.monitorCallId;
+        multiLineController?.setMonitor(current===id ? null : id);
+      }
       else await endMultiLineCall(id);
     }catch(err){console.error('Multi-line action failed:',err);alert('Could not complete call action: '+(err?.message||err));}
     finally{btn.disabled=false;refreshPhoneLineBank();}

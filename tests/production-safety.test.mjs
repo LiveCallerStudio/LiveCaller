@@ -61,12 +61,20 @@ assert.doesNotMatch(dashboard, /experimentalMultiLine|multiline=1|Experimental Â
 assert.match(dashboard, /async function takeMultiLineOnAir\(callId\)[\s\S]*?await multiLineAdapter\.takeOnAir\(callId\)[\s\S]*?active:true/, 'multi-line program routing must be explicitly selected and published through the existing live-state document');
 assert.match(dashboard, /async function answerMultiLineCall\(callId, callerName, callerCity, lineId\)[\s\S]*?lineId:Number\(lineId\)/, 'incoming audio calls must be assigned to a specific fixed line');
 assert.match(dashboard, /const onAir = multiLineOnAirCallId === callId[\s\S]*?onAir \? \(stream\.getAudioTracks\(\)/, 'multi-line OBS relay must send caller audio only after explicit on-air selection');
+assert.match(dashboard, /const video=null/, 'multi-line OBS relay must not forward caller video');
+assert.match(dashboard, /const callerVideo=null/, 'legacy OBS relay must not forward caller video');
+assert.match(dashboard, /async function refreshHeldMultiLineAudioSources\([\s\S]*?entry\.session\.replaceTrack\('audio',nextSource\.track\)/, 'uploading hold music must update callers already on hold');
+assert.match(dashboard, /function resumeMultiLineAudioContext\([\s\S]*?context\.resume\(\)/, 'dashboard audio context must resume so producers can hear private caller monitoring');
+assert.match(dashboard, /data-action="multi-monitor"/, 'each connected line must offer explicit private monitoring before on-air routing');
+assert.match(dashboard, /Waiting callers are shown once in the incoming\/call-waiting queue below/, 'incoming callers must not be duplicated in virtual line tiles');
+assert.match(dashboard, /Producer Mic: LIVE/, 'phone console must expose the producer microphone control panel');
 assert.match(dashboard, /function refreshIsBlockedByLiveMedia\(\)[\s\S]*?multiLineController && multiLineController\.sessions\.size > 0/, 'safe refresh must account for controller-managed live calls');
 
 assert.match(dashboard, /id="multiLineMicMuteBtn"/, 'multi-line phone console must expose a studio microphone mute control');
 assert.match(dashboard, /function setMultiLineMicMuted\(muted\)[\s\S]*?track\.enabled=!multiLineMicMuted/, 'studio microphone mute must apply to every connected multi-line caller');
 assert.match(dashboard, /localStream\.getAudioTracks\(\)\.forEach\(track=>\{track\.enabled=!multiLineMicMuted;\}\)/, 'new lines must inherit the current studio microphone mute state');
-assert.match(dashboard, /const ringingByLine = new Map\(\)[\s\S]*?class="phone-line-tile line-ringing"/, 'waiting callers must light available virtual line tiles before answer');
+assert.match(dashboard, /Waiting callers are shown once in the incoming\/call-waiting queue below/, 'waiting callers must be represented in the incoming queue');
+assert.doesNotMatch(dashboard, /class="phone-line-tile line-ringing"/, 'waiting callers must not be duplicated as a second set of ringing line tiles');
 assert.match(dashboard, /data-action="answer-line" data-line-id="\$\{lineId\}"/, 'ringing line tiles must offer explicit line selection');
 
 assert.match(dashboard, /id="multiLineHoldAudioFile" accept="audio\/\*"/, 'multi-line phone console must allow a local prerecorded hold loop');
