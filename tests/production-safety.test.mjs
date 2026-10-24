@@ -73,7 +73,8 @@ assert.match(dashboard, /function refreshIsBlockedByLiveMedia\(\)[\s\S]*?multiLi
 assert.match(dashboard, /id="multiLineMicMuteBtn"/, 'multi-line phone console must expose a studio microphone mute control');
 assert.match(dashboard, /function setMultiLineMicMuted\(muted\)[\s\S]*?track\.enabled=!multiLineMicMuted/, 'studio microphone mute must apply to every connected multi-line caller');
 assert.match(dashboard, /localStream\.getAudioTracks\(\)\.forEach\(track=>\{track\.enabled=!multiLineMicMuted;\}\)/, 'new lines must inherit the current studio microphone mute state');
-assert.match(dashboard, /const ringingByLine = new Map\(\)[\s\S]*?class="phone-line-tile line-ringing"/, 'waiting callers must light available virtual line tiles before answer');
+assert.match(dashboard, /Waiting callers are shown once in the incoming\/call-waiting queue below/, 'waiting callers must be represented in the incoming queue');
+assert.doesNotMatch(dashboard, /class="phone-line-tile line-ringing"/, 'waiting callers must not be duplicated as a second set of ringing line tiles');
 assert.match(dashboard, /data-action="answer-line" data-line-id="\$\{lineId\}"/, 'ringing line tiles must offer explicit line selection');
 
 assert.match(dashboard, /id="multiLineHoldAudioFile" accept="audio\/\*"/, 'multi-line phone console must allow a local prerecorded hold loop');
