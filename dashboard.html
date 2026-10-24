@@ -2421,9 +2421,9 @@ function cleanupActiveCall(){
 function refreshPhoneLineBank(releasedCallId = null){
   const lineBank = document.getElementById('phoneLineBank');
   if(!lineBank) return;
-  // Waiting callers are shown once in the incoming/call-waiting queue below.
-  // The line bank is reserved for assigned calls and available line slots.
-  const queuedCallers = [];
+  // Waiting callers remain counted on available line tiles, but their caller
+  // cards and answer/reject actions appear only in the incoming/call-waiting queue.
+  const queuedCallers = latestCallsForCleanup.filter(c => c.status === 'waiting' && c.id !== releasedCallId);
   let controllerLines = [];
   try{
     if(multiLineController && multiLineAdapter){
@@ -2442,22 +2442,11 @@ function refreshPhoneLineBank(releasedCallId = null){
   } : null;
   const byId = new Map(controllerLines.map(line=>[line.lineId,line]));
   if(activeLine?.lineId && !byId.get(activeLine.lineId)?.callId) byId.set(activeLine.lineId,activeLine);
-  const ringingByLine = new Map();
-  let ringingIndex = 0;
-  for(const lineId of [1,2,3]){
-    if(!byId.get(lineId)?.callId && queuedCallers[ringingIndex]) ringingByLine.set(lineId,queuedCallers[ringingIndex++]);
-  }
+  // The line bank shows occupied/available line state; ringing callers get one
+  // canonical card in the incoming/call-waiting queue below, not another tile.
   lineBank.innerHTML = [1,2,3].map(lineId=>{
     const line=byId.get(lineId);
     if(!line?.callId){
-      const ringing=ringingByLine.get(lineId);
-      if(ringing) return `<div class="phone-line-tile line-ringing" role="group" aria-label="Line ${lineId}, ringing">
-        <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(lineId).padStart(2,'0')}</span><span class="phone-line-state"><i class="line-led led-ringing"></i>RINGING</span></div>
-        <div class="phone-line-name">${escapeHtml(ringing.callerName || 'Anonymous Caller')}</div>
-        <div class="phone-line-detail">${escapeHtml(ringing.callerCity || '')}</div>
-        <div class="phone-line-detail">${ringing.mediaType==='video'?'VIDEO CALL · USE SCREEN GUEST BELOW':'CALL WAITING · NOT CONNECTED'}</div>
-        ${ringing.mediaType==='video' ? '' : `<div class="phone-line-controls" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;"><button class="ibtn ibtn-answer" data-action="answer-line" data-line-id="${lineId}" data-id="${escapeHtml(ringing.id)}" data-name="${escapeHtml(ringing.callerName||'')}" data-city="${escapeHtml(ringing.callerCity||'')}">Answer Line ${lineId}</button><button class="ibtn ibtn-reject" data-action="reject" data-id="${escapeHtml(ringing.id)}">Reject</button></div>`}
-      </div>`;
       return `<div class="phone-line-tile" role="group" aria-label="Line ${lineId}, available">
         <div class="phone-line-tile-top"><span class="phone-line-number">LINE ${String(lineId).padStart(2,'0')}</span><span class="phone-line-state">AVAILABLE</span></div>
         <div class="phone-line-name">No caller assigned</div>
