@@ -1777,11 +1777,11 @@ function ensureMultiLineController(){
         if(mic) mic.enabled=false;
       }
       setMultiLineHoldAudio(callId,held).catch(error=>console.warn('Could not switch multi-line hold audio:',error?.message||error));
-      // Holding silences both the program route and the producer's monitor.
-      // Resuming only restores monitoring; it does NOT put the caller on air.
+      // Holding silences the program route and clears this caller from the
+      // private monitor if selected. Resuming never turns monitoring on by itself;
+      // the producer must explicitly press Monitor Caller.
       try {
         if(held && multiLineController?.audioRouter?.monitorCallId === callId) multiLineController?.setMonitor(null);
-        else if(!held) multiLineController?.setMonitor(callId);
       } catch(error) {
         console.warn('Could not update multi-line monitor route:', error?.message || error);
       }
@@ -1796,18 +1796,9 @@ function ensureMultiLineController(){
     },
     onTrack: ({callId}) => {
       syncMultiLineOverlayTracks(callId);
-      // A caller's audio track may arrive after the SDP answer. Enable private
-      // monitoring when it exists, but never open the program route here.
-      try{
-        const snapshot=multiLineController?.getSnapshot();
-        const line=snapshot?.lines.find(item=>item?.callId===callId);
-        // Never privately monitor a second guest over the live program caller.
-        // Only auto-monitor a connected caller when the program and monitor buses
-        // are both free; Take On Air clears any prior monitor route explicitly.
-        if(line?.state==='connected' && !snapshot.programCallId && !multiLineController.audioRouter.monitorCallId){
-          multiLineController.setMonitor(callId);
-        }
-      }catch(error){ console.debug('Caller monitor will activate when media is ready:',error?.message||error); }
+      // Incoming audio is registered with the dashboard audio router, but is
+      // intentionally silent until the producer presses Monitor Caller. This
+      // prevents an unexpected caller from playing through the studio speakers.
     },
     onCallClosed: ({callId}) => {
       stopMultiLineHoldSource(callId);
@@ -1880,6 +1871,8 @@ function setMultiLineMicMuted(muted){
   if(multiLineController){
     for(const entry of multiLineController.sessions.values()){
       const mic=entry.localStream?.getAudioTracks?.()[0];
+      // Disable the real microphone track without disturbing a hold-audio track
+      // currently attached to the caller-facing sender.
       if(mic) mic.enabled=!multiLineMicMuted && !multiLineHoldSources.has(entry.callId);
     }
   }
@@ -1887,10 +1880,18 @@ function setMultiLineMicMuted(muted){
   if(button){
     button.setAttribute('aria-pressed',String(multiLineMicMuted));
     button.textContent=multiLineMicMuted?'🎤 Producer Mic: MUTED':'🎤 Producer Mic: LIVE';
-    button.title=multiLineMicMuted?'Unmute the studio microphone sent to callers':'Mute the studio microphone sent to callers';
+    button.title=multiLineMicMuted?'Unmute the studio microphone sent to connected callers':'Mute the studio microphone sent to connected callers';
+    button.classList.toggle('muted',multiLineMicMuted);
   }
   return multiLineMicMuted;
 }
+
+// The studio-wide producer mic control must be wired explicitly. Keep the state
+// across all existing lines and apply it to callers answered after the click.
+document.getElementById('multiLineMicMuteBtn')?.addEventListener('click',()=>{
+  setMultiLineMicMuted(!multiLineMicMuted);
+  refreshPhoneLineBank();
+});
 
 function disposeMultiLineHoldSource(source){
   if(!source) return;
@@ -2046,12 +2047,9 @@ async function answerMultiLineCall(callId, callerName, callerCity, lineId){
       localStream,
       lineId:Number(lineId)
     });
-    // Try to enable private monitoring now. If the remote track has not arrived
-    // yet, onTrack will enable it later; this must not fail the answered call.
-    try{
-      await resumeMultiLineAudioContext();
-      multiLineController.setMonitor(callId);
-    }catch(error){console.debug('Caller monitor pending remote audio:',error?.message||error);}
+    // Unlock the dashboard audio context during the answer gesture, but keep
+    // monitoring OFF until the producer explicitly presses Monitor Caller.
+    await resumeMultiLineAudioContext();
     watchMultiLineOverlayRelay(callId);
     refreshPhoneLineBank();
   }catch(error){
@@ -3632,7 +3630,7 @@ document.getElementById('multiLineHoldAudioFile')?.addEventListener('change',asy
 });
 
 document.addEventListener('click', async(e)=>{
-  const btn = e.target.closest('[data-action="video-screen"],[data-action="answer"],[data-action="reject"],[data-action="answer-line"],[data-action="multi-air"],[data-action="multi-hold"],[data-action="multi-resume"],[data-action="multi-end"]');
+  const btn = e.target.closest('[data-action="video-screen"],[data-action="answer"],[data-action="reject"],[data-action="answer-line"],[data-action="multi-air"],[data-action="multi-hold"],[data-action="multi-resume"],[data-action="multi-end"],[data-action="multi-monitor"]');
   if(!btn)return;
   const id=btn.dataset.id,name=btn.dataset.name,city=btn.dataset.city,action=btn.dataset.action;
   if(action==='answer-line'){
