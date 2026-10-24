@@ -2198,9 +2198,11 @@ function syncMultiLineOverlayTracks(callId){
     // Take On Air selection is the sole gate for caller media leaving this page.
     const onAir = multiLineOnAirCallId === callId;
     const audio=onAir ? (stream.getAudioTracks().find(track=>track.readyState==='live')||null) : null;
-    // This phone system is audio-only on the OBS overlay for every line.
-    // Never forward caller video, even if an older overlay peer offered a video lane.
-    const video=null;
+    // Audio calls send caller audio only; video calls send caller audio and video.
+    // The caller's media type is recorded when the line is answered.
+    const video=onAir && entry.mediaType==='video'
+      ? (stream.getVideoTracks().find(track=>track.readyState==='live')||null)
+      : null;
     transceivers.filter(t=>t.receiver?.track?.kind==='audio').forEach((t,index)=>{
       try{t.direction='sendonly';t.sender.replaceTrack(index===0?audio:null).catch(error=>console.warn('OBS audio relay:',error?.message||error));}catch{}
     });
@@ -2353,9 +2355,11 @@ function syncOverlayRelayTracks(record){
   // Broadcast audio is caller-only. The producer's studio microphone remains
   // on activePc for the caller, but must never be sent over the OBS relay.
   const callerAudio=(callerRemoteStream?.getAudioTracks()||[]).find(t=>t.readyState==='live')||null;
-  // The overlay phone system carries caller audio only. Keep any legacy video
-  // transceiver negotiated by an older OBS browser source detached.
-  const callerVideo=null;
+  // Audio calls are audio-only; video calls relay the caller's own video track
+  // together with their audio. Never substitute the producer camera here.
+  const callerVideo=activeCallMediaType==='video'
+    ? (callerRemoteStream?.getVideoTracks()||[]).find(t=>t.readyState==='live')||null
+    : null;
   const audioLanes=transceivers.filter(t=>t.receiver?.track?.kind==='audio');
   const videoLanes=transceivers.filter(t=>t.receiver?.track?.kind==='video');
   audioLanes.forEach((t,index)=>{
@@ -2364,8 +2368,8 @@ function syncOverlayRelayTracks(record){
       t.sender.replaceTrack(index===0?callerAudio:null).catch(err=>console.warn('OBS caller audio update:',err.message||err));
     }catch(err){console.warn('OBS caller audio lane:',err.message||err);}
   });
-  // The phone overlay is audio-only. Clear any video lane left over from an
-  // older offer so no caller or producer video can reach the broadcast overlay.
+  // Keep the overlay's video lane active only for an on-air video call.
+  // Audio calls and off-air calls always detach it.
   videoLanes.forEach((t,index)=>{
     try{
       t.direction='sendonly';
