@@ -885,7 +885,7 @@ function returnToPhoneHome(delay=700){
   window.setTimeout(()=>window.location.replace('home-v2.html'), delay);
 }
 
-function finishCallerSession(message='Call ended. Returning home…', delay=700){
+async function finishCallerSession(message='Call ended. Returning home…', delay=700){
   if(callerSessionEnding) return;
   callerSessionEnding = true;
   clearTimeout(peerDisconnectTimer);
@@ -894,6 +894,14 @@ function finishCallerSession(message='Call ended. Returning home…', delay=700)
   stopHoldMusicCaller();
   stopTimer();
   setStatus('ended', message);
+  // Publish caller-side WebRTC loss before clearing the reference. Otherwise
+  // the caller can return home while the producer dashboard keeps a stale line.
+  const endingCallRef = callDocRef;
+  if(endingCallRef){
+    await updateDoc(endingCallRef, { status:'ended' }).catch(error=>{
+      console.warn('Could not publish caller-side call end:', error?.code || error?.message || error);
+    });
+  }
   cleanup(false);
   callDocRef = null;
   returnToPhoneHome(delay);
