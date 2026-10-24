@@ -34,6 +34,11 @@ assert.doesNotMatch(dashboard, /queueListenerStarted/, 'dashboard queue subscrip
 assert.match(dashboard, /function stopQueueListener\(\)/, 'dashboard must be able to unsubscribe from the queue');
 assert.match(dashboard, /function startQueueListener\(\)/, 'dashboard must be able to restart the queue subscription');
 assert.match(dashboard, /onicecandidateerror/, 'producer and OBS peers must log ICE candidate errors');
+assert.match(dashboard, /onIceConnectionState: \(\{callId,state\}\) =>/, 'multi-line producer must log ICE state transitions per caller');
+assert.match(dashboard, /onIceCandidateError: \(\{callId,event\}\) =>/, 'multi-line producer must surface ICE candidate errors per caller');
+assert.match(dashboard, /\[Multi-line hold transition\] begin/, 'hold-track replacement must log per-call peer state before changing sender tracks');
+assert.match(video, /function logCallerPeerDiagnostics\(reason, peer\)[\s\S]*?selectedCandidatePairs/, 'caller WebRTC disconnect logs must capture candidate-pair and transport diagnostics');
+assert.match(video, /oniceconnectionstatechange = \(\) =>/, 'caller must log ICE state transitions separately from overall connection state');
 assert.match(dashboard, /RECORDING_UPLOAD_PRESET = 'djdeeze_hotline_recordings'/, 'call recordings must use a dedicated Cloudinary preset');
 assert.match(dashboard, /MAX_CALL_RECORDING_BYTES = 50 \* 1024 \* 1024/, 'call recordings must enforce a 50 MB ceiling');
 assert.match(dashboard, /AbortController/, 'call recording uploads must have a timeout');
