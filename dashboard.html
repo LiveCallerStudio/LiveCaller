@@ -3593,6 +3593,7 @@ async function restoreMultiLineHoldAudio(){
       const decoded=await context.decodeAudioData(await saved.blob.arrayBuffer());
       multiLineHoldAudioBuffer=decoded;
       multiLineHoldAudioName=saved.name||'hold-audio';
+      await refreshHeldMultiLineAudioSources();
       if(status)status.textContent='Saved loop ready: '+multiLineHoldAudioName+' · loops for held callers';
     }finally{try{await context.close();}catch{}}
   }catch(error){
