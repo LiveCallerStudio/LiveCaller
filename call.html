@@ -564,6 +564,50 @@ function tuneOpusSdp(sdp, bitrate = 192000){
   lines.splice(audioIndex,audioEnd-audioIndex,...audioLines);
   return lines.join('\r\n');
 }
+async function logCallerPeerDiagnostics(reason, peer){
+  if(!peer) return;
+  const snapshot={
+    reason,
+    connectionState:peer.connectionState,
+    iceConnectionState:peer.iceConnectionState,
+    signalingState:peer.signalingState,
+    localTracks:peer.getSenders().map(sender=>({
+      kind:sender.track?.kind||null,
+      readyState:sender.track?.readyState||'detached',
+      enabled:sender.track?.enabled??null
+    })),
+    remoteTracks:peer.getReceivers().map(receiver=>({
+      kind:receiver.track?.kind||null,
+      readyState:receiver.track?.readyState||'unknown'
+    }))
+  };
+  try{
+    const stats=await peer.getStats();
+    const selectedPairs=[];
+    stats.forEach(report=>{
+      if(report.type==='candidate-pair' && (report.selected || report.nominated && report.state==='succeeded')){
+        const local=stats.get(report.localCandidateId);
+        const remote=stats.get(report.remoteCandidateId);
+        selectedPairs.push({
+          state:report.state,
+          localCandidateType:local?.candidateType,
+          remoteCandidateType:remote?.candidateType,
+          protocol:local?.protocol,
+          currentRoundTripTime:report.currentRoundTripTime,
+          availableOutgoingBitrate:report.availableOutgoingBitrate,
+          bytesSent:report.bytesSent,
+          bytesReceived:report.bytesReceived,
+          packetsLost:report.packetsLost
+        });
+      }
+    });
+    snapshot.selectedCandidatePairs=selectedPairs;
+  }catch(error){
+    snapshot.statsError=error?.message||String(error);
+  }
+  console.info('[Caller WebRTC diagnostic]',snapshot);
+}
+
 async function requestAudioBitrate(peer, bitrate = 192000){
   for(const sender of peer.getSenders()){
     if(sender.track?.kind !== 'audio') continue;
@@ -623,13 +667,15 @@ async function startCall(){
   pc = new RTCPeerConnection(STUN);
   pc.onconnectionstatechange = () => {
     if (!pc || callerSessionEnding) return;
-    const state = pc.connectionState;
-    console.info('Caller peer connection state:', state);
+    const peer = pc;
+    const state = peer.connectionState;
+    console.info('Caller peer connection state:', state, 'ICE:', peer.iceConnectionState);
     if (state === 'connected') {
       clearTimeout(peerDisconnectTimer);
       peerDisconnectTimer = null;
       clearError();
     } else if (state === 'failed' || state === 'disconnected') {
+      logCallerPeerDiagnostics('connectionState:'+state,peer).catch(()=>{});
       clearTimeout(peerDisconnectTimer);
       setStatus('connected', 'Connection interrupted — attempting to recover…');
       peerDisconnectTimer = setTimeout(() => {
@@ -641,6 +687,15 @@ async function startCall(){
       finishCallerSession('Call connection closed. Returning home…', 500);
     }
   };
+  pc.oniceconnectionstatechange = () => {
+    if(!pc || callerSessionEnding) return;
+    const peer=pc;
+    console.info('Caller ICE connection state:',peer.iceConnectionState,'WebRTC:',peer.connectionState);
+    logCallerPeerDiagnostics('iceConnectionState:'+peer.iceConnectionState,peer).catch(()=>{});
+  };
+  pc.onicecandidateerror = event => console.warn('Caller ICE candidate error:',{
+    code:event.errorCode,text:event.errorText,url:event.url
+  });
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
   requestAudioBitrate(pc, 192000).catch(()=>{});
   requestVideoQuality(pc).catch(()=>{});
