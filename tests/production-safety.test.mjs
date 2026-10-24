@@ -109,3 +109,9 @@ assert.doesNotMatch(dashboard, /href="\$\{c\.recordingUrl\}"/, 'archive links mu
 assert.doesNotMatch(dashboard, /src="\$\{c\.recordingUrl\}"/, 'archive audio players must not interpolate unvalidated recording URLs');
 assert.match(dashboard, /hiddenPlayer\.src = safeAudioUrl/, 'preview and on-air playback must use validated media URLs');
 assert.match(overlay, /candidate\.hostname === 'res\.cloudinary\.com'/, 'OBS overlay must reject non-Cloudinary media URLs');
+
+assert.match(dashboard, /const MULTILINE_HOLD_AUDIO_DB = 'live-caller-studio-settings'/, 'custom hold audio must use durable browser-local storage');
+assert.match(dashboard, /async function saveMultiLineHoldAudioLocally\(file\)/, 'uploaded hold audio must be persisted locally');
+assert.match(dashboard, /async function restoreMultiLineHoldAudio\(\)/, 'saved hold audio must be restored after a dashboard refresh');
+assert.match(dashboard, /restoreMultiLineHoldAudio\(\);/, 'dashboard startup must restore the saved hold loop');
+assert.match(dashboard, /survives refreshes/, 'dashboard must confirm the uploaded hold loop is saved for later sessions');
