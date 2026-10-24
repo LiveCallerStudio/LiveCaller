@@ -50,6 +50,8 @@ jobs:
         run: node --experimental-default-type=module tests/call-cleanup.test.mjs
       - name: Test caller hold music audio context lifecycle
         run: node --experimental-default-type=module tests/caller-hold-audio-playback.test.mjs
+      - name: Test automatic dashboard caller audio without monitor controls
+        run: node --experimental-default-type=module tests/dashboard-auto-caller-audio.test.mjs
       - name: Test anonymous video caller authentication compatibility
         run: node --experimental-default-type=module tests/call-anonymous-video-auth.test.mjs
       - name: Test production-safety guardrails
