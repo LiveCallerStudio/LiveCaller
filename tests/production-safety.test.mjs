@@ -24,6 +24,7 @@ assert.match(dashboard, /Private Guest Screening — Not On Air/, 'dashboard pre
 assert.match(dashboard, /data-action="video-screen"/, 'video queue must offer a screen-before-answer action');
 assert.match(dashboard, /function stopVideoScreening\(/, 'producer must be able to stop the private preview independently');
 assert.match(video, /pc\.connectionState === 'failed'/, 'caller must expose failed WebRTC connections');
+assert.match(video, /async function finishCallerSession[\s\S]*?await updateDoc\(endingCallRef, \{ status:'ended' \}\)/, 'caller-side WebRTC disconnect must publish ended status so the producer cannot retain a stale line');
 assert.match(sw, /requestUrl\.origin !== self\.location\.origin/, 'service worker must not intercept third-party requests');
 assert.match(sw, /request\.mode === 'navigate'/, 'offline HTML fallback must be limited to document navigations');
 assert.match(sw, /manifest-songrequest\.json/, 'song request PWA manifest must be included in the app shell');
