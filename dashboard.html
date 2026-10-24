@@ -1765,6 +1765,8 @@ const multiLineHoldSources = new Map();
 const multiLineHoldTransitions = new Map();
 const multiLineOverlayUnsubs = new Map();
 const multiLineOverlayPeers = new Map();
+let multiLineDashboardAudio = null;
+let multiLineDashboardAudioCallId = null;
 
 function ensureMultiLineController(){
   if(multiLineController && multiLineAdapter) return;
@@ -1777,13 +1779,15 @@ function ensureMultiLineController(){
         if(mic) mic.enabled=false;
       }
       setMultiLineHoldAudio(callId,held).catch(error=>console.warn('Could not switch multi-line hold audio:',error?.message||error));
-      // Holding silences the program route and clears this caller from the
-      // private monitor if selected. Resuming never turns monitoring on by itself;
-      // the producer must explicitly press Monitor Caller.
-      try {
-        if(held && multiLineController?.audioRouter?.monitorCallId === callId) multiLineController?.setMonitor(null);
-      } catch(error) {
-        console.warn('Could not update multi-line monitor route:', error?.message || error);
+      // A held caller must not be audible in the dashboard. If this was the
+      // selected caller, move monitoring to another connected, non-held caller.
+      if(held && multiLineDashboardAudioCallId===callId) {
+        const next=[...(multiLineController?.sessions.values()||[])].find(candidate=>{
+          if(candidate.callId===callId) return false;
+          const line=multiLineController?.lineManager?.getCall(candidate.lineId);
+          return line && line.state!=='held' && candidate.session.remoteStream?.getAudioTracks?.().some(track=>track.readyState==='live');
+        });
+        selectMultiLineDashboardAudio(next?.callId||null);
       }
       // Detach this caller from the OBS relay immediately when the controller
       // holds it. During a line switch this prevents a brief overlap while the
@@ -1794,14 +1798,16 @@ function ensureMultiLineController(){
       }
       refreshPhoneLineBank();
     },
-    onTrack: ({callId}) => {
+    onTrack: ({callId,stream}) => {
       syncMultiLineOverlayTracks(callId);
-      // Incoming audio is registered with the dashboard audio router, but is
-      // intentionally silent until the producer presses Monitor Caller. This
-      // prevents an unexpected caller from playing through the studio speakers.
+      // Let the producer hear the connected caller directly in the dashboard,
+      // like a normal phone call. The HTML audio element avoids relying on the
+      // Web Audio monitor gain route, which was unreliable on some browsers.
+      if(!multiLineDashboardAudioCallId) selectMultiLineDashboardAudio(callId,stream);
     },
     onCallClosed: ({callId}) => {
       stopMultiLineHoldSource(callId);
+      if(multiLineDashboardAudioCallId===callId) selectMultiLineDashboardAudio(null);
       cleanupMultiLineOverlayRelay(callId);
       if(multiLineOnAirCallId === callId){
         multiLineOnAirCallId = null;
@@ -1846,6 +1852,8 @@ function closeMultiLineController(){
   multiLineAdapter = null;
   multiLineController = null;
   multiLineOnAirCallId = null;
+  if(multiLineDashboardAudio){multiLineDashboardAudio.pause();multiLineDashboardAudio.srcObject=null;}
+  multiLineDashboardAudioCallId = null;
 }
 
 function getMultiLineSnapshot(){
@@ -1864,6 +1872,37 @@ function resumeMultiLineAudioContext(){
   const context=multiLineController?.audioRouter?.context;
   if(context?.state==='suspended') return context.resume().catch(error=>console.warn('Could not resume dashboard caller monitor audio:',error?.message||error));
   return Promise.resolve();
+}
+
+function selectMultiLineDashboardAudio(callId,providedStream=null){
+  if(!multiLineDashboardAudio){
+    multiLineDashboardAudio=new Audio();
+    multiLineDashboardAudio.autoplay=true;
+    multiLineDashboardAudio.playsInline=true;
+    multiLineDashboardAudio.setAttribute('playsinline','');
+    multiLineDashboardAudio.setAttribute('aria-label','Caller audio monitor');
+  }
+  if(!callId){
+    multiLineDashboardAudio.pause();
+    multiLineDashboardAudio.srcObject=null;
+    multiLineDashboardAudioCallId=null;
+    refreshPhoneLineBank();
+    return Promise.resolve(false);
+  }
+  const entry=multiLineController?.sessions.get(callId);
+  const line=entry&&multiLineController?.lineManager?.getCall(entry.lineId);
+  const stream=providedStream||entry?.session?.remoteStream;
+  if(!entry||!line||line.state==='held'||!stream?.getAudioTracks?.().some(track=>track.readyState==='live')){
+    return Promise.resolve(false);
+  }
+  multiLineDashboardAudioCallId=callId;
+  if(multiLineDashboardAudio.srcObject!==stream) multiLineDashboardAudio.srcObject=stream;
+  const playback=multiLineDashboardAudio.play();
+  refreshPhoneLineBank();
+  return Promise.resolve(playback).then(()=>true).catch(error=>{
+    console.warn('[Dashboard caller audio] Browser blocked playback; tap Monitor Caller to start audio:',error?.message||error);
+    return false;
+  });
 }
 
 function setMultiLineMicMuted(muted){
@@ -1955,7 +1994,9 @@ function createMultiLineHoldSource(callId){
     const notes=[261.63,329.63,392.00,523.25,392.00,329.63,293.66,349.23];
     let index=0;
     const tick=()=>{
-      if(!multiLineHoldSources.has(callId)) return;
+      // A previous synthesized fallback may still have a queued timer after
+      // an uploaded loop replaces it. Only the current source may keep ticking.
+      if(multiLineHoldSources.get(callId)!==record) return;
       const osc=context.createOscillator();const env=context.createGain();
       osc.type='sine';osc.frequency.value=notes[index++%notes.length];
       env.gain.setValueAtTime(0.0001,context.currentTime);
@@ -2460,7 +2501,7 @@ function refreshPhoneLineBank(releasedCallId = null){
     const statusLabel=status==='active'?'ON AIR':status==='hold'?'ON HOLD':status==='ringing'?'RINGING':'SCREENING';
     const name=line.callerName || line.callId || 'Caller';
     const city=line.callerCity || '';
-    const monitoring=multiLineController?.audioRouter?.monitorCallId===line.callId;
+    const monitoring=multiLineDashboardAudioCallId===line.callId && !!multiLineDashboardAudio && !multiLineDashboardAudio.paused;
     const controls=line.legacy ? '' : `<div class="phone-line-controls" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;">
       ${state==='held' ? `<button class="ibtn ibtn-answer" data-action="multi-resume" data-id="${escapeHtml(line.callId)}">Resume</button>` : `<button class="ibtn" data-action="multi-hold" data-id="${escapeHtml(line.callId)}">Hold</button>`}
       ${state==='held' ? '' : `<button class="ibtn" data-action="multi-monitor" data-id="${escapeHtml(line.callId)}">${monitoring?'Stop Monitor':'Monitor Caller'}</button>`}
@@ -3647,9 +3688,9 @@ document.addEventListener('click', async(e)=>{
       else if(action==='multi-hold') await holdMultiLineCall(id);
       else if(action==='multi-resume') await resumeMultiLineCall(id);
       else if(action==='multi-monitor'){
-        await resumeMultiLineAudioContext();
-        const current=multiLineController?.audioRouter?.monitorCallId;
-        multiLineController?.setMonitor(current===id ? null : id);
+        const current=multiLineDashboardAudioCallId;
+        if(current===id && multiLineDashboardAudio && !multiLineDashboardAudio.paused) await selectMultiLineDashboardAudio(null);
+        else await selectMultiLineDashboardAudio(id);
       }
       else await endMultiLineCall(id);
     }catch(err){console.error('Multi-line action failed:',err);alert('Could not complete call action: '+(err?.message||err));}

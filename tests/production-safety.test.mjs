@@ -86,7 +86,10 @@ assert.match(dashboard, /await multiLineAdapter\.holdCall\(previousCallId\);\s*a
 assert.doesNotMatch(dashboard, /!snapshot\.programCallId && !multiLineController\.audioRouter\.monitorCallId/, 'private monitoring must stay off until the producer explicitly selects a caller');
 assert.match(dashboard, /e\.target\.closest\([^;]*data-action="multi-monitor"/, 'Monitor Caller and Stop Monitor buttons must be included in delegated click handling');
 assert.match(dashboard, /multiLineMicMuteBtn[^;]*addEventListener\('click'/, 'producer mic control must have a working click handler');
-assert.match(dashboard, /setMonitor\(current===id \? null : id\)/, 'monitor button must toggle dashboard caller audio on and off');
+assert.match(dashboard, /if\(current===id && multiLineDashboardAudio && !multiLineDashboardAudio\.paused\) await selectMultiLineDashboardAudio\(null\);[\s\S]*?else await selectMultiLineDashboardAudio\(id\)/, 'monitor button must start blocked audio playback and stop active dashboard caller audio');
+assert.match(dashboard, /multiLineDashboardAudio=new Audio\(\)/, 'dashboard caller monitoring must use a dedicated HTML audio element');
+assert.match(dashboard, /onTrack: \(\{callId,stream\}\) =>[\s\S]*?selectMultiLineDashboardAudio\(callId,stream\)/, 'incoming caller audio must automatically play in the dashboard after connection');
+assert.match(dashboard, /multiLineHoldSources\.get\(callId\)!==record/, 'replaced synthesized hold tones must stop instead of playing over uploaded hold audio');
 assert.match(dashboard, /const onAir = multiLineOnAirCallId === callId;[\s\S]*?const audio=onAir \? \(stream\.getAudioTracks\(\)/, 'OBS relay must continue to use only the selected caller remote stream, never local hold audio');
 assert.match(dashboard, /if\(source\.timer\) clearTimeout\(source\.timer\)[\s\S]*?source\.context\?\.close/, 'per-line hold audio resources must be cleaned up');
 
