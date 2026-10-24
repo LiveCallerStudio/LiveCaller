@@ -2421,8 +2421,8 @@ function cleanupActiveCall(){
 function refreshPhoneLineBank(releasedCallId = null){
   const lineBank = document.getElementById('phoneLineBank');
   if(!lineBank) return;
-  // Waiting callers remain counted on available line tiles, but their caller
-  // cards and answer/reject actions appear only in the incoming/call-waiting queue.
+  // Waiting callers are shown once in the incoming/call-waiting queue below;
+  // available line tiles show only the waiting count, never duplicate caller cards.
   const queuedCallers = latestCallsForCleanup.filter(c => c.status === 'waiting' && c.id !== releasedCallId);
   let controllerLines = [];
   try{
