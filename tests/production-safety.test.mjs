@@ -53,17 +53,17 @@ assert.match(voice, /AbortController/, 'voice upload must time out rather than h
 
 // Legacy OBS relay must fail closed during Hold and off-air transitions.
 assert.match(dashboard, /function silenceOverlayRelayMedia\(\)[\s\S]*?sender\.replaceTrack\(null\)/, 'legacy OBS senders must be detached immediately');
-assert.match(dashboard, /if\(callIsOnAir\)\{\s*silenceOverlayRelayMedia\(\);\s*await setDoc\(liveStateRef, \{ active:false/, 'holding an on-air caller must immediately deactivate the overlay state');
-assert.match(dashboard, /const resumedStatus = callIsOnAir \? 'live' : 'answered';[\s\S]*?await setDoc\(activeCallRef, \{ status: resumedStatus \}/, 'resuming an on-air caller must persist live status before republishing overlay state');
-assert.match(dashboard, /if\(!callIsOnAir && callIsOnHold\)[\s\S]*?Resume the caller before sending them on air/, 'a held caller must be resumed before being put back on air');
+assert.match(dashboard, /if\(callIsOnAir\)\{\s*callRelaySuppressed = true;\s*silenceOverlayRelayMedia\(\);\s*await setDoc\(liveStateRef, \{ active:false/, 'holding an on-air caller must immediately silence relay media and deactivate the overlay state');
+assert.match(dashboard, /const resumedStatus = callIsOnAir \? 'live' : 'answered';[\s\S]*?await setDoc\(activeCallRef, \{ status: resumedStatus, held: false \}/, 'Resume must clear hold state while preserving the separate on-air state');
+assert.doesNotMatch(dashboard, /if\(!callIsOnAir && callIsOnHold\)[\s\S]*?Resume the caller before sending them on air/, 'a held caller must be allowed on air without resuming the caller-facing hold audio');
 assert.match(dashboard, /status: callIsOnHold \? 'held' : 'answered'/, 'taking a held caller off air must preserve the held call state');
 assert.doesNotMatch(dashboard, /experimentalMultiLine|multiline=1|Experimental · Three-line audio console/, 'dashboard must not expose the experimental three-line panel or opt-in mode');
 assert.match(dashboard, /async function takeMultiLineOnAir\(callId\)[\s\S]*?await multiLineAdapter\.takeOnAir\(callId\)[\s\S]*?active:true/, 'multi-line program routing must be explicitly selected and published through the existing live-state document');
 assert.match(dashboard, /async function answerMultiLineCall\(callId, callerName, callerCity, lineId\)[\s\S]*?lineId:Number\(lineId\)/, 'incoming audio calls must be assigned to a specific fixed line');
 assert.match(dashboard, /const onAir = multiLineOnAirCallId === callId[\s\S]*?onAir \? \(stream\.getAudioTracks\(\)/, 'multi-line OBS relay must send caller audio only after explicit on-air selection');
 assert.match(dashboard, /const video=onAir && entry\.mediaType==='video'[\s\S]*?stream\.getVideoTracks\(\)/, 'multi-line OBS relay must forward caller video only for an on-air video call');
-assert.match(dashboard, /const callerVideo=activeCallMediaType==='video'[\s\S]*?callerRemoteStream\?\.getVideoTracks\(\)/, 'legacy OBS relay must forward caller video only for video calls');
-assert.match(dashboard, /const callerVideo=activeCallMediaType==='video'[\s\S]*?: null/, 'legacy OBS relay must detach video for audio-only calls');
+assert.match(dashboard, /const callerVideo = broadcastEnabled && activeCallMediaType==='video'[\s\S]*?callerRemoteStream\?\.getVideoTracks\(\)/, 'legacy OBS relay must forward caller video only for an on-air video call');
+assert.match(dashboard, /const callerVideo = broadcastEnabled && activeCallMediaType==='video'[\s\S]*?: null/, 'legacy OBS relay must detach video for audio-only or off-air calls');
 assert.match(dashboard, /async function refreshHeldMultiLineAudioSources\([\s\S]*?entry\.session\.replaceTrack\('audio',nextSource\.track\)/, 'uploading hold music must update callers already on hold');
 assert.match(dashboard, /function resumeMultiLineAudioContext\([\s\S]*?context\.resume\(\)/, 'dashboard audio context must resume so producers can hear private caller monitoring');
 assert.match(dashboard, /data-action="multi-monitor"/, 'each connected line must offer explicit private monitoring before on-air routing');
