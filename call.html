@@ -689,7 +689,7 @@ async function startCall(){
   callerSessionEnding = false;
   // Start/resume Web Audio synchronously from the caller's tap, before any
   // Firestore/media awaits can lose the browser's user-activation window.
-  unlockCallerAudioContext().catch(()=>{});
+  try{ unlockCallerAudioContext().catch(()=>{}); }catch{}
   try{
   clearError();
   if((callMode === 'video' && !videoLinesOpen) || (callMode === 'audio' && !linesOpen)){
