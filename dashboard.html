@@ -1735,6 +1735,8 @@ let callTimerInterval = null;
 let callSeconds = 0;
 let callIsOnAir = false;
 let callIsOnHold = false;
+// Prevent asynchronous track resync from reattaching media during an off-air transition.
+let callRelaySuppressed = false;
 let callCandidateUnsub = null;
 let activeCallStatusUnsub = null;
 let overlaySessionsUnsub = null;
@@ -2322,6 +2324,7 @@ const callCountNum     = document.getElementById('callCountNum');
 const incomingCallsTitle = document.getElementById('incomingCallsTitle');
 const callerAudio      = document.getElementById('callerAudio');
 let callerPlaybackContext = null;
+let callerPlaybackFallbackElement = false;
 const callerPlaybackTrackIds = new Set();
 const callerPlaybackSources = new Set();
 function unlockCallerPlayback(){
@@ -2332,16 +2335,33 @@ function unlockCallerPlayback(){
     callerPlaybackContext.resume().catch(err=>console.warn('Caller audio context resume:',err.message||err));
   }catch(err){ console.warn('Caller audio output unavailable:',err.message||err); }
 }
-function routeCallerTrackToDashboard(track){
+function useCallerElementMonitor(error){
+  // Fallback for browsers that block Web Audio output. The hidden media element
+  // plays the same remote stream directly, so monitoring still works.
+  callerPlaybackFallbackElement = true;
+  callerAudio.muted = false;
+  callerAudio.volume = 1;
+  if(callerAudio.srcObject) callerAudio.play().catch(playError=>{
+    console.warn('Caller audio element playback blocked:',playError.message||playError);
+  });
+  if(error) console.warn('Using direct caller audio element monitor:',error.message||error);
+}
+async function routeCallerTrackToDashboard(track){
   if(!track || track.kind!=='audio' || callerPlaybackTrackIds.has(track.id)) return;
   try{
     unlockCallerPlayback();
-    if(!callerPlaybackContext) return;
+    if(!callerPlaybackContext) return useCallerElementMonitor(new Error('Web Audio is unavailable'));
+    await callerPlaybackContext.resume();
+    if(callerPlaybackContext.state!=='running') throw new Error('AudioContext did not enter running state');
     const source = callerPlaybackContext.createMediaStreamSource(new MediaStream([track]));
     source.connect(callerPlaybackContext.destination);
     callerPlaybackSources.add(source);
     callerPlaybackTrackIds.add(track.id);
-  }catch(err){ console.warn('Could not play caller microphone in dashboard:',err.message||err); }
+    callerPlaybackFallbackElement = false;
+    callerAudio.muted = true;
+  }catch(err){
+    useCallerElementMonitor(err);
+  }
 }
 
 const callerVideo      = document.getElementById('callerVideo');
@@ -2393,10 +2413,14 @@ function syncOverlayRelayTracks(record){
   const transceivers=record.pc.getTransceivers();
   // Broadcast audio is caller-only. The producer's studio microphone remains
   // on activePc for the caller, but must never be sent over the OBS relay.
-  const callerAudio=(callerRemoteStream?.getAudioTracks()||[]).find(t=>t.readyState==='live')||null;
-  // Audio calls are audio-only; video calls relay the caller's own video track
-  // together with their audio. Never substitute the producer camera here.
-  const callerVideo=activeCallMediaType==='video'
+  // Only attach caller media to OBS while the producer has explicitly put the call on air.
+  // Hold and broadcast are independent: a held caller may be broadcast on request.
+  const broadcastEnabled = !!callIsOnAir && !callRelaySuppressed;
+  const callerAudio = broadcastEnabled
+    ? (callerRemoteStream?.getAudioTracks()||[]).find(t=>t.readyState==='live')||null
+    : null;
+  // Audio calls are audio-only; video calls relay the caller's own video track.
+  const callerVideo = broadcastEnabled && activeCallMediaType==='video'
     ? (callerRemoteStream?.getVideoTracks()||[]).find(t=>t.readyState==='live')||null
     : null;
   const audioLanes=transceivers.filter(t=>t.receiver?.track?.kind==='audio');
@@ -2700,12 +2724,13 @@ async function answerCall(callId, callerName, callerCity){
     if(remoteStreamId && callerRemoteStreamId && remoteStreamId !== callerRemoteStreamId) return;
     if(event.track.kind === 'video' && !remoteStreamId) return;
     if(!callerRemoteStream.getTracks().some(t=>t.id===event.track.id)) callerRemoteStream.addTrack(event.track);
+    callerAudio.srcObject = callerRemoteStream;
     if(event.track.kind==='audio') routeCallerTrackToDashboard(event.track);
     overlayRelayPeers.forEach(record=>syncOverlayRelayTracks(record));
-    callerAudio.srcObject = callerRemoteStream;
-    // Audio is routed through the user-gesture-unlocked AudioContext above to
-    // avoid browser autoplay blocking the producer's caller-monitor audio.
-    callerAudio.muted = true;
+    // Prefer the independent Web Audio monitor; use the media element only if
+    // Web Audio output is unavailable or the browser refuses to resume it.
+    callerAudio.muted = !callerPlaybackFallbackElement;
+    if(callerPlaybackFallbackElement) callerAudio.play().catch(err=>console.warn('Caller audio element playback blocked:',err.message||err));
     if(callData && callData.mediaType==='video'){
       callerVideo.srcObject = callerRemoteStream;
       producerVideoStage.style.display='block';
@@ -2822,7 +2847,22 @@ async function answerCall(callId, callerName, callerCity){
 function buildHoldMusicStream(){
   holdMusicCtx = new (window.AudioContext || window.webkitAudioContext)();
   const dest = holdMusicCtx.createMediaStreamDestination();
-  // Pleasant C-major arpeggio — caller hears this while on hold
+
+  // Prefer the station's uploaded hold loop when available.
+  if(typeof multiLineHoldAudioBuffer !== 'undefined' && multiLineHoldAudioBuffer){
+    const source = holdMusicCtx.createBufferSource();
+    const gain = holdMusicCtx.createGain();
+    source.buffer = multiLineHoldAudioBuffer;
+    source.loop = true;
+    gain.gain.value = 0.72;
+    source.connect(gain);
+    gain.connect(dest);
+    source.start();
+    holdMusicCtx.resume().catch(err=>console.warn('Could not resume uploaded hold music:',err.message||err));
+    return dest.stream;
+  }
+
+  // Synthesized fallback only when no uploaded hold loop is loaded.
   const notes = [261.63,329.63,392.00,523.25,392.00,329.63,261.63,0];
   let idx = 0;
   function tick(){
@@ -2842,6 +2882,7 @@ function buildHoldMusicStream(){
     holdMusicTimeout = setTimeout(tick, 420);
   }
   tick();
+  holdMusicCtx.resume().catch(err=>console.warn('Could not resume fallback hold music:',err.message||err));
   return dest.stream;
 }
 
@@ -2921,14 +2962,20 @@ holdBtn.addEventListener('click', async()=>{
     holdBtn.classList.add('on-hold');
     setCallStatus('On Hold — caller hears hold music', 'on-hold');
 
-    // If this caller was on air, fail closed locally first, then tell the overlay
-    // to hide/close its relay. Keep callIsOnAir so Resume can restore the program.
+    // Entering hold takes the call off air, but does not end the hold state.
+    // Suppress relay resync before the Firestore write; the safety order is
+    // local silence first, remote state second, then update the UI state.
     if(callIsOnAir){
+      callRelaySuppressed = true;
       silenceOverlayRelayMedia();
       await setDoc(liveStateRef, { active:false, updatedAt:Date.now() }, { merge:true })
         .catch(error=>console.warn('Could not take OBS overlay off air while holding:',error.code||error.message||error));
+      callIsOnAir = false;
+      callOnAirBtn.textContent = '🔴 Send On Air';
+      callOnAirBtn.classList.remove('live');
+      onAirBadge.classList.remove('show');
     }
-    await setDoc(activeCallRef, { status: 'held' }, { merge: true });
+    await setDoc(activeCallRef, { status: 'held', held: true }, { merge: true });
   } else {
     // Restore producer mic track.
     stopHoldMusic();
@@ -2940,10 +2987,9 @@ holdBtn.addEventListener('click', async()=>{
     holdBtn.textContent = '⏸ Hold';
     holdBtn.classList.remove('on-hold');
 
-    // Preserve the previous on-air intent. The overlay must not be reactivated
-    // until Firestore confirms the parent call is live again.
+    // Resume ends hold only. Broadcast is a separate explicit state.
     const resumedStatus = callIsOnAir ? 'live' : 'answered';
-    await setDoc(activeCallRef, { status: resumedStatus }, { merge: true });
+    await setDoc(activeCallRef, { status: resumedStatus, held: false }, { merge: true });
     if(callIsOnAir){
       const callSnap = await getDoc(activeCallRef);
       const currentCall = callSnap.data() || {};
@@ -3086,14 +3132,10 @@ async function saveCallHistory(recordingUrl = null){
 // must silence that relay rather than merely changing the lower-third text.
 callOnAirBtn.addEventListener('click', async()=>{
   if(!activeCallRef) return;
-  if(!callIsOnAir && callIsOnHold){
-    setCallStatus('Resume the caller before sending them on air.', 'on-hold');
-    alert('Resume the caller before sending them on air.');
-    return;
-  }
   callIsOnAir = !callIsOnAir;
 
   if(callIsOnAir){
+    callRelaySuppressed = false;
     callOnAirBtn.textContent = '⏹ Take Off Air';
     callOnAirBtn.classList.add('live');
     setCallStatus('ON AIR — Live Call Broadcasting', 'on-air');
@@ -3101,7 +3143,8 @@ callOnAirBtn.addEventListener('click', async()=>{
     // Mark the call live first. The OBS overlay watches hotlineLive and may
     // immediately create a WebRTC session; Firestore rules require the parent
     // liveCalls document to already have status === 'live' at that moment.
-    await setDoc(activeCallRef, { status: 'live' }, { merge: true });
+    // The overlay requires status === 'live'; held remains a separate state.
+    await setDoc(activeCallRef, { status: 'live', held: !!callIsOnHold }, { merge: true });
     const callSnap = await getDoc(activeCallRef);
     const currentCall = callSnap.data() || {};
     // Publish overlay state only after the parent call's live status is committed.
@@ -3117,13 +3160,14 @@ callOnAirBtn.addEventListener('click', async()=>{
   } else {
     // Silence any connected OBS media senders before the asynchronous Firestore
     // update, so a caller cannot remain audible during an off-air transition.
+    callRelaySuppressed = true;
     silenceOverlayRelayMedia();
     callOnAirBtn.textContent = '🔴 Send On Air';
     callOnAirBtn.classList.remove('live');
     setCallStatus(callIsOnHold ? 'On Hold — caller hears hold music' : 'Screening — call taken off air', callIsOnHold ? 'on-hold' : '');
     onAirBadge.classList.remove('show');
     await setDoc(liveStateRef, { active: false, updatedAt: Date.now() }, { merge:true });
-    await setDoc(activeCallRef, { status: callIsOnHold ? 'held' : 'answered' }, { merge: true });
+    await setDoc(activeCallRef, { status: callIsOnHold ? 'held' : 'answered', held: !!callIsOnHold }, { merge: true });
   }
 });
 
