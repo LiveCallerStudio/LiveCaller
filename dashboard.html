@@ -1101,7 +1101,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   getFirestore, collection, query, orderBy, onSnapshot,
-  doc, updateDoc, deleteDoc, setDoc, addDoc, getDoc, serverTimestamp
+  doc, updateDoc, deleteDoc, setDoc, addDoc, getDoc, serverTimestamp,
+  runTransaction, deleteField
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ====== STEP 1: PASTE YOUR FIREBASE CONFIG HERE (same as home.html) ======
@@ -1149,6 +1150,7 @@ onAuthStateChanged(auth, async (user)=>{
     startQueueListener();
     startSongRequestsListener();
     ensureMultiLineController();
+    startProducerDashboardStateListener();
     startCallsListener();
     startCallHistoryListener();
     startLinesToggleListener();
@@ -1156,6 +1158,7 @@ onAuthStateChanged(auth, async (user)=>{
   } else {
     stopQueueListener();
     stopSongRequestsListener();
+    stopProducerDashboardStateListener();
     stopCallsListener();
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
@@ -1758,6 +1761,9 @@ let multiLineController = null;
 let multiLineAdapter = null;
 let multiLineOnAirCallId = null;
 let multiLineMicMuted = false;
+let producerStateUnsubscribe = null;
+const producerDashboardStateRef = doc(db, 'hotlineSettings', 'producerDashboardState');
+const producerDashboardSessionId = (globalThis.crypto?.randomUUID?.() || ('producer-' + Date.now() + '-' + Math.random().toString(36).slice(2)));
 let multiLineHoldAudioBuffer = null;
 const MULTILINE_HOLD_AUDIO_DB = 'live-caller-studio-settings';
 const MULTILINE_HOLD_AUDIO_STORE = 'audio';
@@ -1934,10 +1940,35 @@ function setMultiLineMicMuted(muted){
 
 // The studio-wide producer mic control must be wired explicitly. Keep the state
 // across all existing lines and apply it to callers answered after the click.
-document.getElementById('multiLineMicMuteBtn')?.addEventListener('click',()=>{
-  setMultiLineMicMuted(!multiLineMicMuted);
+document.getElementById('multiLineMicMuteBtn')?.addEventListener('click',async()=>{
+  const nextMuted=!multiLineMicMuted;
+  setMultiLineMicMuted(nextMuted);
   refreshPhoneLineBank();
+  try{
+    await setDoc(producerDashboardStateRef,{
+      producerMicMuted:nextMuted,
+      producerMicUpdatedAt:Date.now(),
+      producerMicUpdatedBy:producerDashboardSessionId
+    },{merge:true});
+  }catch(error){
+    console.error('Could not sync producer microphone state:',error?.code||error?.message||error);
+    alert('Could not sync producer mic state to your other devices. Check Firestore permissions and connection.');
+  }
 });
+
+function startProducerDashboardStateListener(){
+  if(producerStateUnsubscribe) producerStateUnsubscribe();
+  producerStateUnsubscribe=onSnapshot(producerDashboardStateRef,snapshot=>{
+    const state=snapshot.data();
+    if(typeof state?.producerMicMuted==='boolean') setMultiLineMicMuted(state.producerMicMuted);
+  },error=>{
+    console.error('Producer dashboard state sync failed:',error?.code||error?.message||error);
+  });
+}
+
+function stopProducerDashboardStateListener(){
+  if(producerStateUnsubscribe){producerStateUnsubscribe();producerStateUnsubscribe=null;}
+}
 
 function disposeMultiLineHoldSource(source){
   if(!source) return;
@@ -2069,6 +2100,8 @@ async function setMultiLineHoldAudio(callId,held){
 function contextIsSuspended(context){return context?.state==='suspended';}
 
 async function answerMultiLineCall(callId, callerName, callerCity, lineId){
+  const claim=await claimIncomingCall(callId);
+  try{
   ensureMultiLineController();
   if(activePc) throw new Error('End the current video call before answering an audio line.');
   if(![1,2,3].includes(Number(lineId))) throw new Error('Choose Line 1, Line 2, or Line 3.');
@@ -2103,6 +2136,9 @@ async function answerMultiLineCall(callId, callerName, callerCity, lineId){
   }catch(error){
     for(const track of localStream.getTracks()) try{track.stop();}catch{}
     throw error;
+  }
+  }finally{
+    await releaseIncomingCallClaim(claim);
   }
 }
 
@@ -2656,6 +2692,8 @@ async function requestVideoQuality(peer, maxBitrate = 650000, maxFramerate = 24)
 }
 
 async function answerCall(callId, callerName, callerCity){
+  const claim=await claimIncomingCall(callId);
+  try{
   if(activePc){ alert('End the current call before answering a new one.'); return; }
   // Unlock dashboard audio synchronously from the producer's click gesture.
   unlockCallerPlayback();
@@ -2841,6 +2879,9 @@ async function answerCall(callId, callerName, callerCity){
     stopHoldMusic();
     setCallStatus('Call setup failed. The line was released; try answering again.');
     alert('Could not connect this caller: '+(err?.message||err));
+  }
+  }finally{
+    await releaseIncomingCallClaim(claim);
   }
 }
 
@@ -3344,6 +3385,47 @@ let staleCallSweepInterval = null;
 let latestCallsForCleanup = [];
 const staleCallCleanupLastAttempt = new Map();
 const STALE_WAITING_CALL_MS = 5 * 60 * 1000;
+
+// Reserve a ringing call across all logged-in producer devices before requesting
+// microphone access. The claim is separate from status, so the caller keeps
+// ringing while the producer's browser opens its microphone permission prompt.
+async function claimIncomingCall(callId){
+  const callRef=doc(db,'liveCalls',callId);
+  const now=Date.now();
+  return runTransaction(db,async transaction=>{
+    const snap=await transaction.get(callRef);
+    const call=snap.data();
+    if(!snap.exists() || !call?.offer || call.status!=='waiting'){
+      throw new Error('This caller has already been answered or is no longer available on another device.');
+    }
+    const owner=call.producerClaimId;
+    const expiresAt=Number(call.producerClaimExpiresAt||0);
+    if(owner && owner!==producerDashboardSessionId && expiresAt>now){
+      throw new Error('Another logged-in dashboard is already answering this caller. Please wait a moment.');
+    }
+    transaction.update(callRef,{
+      producerClaimId:producerDashboardSessionId,
+      producerClaimExpiresAt:now+120000
+    });
+    return {callRef};
+  });
+}
+
+async function releaseIncomingCallClaim(claim){
+  if(!claim?.callRef) return;
+  try{
+    await runTransaction(db,async transaction=>{
+      const snap=await transaction.get(claim.callRef);
+      if(!snap.exists() || snap.data()?.producerClaimId!==producerDashboardSessionId) return;
+      transaction.update(claim.callRef,{
+        producerClaimId:deleteField(),
+        producerClaimExpiresAt:deleteField()
+      });
+    });
+  }catch(error){
+    console.warn('Could not release producer call claim:',error?.code||error?.message||error);
+  }
+}
 
 function stopCallsListener(){
   if(callsListenerUnsub){ callsListenerUnsub(); callsListenerUnsub=null; }
