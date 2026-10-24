@@ -1807,6 +1807,7 @@ function ensureMultiLineController(){
     },
     onCallClosed: ({callId}) => {
       stopMultiLineHoldSource(callId);
+      if(multiLineDashboardAudioCallId===callId) selectMultiLineDashboardAudio(null);
       cleanupMultiLineOverlayRelay(callId);
       if(multiLineOnAirCallId === callId){
         multiLineOnAirCallId = null;
@@ -2500,7 +2501,7 @@ function refreshPhoneLineBank(releasedCallId = null){
     const statusLabel=status==='active'?'ON AIR':status==='hold'?'ON HOLD':status==='ringing'?'RINGING':'SCREENING';
     const name=line.callerName || line.callId || 'Caller';
     const city=line.callerCity || '';
-    const monitoring=multiLineDashboardAudioCallId===line.callId;
+    const monitoring=multiLineDashboardAudioCallId===line.callId && !!multiLineDashboardAudio && !multiLineDashboardAudio.paused;
     const controls=line.legacy ? '' : `<div class="phone-line-controls" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;">
       ${state==='held' ? `<button class="ibtn ibtn-answer" data-action="multi-resume" data-id="${escapeHtml(line.callId)}">Resume</button>` : `<button class="ibtn" data-action="multi-hold" data-id="${escapeHtml(line.callId)}">Hold</button>`}
       ${state==='held' ? '' : `<button class="ibtn" data-action="multi-monitor" data-id="${escapeHtml(line.callId)}">${monitoring?'Stop Monitor':'Monitor Caller'}</button>`}
@@ -3688,7 +3689,7 @@ document.addEventListener('click', async(e)=>{
       else if(action==='multi-resume') await resumeMultiLineCall(id);
       else if(action==='multi-monitor'){
         const current=multiLineDashboardAudioCallId;
-        if(current===id) await selectMultiLineDashboardAudio(null);
+        if(current===id && multiLineDashboardAudio && !multiLineDashboardAudio.paused) await selectMultiLineDashboardAudio(null);
         else await selectMultiLineDashboardAudio(id);
       }
       else await endMultiLineCall(id);
