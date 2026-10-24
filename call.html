@@ -469,25 +469,51 @@ function stopOutgoingRing(){
 }
 
 // ── Hold music (plays in caller's browser when producer puts them on hold) ──
+// Reuse the AudioContext unlocked by the caller's tap. Creating a fresh context
+// from a Firestore snapshot callback can leave it suspended on iOS/Safari, making
+// hold music silent even though the call status correctly changes to "held".
+let callerAudioContext = null;
 let holdMusicCtx = null;
 let holdMusicTimeout = null;
-function startHoldMusicCaller(){
+function unlockCallerAudioContext(){
+  const Context = window.AudioContext || window.webkitAudioContext;
+  if(!Context) return Promise.reject(new Error('Web Audio is not supported in this browser.'));
+  if(!callerAudioContext || callerAudioContext.state === 'closed') callerAudioContext = new Context();
+  return callerAudioContext.resume().catch(error=>{
+    console.warn('Could not unlock caller audio context:',error?.message||error);
+    throw error;
+  });
+}
+async function startHoldMusicCaller(){
   stopHoldMusicCaller();
-  holdMusicCtx = new (window.AudioContext || window.webkitAudioContext)();
+  try{
+    if(!callerAudioContext || callerAudioContext.state === 'closed'){
+      const Context = window.AudioContext || window.webkitAudioContext;
+      if(!Context) throw new Error('Web Audio is not supported in this browser.');
+      callerAudioContext = new Context();
+    }
+    holdMusicCtx = callerAudioContext;
+    if(holdMusicCtx.state !== 'running') await holdMusicCtx.resume();
+    if(holdMusicCtx !== callerAudioContext || holdMusicCtx.state !== 'running') return;
+  }catch(error){
+    console.warn('Hold music could not start; caller audio context is not running:',error?.message||error);
+    return;
+  }
   const notes = [261.63,329.63,392.00,523.25,392.00,329.63,261.63,0,0,0];
   let idx = 0;
   function tick(){
-    if(!holdMusicCtx) return;
+    const context = holdMusicCtx;
+    if(!context || context.state !== 'running') return;
     const freq = notes[idx % notes.length];
     if(freq){
-      const osc = holdMusicCtx.createOscillator();
-      const env = holdMusicCtx.createGain();
+      const osc = context.createOscillator();
+      const env = context.createGain();
       osc.type = 'sine'; osc.frequency.value = freq;
-      osc.connect(env); env.connect(holdMusicCtx.destination);
-      env.gain.setValueAtTime(0, holdMusicCtx.currentTime);
-      env.gain.linearRampToValueAtTime(0.15, holdMusicCtx.currentTime + 0.04);
-      env.gain.exponentialRampToValueAtTime(0.001, holdMusicCtx.currentTime + 0.45);
-      osc.start(); osc.stop(holdMusicCtx.currentTime + 0.45);
+      osc.connect(env); env.connect(context.destination);
+      env.gain.setValueAtTime(0, context.currentTime);
+      env.gain.linearRampToValueAtTime(0.15, context.currentTime + 0.04);
+      env.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.45);
+      osc.start(); osc.stop(context.currentTime + 0.45);
     }
     idx++;
     holdMusicTimeout = setTimeout(tick, 480);
@@ -497,7 +523,9 @@ function startHoldMusicCaller(){
 function stopHoldMusicCaller(){
   clearTimeout(holdMusicTimeout);
   holdMusicTimeout = null;
-  if(holdMusicCtx){ holdMusicCtx.close().catch(()=>{}); holdMusicCtx = null; }
+  // Keep the gesture-unlocked context alive for later hold transitions. Only
+  // detach the hold loop; cleanup() closes the shared context when the call ends.
+  holdMusicCtx = null;
 }
 
 const setupScreen      = document.getElementById('setupScreen');
@@ -659,6 +687,9 @@ async function startCall(){
   if(callStartInProgress || (callDocRef && !callerSessionEnding)) return;
   callStartInProgress = true;
   callerSessionEnding = false;
+  // Start/resume Web Audio synchronously from the caller's tap, before any
+  // Firestore/media awaits can lose the browser's user-activation window.
+  unlockCallerAudioContext().catch(()=>{});
   try{
   clearError();
   if((callMode === 'video' && !videoLinesOpen) || (callMode === 'audio' && !linesOpen)){
@@ -892,6 +923,8 @@ function cleanup(updateFirestore = true){
   callStartInProgress = false;
   if(localStream) localStream.getTracks().forEach(t => t.stop());
   localVideo.srcObject = null; remoteVideo.srcObject = null; videoStage.classList.remove('show');
+  if(holdMusicCtx) holdMusicCtx = null;
+  if(callerAudioContext){ callerAudioContext.close().catch(()=>{}); callerAudioContext = null; }
   if(pc){ pc.close(); pc = null; }
   if(updateFirestore && callDocRef){
     updateDoc(callDocRef, { status:'ended' }).catch(()=>{});
