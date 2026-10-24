@@ -361,6 +361,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   getFirestore, collection, doc, addDoc, updateDoc,
   onSnapshot, serverTimestamp
@@ -377,6 +378,26 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
+const auth = getAuth(app);
+let guestUid = null;
+let guestAuthPromise = null;
+
+// Video calls use an anonymous Firebase identity so Firestore rules can bind
+// the caller to liveCalls.guestUid without requiring registration or login.
+// Wait for persisted auth state before creating a new anonymous account.
+async function getOrCreateGuestUser(){
+  await auth.authStateReady();
+  if(auth.currentUser) return auth.currentUser;
+  if(!guestAuthPromise){
+    guestAuthPromise = signInAnonymously(auth)
+      .then(credential => credential.user)
+      .catch(error => {
+        guestAuthPromise = null;
+        throw error;
+      });
+  }
+  return guestAuthPromise;
+}
 
 // ICE config — STUN for direct connections + TURN relay for cross-network/NAT traversal
 // Open Relay Project (openrelay.metered.ca) is free with no account required
@@ -651,6 +672,21 @@ async function startCall(){
   callBtn.disabled = true;
   callBtn.textContent = 'Connecting…';
 
+  if(callMode === 'video'){
+    try{
+      const guestUser = await getOrCreateGuestUser();
+      guestUid = guestUser.uid;
+    }catch(error){
+      console.error('Anonymous video-call authentication failed:', error.code || error.message || error);
+      callBtn.disabled = false;
+      callBtn.textContent = '🎥 Start FaceTime Video Call';
+      showError('Video calling needs anonymous sign-in enabled for this app. No account or manual login is required; please try again later.');
+      return;
+    }
+  }else{
+    guestUid = null;
+  }
+
   try{
     localStream = await navigator.mediaDevices.getUserMedia({
       audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:false, sampleRate:48000, channelCount:1 },
@@ -731,6 +767,7 @@ async function startCall(){
     mediaType: callMode,
     offer: { type: offer.type, sdp: offer.sdp },
     status: 'waiting',
+    ...(callMode === 'video' ? { guestUid } : {}),
     createdAt: serverTimestamp()
   });
 
