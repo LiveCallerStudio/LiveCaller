@@ -1815,7 +1815,17 @@ function ensureMultiLineController(){
       refreshPhoneLineBank();
     },
     onConnectionState: ({callId,state}) => {
-      if(state === 'failed') console.warn('Multi-line WebRTC connection failed:',callId);
+      console.info('[Multi-line WebRTC]',callId,'connectionState:',state);
+    },
+    onIceConnectionState: ({callId,state}) => {
+      console.info('[Multi-line WebRTC]',callId,'iceConnectionState:',state);
+    },
+    onIceCandidateError: ({callId,event}) => {
+      console.warn('[Multi-line WebRTC] ICE candidate error:',callId,{
+        code:event?.errorCode,
+        text:event?.errorText,
+        url:event?.url
+      });
     }
   });
   multiLineAdapter = new FirestoreMultiLineAdapter({
@@ -1932,17 +1942,33 @@ async function setMultiLineHoldAudio(callId,held){
     return;
   }
   const task=(async()=>{
+    const peer=entry.session.pc;
+    const sender=entry.session.senders.get('audio');
+    const trackSummary=track=>track?{kind:track.kind,readyState:track.readyState,enabled:track.enabled}:null;
+    console.info('[Multi-line hold transition] begin',{
+      callId,held,
+      connectionState:peer?.connectionState,
+      iceConnectionState:peer?.iceConnectionState,
+      senderTrack:trackSummary(sender?.track),
+      micTrack:trackSummary(mic),
+      holdTrack:trackSummary(current?.track)
+    });
     if(held){
-      // Mute the microphone synchronously before replacing the sender track.
       if(mic) mic.enabled=false;
       const source=current||createMultiLineHoldSource(callId);
       if(contextIsSuspended(source.context)) await source.context.resume().catch(()=>{});
-      try{await entry.session.replaceTrack('audio',source.track);}
-      catch(error){stopMultiLineHoldSource(callId);throw error;}
+      try{
+        await entry.session.replaceTrack('audio',source.track);
+        console.info('[Multi-line hold transition] complete',{callId,held,connectionState:peer?.connectionState,iceConnectionState:peer?.iceConnectionState,senderTrack:trackSummary(sender?.track)});
+      }catch(error){
+        console.error('[Multi-line hold transition] failed',{callId,held,connectionState:peer?.connectionState,iceConnectionState:peer?.iceConnectionState,error:error?.message||String(error)});
+        stopMultiLineHoldSource(callId);throw error;
+      }
     }else{
       if(mic) mic.enabled=!multiLineMicMuted;
       if(mic) await entry.session.replaceTrack('audio',mic);
       stopMultiLineHoldSource(callId);
+      console.info('[Multi-line hold transition] complete',{callId,held,connectionState:peer?.connectionState,iceConnectionState:peer?.iceConnectionState,senderTrack:trackSummary(sender?.track)});
     }
   })();
   multiLineHoldTransitions.set(callId,task);
