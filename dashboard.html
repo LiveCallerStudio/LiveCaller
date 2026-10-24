@@ -2322,6 +2322,7 @@ const callCountNum     = document.getElementById('callCountNum');
 const incomingCallsTitle = document.getElementById('incomingCallsTitle');
 const callerAudio      = document.getElementById('callerAudio');
 let callerPlaybackContext = null;
+let callerPlaybackFallbackElement = false;
 const callerPlaybackTrackIds = new Set();
 const callerPlaybackSources = new Set();
 function unlockCallerPlayback(){
@@ -2332,16 +2333,33 @@ function unlockCallerPlayback(){
     callerPlaybackContext.resume().catch(err=>console.warn('Caller audio context resume:',err.message||err));
   }catch(err){ console.warn('Caller audio output unavailable:',err.message||err); }
 }
-function routeCallerTrackToDashboard(track){
+function useCallerElementMonitor(error){
+  // Fallback for browsers that block Web Audio output. The hidden media element
+  // plays the same remote stream directly, so monitoring still works.
+  callerPlaybackFallbackElement = true;
+  callerAudio.muted = false;
+  callerAudio.volume = 1;
+  if(callerAudio.srcObject) callerAudio.play().catch(playError=>{
+    console.warn('Caller audio element playback blocked:',playError.message||playError);
+  });
+  if(error) console.warn('Using direct caller audio element monitor:',error.message||error);
+}
+async function routeCallerTrackToDashboard(track){
   if(!track || track.kind!=='audio' || callerPlaybackTrackIds.has(track.id)) return;
   try{
     unlockCallerPlayback();
-    if(!callerPlaybackContext) return;
+    if(!callerPlaybackContext) return useCallerElementMonitor(new Error('Web Audio is unavailable'));
+    await callerPlaybackContext.resume();
+    if(callerPlaybackContext.state!=='running') throw new Error('AudioContext did not enter running state');
     const source = callerPlaybackContext.createMediaStreamSource(new MediaStream([track]));
     source.connect(callerPlaybackContext.destination);
     callerPlaybackSources.add(source);
     callerPlaybackTrackIds.add(track.id);
-  }catch(err){ console.warn('Could not play caller microphone in dashboard:',err.message||err); }
+    callerPlaybackFallbackElement = false;
+    callerAudio.muted = true;
+  }catch(err){
+    useCallerElementMonitor(err);
+  }
 }
 
 const callerVideo      = document.getElementById('callerVideo');
@@ -2704,12 +2722,13 @@ async function answerCall(callId, callerName, callerCity){
     if(remoteStreamId && callerRemoteStreamId && remoteStreamId !== callerRemoteStreamId) return;
     if(event.track.kind === 'video' && !remoteStreamId) return;
     if(!callerRemoteStream.getTracks().some(t=>t.id===event.track.id)) callerRemoteStream.addTrack(event.track);
+    callerAudio.srcObject = callerRemoteStream;
     if(event.track.kind==='audio') routeCallerTrackToDashboard(event.track);
     overlayRelayPeers.forEach(record=>syncOverlayRelayTracks(record));
-    callerAudio.srcObject = callerRemoteStream;
-    // Audio is routed through the user-gesture-unlocked AudioContext above to
-    // avoid browser autoplay blocking the producer's caller-monitor audio.
-    callerAudio.muted = true;
+    // Prefer the independent Web Audio monitor; use the media element only if
+    // Web Audio output is unavailable or the browser refuses to resume it.
+    callerAudio.muted = !callerPlaybackFallbackElement;
+    if(callerPlaybackFallbackElement) callerAudio.play().catch(err=>console.warn('Caller audio element playback blocked:',err.message||err));
     if(callData && callData.mediaType==='video'){
       callerVideo.srcObject = callerRemoteStream;
       producerVideoStage.style.display='block';
