@@ -62,6 +62,7 @@ assert.match(dashboard, /async function takeMultiLineOnAir\(callId\)[\s\S]*?awai
 assert.match(dashboard, /async function answerMultiLineCall\(callId, callerName, callerCity, lineId\)[\s\S]*?lineId:Number\(lineId\)/, 'incoming audio calls must be assigned to a specific fixed line');
 assert.match(dashboard, /const onAir = multiLineOnAirCallId === callId[\s\S]*?onAir \? \(stream\.getAudioTracks\(\)/, 'multi-line OBS relay must send caller audio only after explicit on-air selection');
 assert.match(dashboard, /const video=null/, 'multi-line OBS relay must not forward caller video');
+assert.match(dashboard, /const callerVideo=null/, 'legacy OBS relay must not forward caller video');
 assert.match(dashboard, /async function refreshHeldMultiLineAudioSources\([\s\S]*?entry\.session\.replaceTrack\('audio',nextSource\.track\)/, 'uploading hold music must update callers already on hold');
 assert.match(dashboard, /function resumeMultiLineAudioContext\([\s\S]*?context\.resume\(\)/, 'dashboard audio context must resume so producers can hear private caller monitoring');
 assert.match(dashboard, /data-action="multi-monitor"/, 'each connected line must offer explicit private monitoring before on-air routing');
