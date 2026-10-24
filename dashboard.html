@@ -1735,6 +1735,8 @@ let callTimerInterval = null;
 let callSeconds = 0;
 let callIsOnAir = false;
 let callIsOnHold = false;
+// Prevent asynchronous track resync from reattaching media during an off-air transition.
+let callRelaySuppressed = false;
 let callCandidateUnsub = null;
 let activeCallStatusUnsub = null;
 let overlaySessionsUnsub = null;
@@ -2413,7 +2415,7 @@ function syncOverlayRelayTracks(record){
   // on activePc for the caller, but must never be sent over the OBS relay.
   // Only attach caller media to OBS while the producer has explicitly put the call on air.
   // Hold and broadcast are independent: a held caller may be broadcast on request.
-  const broadcastEnabled = !!callIsOnAir;
+  const broadcastEnabled = !!callIsOnAir && !callRelaySuppressed;
   const callerAudio = broadcastEnabled
     ? (callerRemoteStream?.getAudioTracks()||[]).find(t=>t.readyState==='live')||null
     : null;
@@ -2961,15 +2963,17 @@ holdBtn.addEventListener('click', async()=>{
     setCallStatus('On Hold — caller hears hold music', 'on-hold');
 
     // Entering hold takes the call off air, but does not end the hold state.
-    // The producer may deliberately press Send On Air while the caller stays held.
+    // Suppress relay resync before the Firestore write; the safety order is
+    // local silence first, remote state second, then update the UI state.
     if(callIsOnAir){
-      callIsOnAir = false;
+      callRelaySuppressed = true;
       silenceOverlayRelayMedia();
+      await setDoc(liveStateRef, { active:false, updatedAt:Date.now() }, { merge:true })
+        .catch(error=>console.warn('Could not take OBS overlay off air while holding:',error.code||error.message||error));
+      callIsOnAir = false;
       callOnAirBtn.textContent = '🔴 Send On Air';
       callOnAirBtn.classList.remove('live');
       onAirBadge.classList.remove('show');
-      await setDoc(liveStateRef, { active:false, updatedAt:Date.now() }, { merge:true })
-        .catch(error=>console.warn('Could not take OBS overlay off air while holding:',error.code||error.message||error));
     }
     await setDoc(activeCallRef, { status: 'held', held: true }, { merge: true });
   } else {
@@ -3131,6 +3135,7 @@ callOnAirBtn.addEventListener('click', async()=>{
   callIsOnAir = !callIsOnAir;
 
   if(callIsOnAir){
+    callRelaySuppressed = false;
     callOnAirBtn.textContent = '⏹ Take Off Air';
     callOnAirBtn.classList.add('live');
     setCallStatus('ON AIR — Live Call Broadcasting', 'on-air');
@@ -3155,6 +3160,7 @@ callOnAirBtn.addEventListener('click', async()=>{
   } else {
     // Silence any connected OBS media senders before the asynchronous Firestore
     // update, so a caller cannot remain audible during an off-air transition.
+    callRelaySuppressed = true;
     silenceOverlayRelayMedia();
     callOnAirBtn.textContent = '🔴 Send On Air';
     callOnAirBtn.classList.remove('live');
