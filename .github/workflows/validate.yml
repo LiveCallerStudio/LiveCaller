@@ -44,6 +44,8 @@ jobs:
         run: node --experimental-default-type=module tests/multi-line-overlay-relay-adapter.test.mjs
       - name: Test OBS overlay active call statuses
         run: node --experimental-default-type=module tests/overlay-call-status.test.mjs
+      - name: Test 1920x1080 OBS overlay and caller-only audio/video routing
+        run: node --experimental-default-type=module tests/obs-overlay-contract.test.mjs
       - name: Test public home page line-state behavior
         run: node --experimental-default-type=module tests/home-v2.behavior.test.mjs
       - name: Test caller cleanup regressions
