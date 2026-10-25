@@ -67,7 +67,7 @@
 <script type="module">
 import { isActiveOverlayCallStatus } from './lib/overlay-call-status.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
-import { getFirestore, doc, collection, onSnapshot, addDoc, setDoc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
+import { getFirestore, doc, collection, query, orderBy, where, limit, onSnapshot, addDoc, setDoc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyDNVCh-ayI5GzeboqKbQoFI5vsfSF8IaCc',
@@ -359,7 +359,7 @@ try {
   // arriving pending item, never for old items when OBS first connects.
   let firstVoiceSnapshot = true;
   const previousVoiceStatuses = new Map();
-  onSnapshot(collection(db,'hotlineMessages'), snapshot => {
+  onSnapshot(query(collection(db,'hotlineMessages'), orderBy('createdAt','desc'), limit(100)), snapshot => {
     const waiting = snapshot.docs.filter(d => (d.data().status || 'pending') === 'pending');
     updateTypeCounter('voice', waiting.length);
     if (!firstVoiceSnapshot) {
@@ -372,32 +372,28 @@ try {
     }
     snapshot.docs.forEach(d => previousVoiceStatuses.set(d.id, d.data().status || 'pending'));
     firstVoiceSnapshot = false;
-  }, err => showError('Voice message counter: ' + (err.code || err.message || 'read failed')));
-
-  function watchWaitingCalls(collectionName, kind) {
-    let firstSnapshot = true;
-    const previousStatuses = new Map();
-    const matchesKind = data => kind === 'video'
-      ? data.mediaType === 'video'
-      : data.mediaType !== 'video';
-    onSnapshot(collection(db, collectionName), snapshot => {
-      const waiting = snapshot.docs.filter(d => d.data().status === 'waiting' && matchesKind(d.data()));
-      updateTypeCounter(kind, waiting.length);
-      if (!firstSnapshot) {
-        snapshot.docChanges().forEach(change => {
-          const data = change.doc.data();
-          const oldStatus = previousStatuses.get(change.doc.id);
-          if (matchesKind(data) && data.status === 'waiting' && (change.type === 'added' || oldStatus !== 'waiting')) {
-            notifyIncoming(kind, clean(data.callerName || (kind === 'video' ? 'Video guest' : 'Caller'), 60));
-          }
-        });
-      }
-      snapshot.docs.forEach(d => previousStatuses.set(d.id, d.data().status));
-      firstSnapshot = false;
-    }, err => showError((kind === 'video' ? 'Video' : 'Audio call') + ' counter: ' + (err.code || err.message || 'read failed')));
-  }
-  // Audio and video calls both use liveCalls. Do not watch the retired videoCalls collection.
-  watchWaitingCalls('liveCalls', 'audio');
+  }, err => showErr  // One bounded listener for both call counters. The old implementation used
+  // two listeners over every historical liveCalls document (one per media type).
+  let firstCallsSnapshot = true;
+  const previousCallStatuses = new Map();
+  onSnapshot(query(collection(db, 'liveCalls'), where('status', '==', 'waiting'), limit(50)), snapshot => {
+    const waitingCalls = snapshot.docs.map(d => ({ id:d.id, ...d.data() }));
+    updateTypeCounter('audio', waitingCalls.filter(c => c.mediaType !== 'video').length);
+    updateTypeCounter('video', waitingCalls.filter(c => c.mediaType === 'video').length);
+    if (!firstCallsSnapshot) {
+      snapshot.docChanges().forEach(change => {
+        const data = change.doc.data();
+        const oldStatus = previousCallStatuses.get(change.doc.id);
+        if (data.status === 'waiting' && (change.type === 'added' || oldStatus !== 'waiting')) {
+          const kind = data.mediaType === 'video' ? 'video' : 'audio';
+          notifyIncoming(kind, clean(data.callerName || (kind === 'video' ? 'Video guest' : 'Caller'), 60));
+        }
+      });
+    }
+    snapshot.docs.forEach(d => previousCallStatuses.set(d.id, d.data().status));
+    firstCallsSnapshot = false;
+  }, err => showError('Waiting-call counters: ' + (err.code || err.message || 'read failed')));
+aitingCalls('liveCalls', 'audio');
   watchWaitingCalls('liveCalls', 'video');
   onSnapshot(doc(db,'hotlineLive','nowPlaying'), snap => {
     fallback.textContent='LIVE CALLER STUDIO • CONNECTED';
