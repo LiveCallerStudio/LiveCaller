@@ -115,7 +115,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
-  getFirestore, doc, collection, query, orderBy, onSnapshot
+  getFirestore, doc, collection, query, orderBy, limit, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 const app = initializeApp({
@@ -161,7 +161,7 @@ onSnapshot(doc(db, 'songRequestLive', 'now'), (snap) => {
 
 // Live request listener powers the queue popup. Only producer-checked songs
 // appear; incoming, rejected, and currently playing songs stay out of this list.
-onSnapshot(query(collection(db, 'songRequests'), orderBy('createdAt', 'desc')), (snap) => {
+onSnapshot(query(collection(db, 'songRequests'), orderBy('createdAt', 'desc'), limit(50)), (snap) => {
   latestSongRequests = snap.docs.map(d => ({id:d.id,...d.data()}));
   const pending = latestSongRequests.filter(r => (r.status || 'pending') === 'pending').length;
   qnum.textContent = String(pending);
