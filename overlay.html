@@ -372,7 +372,9 @@ try {
     }
     snapshot.docs.forEach(d => previousVoiceStatuses.set(d.id, d.data().status || 'pending'));
     firstVoiceSnapshot = false;
-  }, err => showErr  // One bounded listener for both call counters. The old implementation used
+  }, err => showError('Voice message counter: ' + (err.code || err.message || 'read failed')));
+
+  // One bounded listener for both call counters. The old implementation used
   // two listeners over every historical liveCalls document (one per media type).
   let firstCallsSnapshot = true;
   const previousCallStatuses = new Map();
@@ -393,8 +395,6 @@ try {
     snapshot.docs.forEach(d => previousCallStatuses.set(d.id, d.data().status));
     firstCallsSnapshot = false;
   }, err => showError('Waiting-call counters: ' + (err.code || err.message || 'read failed')));
-aitingCalls('liveCalls', 'audio');
-  watchWaitingCalls('liveCalls', 'video');
   onSnapshot(doc(db,'hotlineLive','nowPlaying'), snap => {
     fallback.textContent='LIVE CALLER STUDIO • CONNECTED';
     fallback.classList.remove('error');
