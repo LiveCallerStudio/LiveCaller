@@ -2112,11 +2112,16 @@ async function answerMultiLineCall(callId, callerName, callerCity, lineId){
   await resumeMultiLineAudioContext();
   const callSnap = await getDoc(doc(db,'liveCalls',callId));
   const callData = callSnap.data();
-  if(!callData?.offer) throw new Error('This caller is no longer available.');
-  if(callData.mediaType === 'video') throw new Error('Video calls use the existing video screening workflow.');
+  if(!callSnap.exists() || !callData?.offer) throw new Error('This caller is no longer available.');
+  const mediaType = callData.mediaType === 'video' ? 'video' : 'audio';
+  // Request producer camera only for a video conversation. This local stream is
+  // sent to the caller; OBS relay routing below always uses the CALLER's remote
+  // stream and never this producer stream.
   const localStream = await navigator.mediaDevices.getUserMedia({
     audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:false,sampleRate:48000,channelCount:1},
-    video:false
+    video: mediaType === 'video'
+      ? {facingMode:'user',width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30,max:30}}
+      : false
   });
   // Preserve the studio-wide mute state when a new caller is answered.
   localStream.getAudioTracks().forEach(track=>{track.enabled=!multiLineMicMuted;});
@@ -2124,7 +2129,7 @@ async function answerMultiLineCall(callId, callerName, callerCity, lineId){
     await multiLineAdapter.answerCall({
       callId,
       callerName: callerName || callData.callerName || 'Anonymous Caller',
-      mediaType:'audio',
+      mediaType,
       localStream,
       lineId:Number(lineId)
     });
@@ -2174,7 +2179,7 @@ async function takeMultiLineOnAir(callId){
     callId,
     name:data.callerName || line.callerName || 'Caller',
     city:data.callerCity || '',
-    messageType:'livecall',
+    messageType:line.mediaType === 'video' ? 'livevideo' : 'livecall',
     audioUrl:null,
     updatedAt:Date.now()
   });
