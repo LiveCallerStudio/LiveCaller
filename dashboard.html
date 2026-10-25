@@ -861,7 +861,7 @@
   <!-- QUEUE TAB -->
   <div class="tab-content" id="tab-queue" style="display:none;">
     <div class="voice-message-tools">
-      <label for="filterSelect">Messages</label>
+      <label for="filterSelect">Messages · latest 100</label>
       <select id="filterSelect" aria-label="Filter voice messages">
         <option value="all">All (message history)</option>
         <option value="pending">Incoming / Pending</option>
@@ -996,7 +996,7 @@
           <option value="played">Played</option>
         </select>
       </div>
-      <div id="songRequestsStatus" style="color:var(--sub);font-size:13px;margin-bottom:12px;" aria-live="polite">Connecting to song requests…</div>
+      <div id="songRequestsStatus" style="color:var(--sub);font-size:13px;margin-bottom:12px;" aria-live="polite">Connecting to recent song requests (latest 100)…</div>
       <div id="songRequestsList" class="queue"></div>
       <div id="songRequestsEmpty" class="empty" style="display:none;padding:44px 20px;">
         <div class="ic">🎵</div>
@@ -1055,7 +1055,7 @@
   <!-- CALL HISTORY TAB -->
   <div class="tab-content" id="tab-history" style="display:none;">
     <div class="voice-message-tools">
-      <label for="callHistoryFilter">Call History</label>
+      <label for="callHistoryFilter">Call History · latest 100</label>
       <select id="callHistoryFilter" aria-label="Filter call history">
         <option value="calls">Calls</option>
         <option value="missed">Missed</option>
@@ -1100,7 +1100,7 @@ import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
-  getFirestore, collection, query, orderBy, onSnapshot,
+  getFirestore, collection, query, orderBy, where, limit, onSnapshot,
   doc, updateDoc, deleteDoc, setDoc, addDoc, getDoc, serverTimestamp,
   runTransaction, deleteField
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
@@ -1160,6 +1160,8 @@ onAuthStateChanged(auth, async (user)=>{
     stopSongRequestsListener();
     stopProducerDashboardStateListener();
     stopCallsListener();
+    stopCallHistoryListener();
+    stopLinesSettingsListener();
     loginScreen.style.display = 'flex';
     dashboardApp.style.display = 'none';
   }
@@ -1191,12 +1193,21 @@ function renderLinesToggle(){
   renderDeskLineState();
 }
 
+let linesSettingsUnsub = null;
+function stopLinesSettingsListener(){
+  if(linesSettingsUnsub){ linesSettingsUnsub(); linesSettingsUnsub = null; }
+}
 function startLinesToggleListener(){
-  onSnapshot(linesSettingsRef, (snap)=>{
+  if(linesSettingsUnsub) return;
+  // One document listener drives both audio and video toggles; do not attach
+  // two independent listeners to the same settings document.
+  linesSettingsUnsub = onSnapshot(linesSettingsRef, (snap)=>{
     const d = snap.data();
     linesOpen = d ? d.open !== false : true;
+    videoOpen = d ? d.videoOpen !== false : true;
     renderLinesToggle();
-  }, ()=>{ /* if rules ever block this, just leave the last known state visible */ });
+    renderVideoToggle();
+  }, (err)=>{ console.warn('Phone-line settings listener failed:', err?.code || err?.message || err); });
 }
 
 linesToggleBtn.addEventListener('click', async()=>{
@@ -1241,11 +1252,9 @@ function renderVideoToggle(){
 }
 
 function startVideoToggleListener(){
-  onSnapshot(linesSettingsRef, (snap)=>{
-    const d = snap.data();
-    videoOpen = d ? d.videoOpen !== false : true;
-    renderVideoToggle();
-  }, ()=>{ /* leave last known state visible if this ever errors */ });
+  // Kept as a compatibility hook; startLinesToggleListener owns the single
+  // shared listener for both fields.
+  renderVideoToggle();
 }
 
 videoToggleBtn.addEventListener('click', async()=>{
@@ -3478,10 +3487,11 @@ function sweepStaleWaitingCalls(calls = latestCallsForCleanup){
 // Close abandoned waiting calls after five minutes, using the existing status field only.
 function startCallsListener(){
   stopCallsListener();
-  // Read the full collection first. An orderBy(createdAt) query can silently
-  // omit older/test call documents that do not have createdAt.
+  // Only waiting calls belong in this queue. Watching every historical call
+  // makes each dashboard pay for the entire liveCalls collection on startup.
+  // Bound the queue so stale/test documents cannot cause unbounded reads.
   callsListenerUnsub = onSnapshot(
-    collection(db, 'liveCalls'),
+    query(collection(db, 'liveCalls'), where('status', '==', 'waiting'), limit(50)),
     (snap)=>{
       const calls = snap.docs.map(d=>({ id: d.id, ...d.data() }));
       latestCallsForCleanup = calls;
@@ -3835,7 +3845,12 @@ document.addEventListener('click', async(e)=>{
   if(action==='reject')await setDoc(doc(db,'liveCalls',id),{status:'rejected',screeningSessionId:null},{merge:true});
 });
 
+let callHistoryUnsubscribe = null;
+function stopCallHistoryListener(){
+  if(callHistoryUnsubscribe){ callHistoryUnsubscribe(); callHistoryUnsubscribe = null; }
+}
 function startCallHistoryListener(){
+  if(callHistoryUnsubscribe) return;
   const callHistoryFilter = document.getElementById('callHistoryFilter');
   let allCallHistory = [];
   const histList   = document.getElementById('histList');
@@ -3845,8 +3860,8 @@ function startCallHistoryListener(){
   const histAvgDur = document.getElementById('histAvgDur');
   const histRec    = document.getElementById('histRecorded');
 
-  onSnapshot(
-    query(collection(db, 'callHistory'), orderBy('createdAt', 'desc')),
+  callHistoryUnsubscribe = onSnapshot(
+    query(collection(db, 'callHistory'), orderBy('createdAt', 'desc'), limit(100)),
     (snap)=>{
       allCallHistory = snap.docs.map(d=>({ id:d.id, ...d.data() }));
       const calls = allCallHistory;
@@ -4056,7 +4071,7 @@ function startSongRequestsListener(){
   if(songRequestsUnsubscribe) return;
   songRequestsStatus.textContent = 'Connecting to song requests…';
   songRequestsUnsubscribe = onSnapshot(
-    query(collection(db, 'songRequests'), orderBy('createdAt', 'desc')),
+    query(collection(db, 'songRequests'), orderBy('createdAt', 'desc'), limit(100)),
     snapshot => {
       allSongRequests = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       songRequestsStatus.textContent = '';
@@ -4108,7 +4123,9 @@ songRequestsList?.addEventListener('click', async e => {
 
 function startQueueListener(){
   if(queueUnsubscribe) return;
-  const q = query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc'));
+  // Keep the live inbox bounded; the full historical archive must not be
+  // downloaded by every dashboard session.
+  const q = query(collection(db, 'hotlineMessages'), orderBy('createdAt', 'desc'), limit(100));
   queueUnsubscribe = onSnapshot(q, (snapshot)=>{
     allMessages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
